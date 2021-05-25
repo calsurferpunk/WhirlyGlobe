@@ -15,13 +15,8 @@ class LoftedPolyTestCase : MaplyTestCase {
     }
 
     fun addLoftedPolysSpain(vc: BaseController) {
-        val json = activity.assets.open("country_json_50m/ESP.geojson").use { stream ->
-            stream.source().use { source ->
-                source.buffer().use { buffer ->
-                    buffer.readUtf8()
-                }
-            }
-        }
+        val stream = activity.assets.open("country_json_50m/ESP.geojson")
+        val json = Okio.buffer(Okio.source(stream)).readUtf8()
 
         val vecObj = VectorObject.createFromGeoJSON(json)
 

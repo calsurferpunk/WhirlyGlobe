@@ -63,11 +63,7 @@ class TextureVectorTestCase(activity: Activity) : MaplyTestCase(activity, "Textu
         for (path in paths) {
             try {
                 val more = assetMgr.open("country_json_50m/$path").use { stream ->
-                    val json = stream.source().use { source ->
-                        source.buffer().use { buffer ->
-                            buffer.readUtf8()
-                        }
-                    }
+                    val json = Okio.buffer(Okio.source(stream)).readUtf8()
                     VectorObject.createFromGeoJSON(json)?.let { vecObj ->
                         vecObj.selectable = true
                         

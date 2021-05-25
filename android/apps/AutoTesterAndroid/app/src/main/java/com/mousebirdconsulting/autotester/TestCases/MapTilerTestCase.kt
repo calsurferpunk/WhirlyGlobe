@@ -52,11 +52,7 @@ open class MapTilerTestCase : MaplyTestCase
             Log.i(javaClass.name, "Loading $it")
             try {
                 activity.assets.open(it).use { stream ->
-                    stream.source().use { source ->
-                        source.buffer().use { buffer ->
-                            buffer.readUtf8()
-                        }
-                    }
+                    Okio.buffer(Okio.source(stream)).readUtf8()
                 }
             } catch (e: IOException) {
                 Log.w(javaClass.simpleName, "Failed to load style $it", e)

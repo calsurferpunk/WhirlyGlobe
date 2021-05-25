@@ -273,7 +273,7 @@ open class MapboxKindaMap(
                 override fun onResponse(call: Call, response: Response) {
                     response.use {
                         if (!finished) {
-                            it.body?.use { body ->
+                            it.body()?.use { body ->
                                 val bytes = body.bytes()
                                 if (bytes.isNotEmpty()) {
                                     styleSheetJSON = String(bytes)
@@ -335,7 +335,7 @@ open class MapboxKindaMap(
                 override fun onResponse(call: Call, response: Response) {
                     response.use {
                         if (!response.isSuccessful) return@use
-                        it.body?.use { body ->
+                        it.body()?.use { body ->
                             val bytes = body.bytes()
                             if (bytes.isNotEmpty()) {
                                 // Note: this will include access tokens in the log, use with care
@@ -390,10 +390,10 @@ open class MapboxKindaMap(
                         if (finished) return@use
                         if (!response.isSuccessful) {
                             Log.w("MapboxKindaMap",
-                                "Sprite sheet request failed with ${response.code}: ${response.message}")
+                                "Sprite sheet request failed with ${response.code()}: ${response.message()}")
                             return@use
                         }
-                        it.body?.use { body ->
+                        it.body()?.use { body ->
                             val bytes = body.bytes()
                             if (bytes.isNotEmpty()) {
                                 // todo: validate that it's not some kind of error message
@@ -433,10 +433,10 @@ open class MapboxKindaMap(
                         if (finished) return@use
                         if (!response.isSuccessful) {
                             Log.w("MapboxKindaMap",
-                                "Sprite PNG request failed with ${response.code}: ${response.message}")
+                                "Sprite PNG request failed with ${response.code()}: ${response.message()}")
                             return@use
                         }
-                        it.body?.use { body ->
+                        it.body()?.use { body ->
                             val bytes = body.bytes()
                             if (bytes.isNotEmpty()) {
                                 spritePNG =
