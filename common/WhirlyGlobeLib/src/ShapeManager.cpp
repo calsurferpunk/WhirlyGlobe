@@ -416,7 +416,7 @@ void Linear::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder
         sceneRep->selectIDs.insert(selectID);
     }
     
-    regBuilder->addPoints(pts, theColor, mbr, lineWidth, false);
+    regBuilder->addPoints(pts, theColor, mbr, triBuilder->getShapeInfo()->lineWidth, false);
 }
     
 Extruded::Extruded()
