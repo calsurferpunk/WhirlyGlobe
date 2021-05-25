@@ -46,3 +46,5 @@ android/apps/AutoTesterAndroid/app/gradle/wrapper/
 android/apps/AutoTesterAndroid/app/gradlew
 
 android/apps/AutoTesterAndroid/app/gradlew.bat
+
+android/apps/AutoTesterAndroid/app/.cxx/
