@@ -581,7 +581,8 @@ SimpleIdentity VectorManager::addVectors(ShapeSet *shapes, const VectorInfo &vec
 //    bool linesOrPoints = (thePoints.get() ? false : true);
     
     // Look for per vector colors
-    bool doColors = false;
+    bool doColors = true;       //temp color workaround
+    /*bool doColors = false;
     for (auto it : *shapes)
     {
         if (it->getAttrDict()->hasField(colorStr))
@@ -589,7 +590,7 @@ SimpleIdentity VectorManager::addVectors(ShapeSet *shapes, const VectorInfo &vec
             doColors = true;
             break;
         }
-    }
+    }*/
 
     // Look for a geometry center.  We'll offset everything if there is one
     CoordSystemDisplayAdapter *coordAdapter = scene->getCoordAdapter();
