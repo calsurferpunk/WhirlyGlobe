@@ -69,7 +69,7 @@ public class ImageLoaderInterpreter implements LoaderInterpreter
 
         BitmapFactory.Options options = new BitmapFactory.Options();
 // 		                options.inScaled = false;
-        if (hasPremultiplyOption && usePremultiply)
+        if (Build.VERSION.SDK_INT >= 19 && hasPremultiplyOption && usePremultiply)
             options.inPremultiplied = false;
 
         byte[][] images = loadReturn.getTileData();

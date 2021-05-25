@@ -21,9 +21,11 @@
 package com.mousebird.maply;
 
 import android.annotation.SuppressLint;
+import android.os.Build;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -127,7 +129,10 @@ public class TileFetchRequest implements Comparable<TileFetchRequest>
 
     @Override
     public int hashCode() {
-        return Objects.hash(priority, importance, group, tileSource, fetchInfo);
+        if(Build.VERSION.SDK_INT >= 19)
+            return Objects.hash(priority, importance, group, tileSource, fetchInfo);
+        else
+            return Arrays.hashCode(new Object[]{priority, importance, group, tileSource, fetchInfo});
     }
 
     @NotNull

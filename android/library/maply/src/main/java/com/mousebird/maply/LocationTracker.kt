@@ -527,7 +527,7 @@ class LocationTracker : LocationCallback {
 
         val paint = Paint(Paint.ANTI_ALIAS_FLAG.or(Paint.FILTER_BITMAP_FLAG))
         paint.color = markerColorShadow
-        canvas.drawOval(0f, 0f, size.toFloat(), size.toFloat(), paint)
+        canvas.drawOval(RectF(0f, 0f, size.toFloat(), size.toFloat()), paint)
 
         val radius = size / 2.0f
 
@@ -550,16 +550,16 @@ class LocationTracker : LocationCallback {
         }
 
         paint.color = markerColorOutline
-        canvas.drawOval(radius - gradRadius - outlineWidth, radius - gradRadius - outlineWidth,
-                radius + gradRadius + outlineWidth, radius + gradRadius + outlineWidth,
+        canvas.drawOval(RectF(radius - gradRadius - outlineWidth, radius - gradRadius - outlineWidth,
+                radius + gradRadius + outlineWidth, radius + gradRadius + outlineWidth),
                 paint)
 
         val gradientPaint = Paint(Paint.ANTI_ALIAS_FLAG.or(Paint.FILTER_BITMAP_FLAG))
         gradientPaint.shader = RadialGradient(radius, radius,
                 (gradLocation * radius).coerceAtLeast(0.1f),
                 markerColorInner, markerColorOuter, Shader.TileMode.CLAMP)
-        canvas.drawOval(radius - gradRadius, radius - gradRadius,
-                radius + gradRadius, radius + gradRadius,
+        canvas.drawOval(RectF(radius - gradRadius, radius - gradRadius,
+                radius + gradRadius, radius + gradRadius),
                 gradientPaint)
 
         return image

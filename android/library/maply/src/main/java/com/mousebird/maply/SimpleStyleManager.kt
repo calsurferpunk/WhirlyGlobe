@@ -445,10 +445,10 @@ class SimpleStyleManager(context: Context, vc: RenderControllerInterface, assetM
                 paint.style = Paint.Style.FILL
                 paint.alpha = ((style.fillOpacity ?: 0f) * 255f).toInt()
                 if (paint.alpha > 0) {
-                    canvas.drawOval(strokeWidth + 1,
+                    canvas.drawOval(RectF(strokeWidth + 1,
                             strokeWidth + 1,
                             (renderSize.x - strokeWidth - 1).toFloat(),
-                            (renderSize.y - strokeWidth - 1).toFloat(), paint)
+                            (renderSize.y - strokeWidth - 1).toFloat()), paint)
                 }
             }
 
@@ -456,10 +456,10 @@ class SimpleStyleManager(context: Context, vc: RenderControllerInterface, assetM
                 paint.strokeWidth = strokeWidth
                 paint.color = style.strokeColor ?: defaultColor
                 paint.style = Paint.Style.STROKE
-                canvas.drawOval(0.5f * strokeWidth + 1,
+                canvas.drawOval(RectF(0.5f * strokeWidth + 1,
                         0.5f * strokeWidth + 1,
                         renderSize.x.toFloat() - 0.5f * strokeWidth - 1,
-                        renderSize.y.toFloat() - 0.5f * strokeWidth - 1, paint)
+                        renderSize.y.toFloat() - 0.5f * strokeWidth - 1), paint)
             }
         }
         
