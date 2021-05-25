@@ -424,6 +424,34 @@ public class MapController extends BaseController implements View.OnTouchListene
 	}
 
 	/**
+	 * Set scroll sensitivity multiplier
+	 * @param scale
+	 */
+	public void setScrollScale(double scale)
+	{
+		super.setScrollScale(scale);
+
+		if(gestureHandler != null)
+		{
+			gestureHandler.setScrollScale(scrollScale);
+		}
+	}
+
+	/**
+	 * Set acceleration momentum sensitivity multiplier
+	 * @param scale
+	 */
+	public void setAccelerationMomentumScale(double scale)
+	{
+		super.setAccelerationMomentumScale(scale);
+
+		if(gestureHandler != null)
+		{
+			gestureHandler.setMomentumScale(scale);
+		}
+	}
+
+	/**
 	 * Animate to a new view position
 	 * @param x Horizontal location of the center of the screen in geographic radians (not degrees).
 	 * @param y Vertical location of the center of the screen in geographic radians (not degrees).

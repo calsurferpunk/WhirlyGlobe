@@ -1196,6 +1196,34 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 			renderControl.setPerfInterval(perfInterval);
 	}
 
+	protected double scrollScale = 1.0;
+	/**
+	 * Set scroll sensitivity multiplier
+	 * Can be between 0.1 (10%) to 1.5 (150%)
+	 * @param scale
+	 */
+	public void setScrollScale(double scale)
+	{
+		if(scale >= 0.1 && scale <= 1.5)
+		{
+			scrollScale = scale;
+		}
+	}
+
+	protected double accelerationScale = 1.0;
+	/**
+	 * Set acceleration momentum sensitivity multiplier
+	 * Can be between 0.0 (0%) to 2.0 (200%). 0.0 = No acceleration
+	 * @param scale
+	 */
+	public void setAccelerationMomentumScale(double scale)
+	{
+		if(scale >= 0.0 && scale <= 2.0)
+		{
+			accelerationScale = scale;
+		}
+	}
+
 	/**
 	 * Get the zoom limits for the globe.
 	 */

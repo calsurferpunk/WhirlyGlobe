@@ -129,6 +129,22 @@ public class GlobeGestureHandler
 		autoRotateHandler.postDelayed(autoRunRunnable,AutoRotateCheckPeriod);
 	}
 
+	public void setScrollScale(double scale)
+	{
+		if(gl != null)
+		{
+			gl.setScrollScale(scale);
+		}
+	}
+
+	public void setMomentumScale(double scale)
+	{
+		if(gl != null)
+		{
+			gl.setMomentumScale(scale);
+		}
+	}
+
 	public void setZoomLimits(double inMin,double inMax)
 	{
 		zoomLimitMin = inMin;
@@ -228,6 +244,8 @@ public class GlobeGestureHandler
 	private class GestureListener implements GestureDetector.OnGestureListener,
 				GestureDetector.OnDoubleTapListener
 	{
+		private double scrollScale = 1.0;
+		private double momentumScale = 1.0;
 		public GlobeController globeControl;
 		public boolean isActive = false;
 		
@@ -265,6 +283,11 @@ public class GlobeGestureHandler
 			return true;
 		}
 
+		//Sets scroll scale for movements
+		public void setScrollScale(double scale)
+		{
+			scrollScale = scale;
+		}
 
 		@Override
 		public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX,
@@ -273,7 +296,18 @@ public class GlobeGestureHandler
 			if (!isActive)
 				return false;
 			
-			Point2d newScreenPos = new Point2d(e2.getX(),e2.getY());
+			//Point2d newScreenPos = new Point2d(e2.getX(),e2.getY());
+
+			// Remember starting and ending points
+			double startX = startScreenPos.getX();
+			double startY = startScreenPos.getY();
+			double endX = e2.getX();
+			double endY = e2.getY();
+
+			// Scale ending point
+			endX = startX + ((endX - startX) * scrollScale);
+			endY = startY + ((endY - startY) * scrollScale);
+			Point2d newScreenPos = new Point2d(endX,endY);
 			
 			// New state for pan
 			Point3d hit = globeControl.globeView.pointOnSphereFromScreen(newScreenPos, startTransform, globeControl.getViewSize(), false);
@@ -325,6 +359,12 @@ public class GlobeGestureHandler
 			
 			return screenPt.multiplyBy(t);
 		}
+
+		//Set momentum scale for movements
+		public void setMomentumScale(double scale)
+		{
+			momentumScale = scale;
+		}
 		
 		// How long we'll animate the momentum 
 		static final double AnimMomentumTime = 1.0;
@@ -339,7 +379,7 @@ public class GlobeGestureHandler
 			
 			// Figure out two points in model space (current and after 1s)
 			Point2d touch0 = new Point2d(e1.getX(),e1.getY());
-			Point2d touch1 = touch0.addTo(new Point2d(AnimMomentumTime*velocityX,AnimMomentumTime*velocityY));
+			Point2d touch1 = touch0.addTo(new Point2d(AnimMomentumTime * momentumScale * velocityX,AnimMomentumTime * momentumScale * velocityY));
 			
 			Point3d p0 = globeView.pointUnproject(touch0,frameSize,false);
 			Point3d p1 = globeView.pointUnproject(touch1,frameSize,false);
@@ -360,7 +400,7 @@ public class GlobeGestureHandler
 				dir.multiplyBy(-1.0);
 				double len = dir.length();
 				dir = dir.multiplyBy(1.0/len);
-				double modelVel = len / AnimMomentumTime;
+				double modelVel = len / (AnimMomentumTime * momentumScale);
 				double angVel = modelVel;
 				
 				// Rotate around an axis derived from touch0 and touch1
@@ -369,7 +409,7 @@ public class GlobeGestureHandler
 				Point3d rotAxis = model_p0.cross(model_p1).normalized();
 				
 				// Acceleration based on how far we want this to go
-				double accel = - angVel / (AnimMomentumTime * AnimMomentumTime);
+				double accel = - angVel / (AnimMomentumTime * AnimMomentumTime * momentumScale * momentumScale);
 	
 				if (angVel > 0.0)
 				{

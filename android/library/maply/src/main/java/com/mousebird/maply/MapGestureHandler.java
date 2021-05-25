@@ -80,6 +80,22 @@ public class MapGestureHandler
 		this.view = null;
 	}
 
+	public void setScrollScale(double scale)
+	{
+		if(gl != null)
+		{
+			gl.setScrollScale(scale);
+		}
+	}
+
+	public void setMomentumScale(double scale)
+	{
+		if(gl != null)
+		{
+			gl.setMomentumScale(scale);
+		}
+	}
+
 	public void setZoomLimits(double inMin,double inMax)
 	{
 		zoomLimitMin = inMin;
@@ -223,6 +239,8 @@ public class MapGestureHandler
 	private class GestureListener implements GestureDetector.OnGestureListener,
 				GestureDetector.OnDoubleTapListener
 	{
+		private double scrollScale = 1.0;
+		private double momentumScale = 1.0;
 		MapController maplyControl;
 		MapView mapView;
 		public boolean isActive = false;
@@ -252,6 +270,12 @@ public class MapGestureHandler
 			return true;
 		}
 
+		//Set scroll scale for movements
+		public void setScrollScale(double scale)
+		{
+			scrollScale = scale;
+		}
+
 		@Override
 		public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX,
 				float distanceY) 
@@ -261,8 +285,19 @@ public class MapGestureHandler
 
 			if (!allowPan)
 				return false;
-			
-			Point2d newScreenPos = new Point2d(e2.getX(),e2.getY());
+
+			//Point2d newScreenPos = new Point2d(e2.getX(),e2.getY());
+
+			// Remember starting and ending points
+			double startX = startScreenPos.getX();
+			double startY = startScreenPos.getY();
+			double endX = e2.getX();
+			double endY = e2.getY();
+
+			// Scale ending point
+			endX = startX + ((endX - startX) * scrollScale);
+			endY = startY + ((endY - startY) * scrollScale);
+			Point2d newScreenPos = new Point2d(endX,endY);
 			
 			// New state for pan
 			Point3d hit = mapView.pointOnPlaneFromScreen(newScreenPos, startTransform, maplyControl.getViewSize(), false);
@@ -281,6 +316,12 @@ public class MapGestureHandler
 			}
 			
 			return true;
+		}
+
+		//Set momentum scale for movements
+		public void setMomentumScale(double scale)
+		{
+			momentumScale = scale;
 		}
 		
 		// How long we'll animate the momentum 
@@ -316,10 +357,10 @@ public class MapGestureHandler
 			dir.multiplyBy(-1.0);
 			final double len = dir.length();
 			dir = dir.multiplyBy((len == 0.0) ? 0.0 : 1.0/len);
-			final double modelVel = len / AnimMomentumTime;
+			final double modelVel = len / (AnimMomentumTime * momentumScale);
 			
 			// Acceleration based on how far we want this to go
-			final double accel = - modelVel / (AnimMomentumTime * AnimMomentumTime);
+			final double accel = - modelVel / (AnimMomentumTime * AnimMomentumTime * momentumScale * momentumScale);
 			
 			// Now kick off the animation
 			final RendererWrapper renderWrap = maplyControl.renderWrapper;

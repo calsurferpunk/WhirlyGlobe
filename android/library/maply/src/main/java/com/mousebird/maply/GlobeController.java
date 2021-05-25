@@ -600,6 +600,34 @@ public class GlobeController extends BaseController implements View.OnTouchListe
 		return running && globeView != null && renderWrapper != null &&
 				renderWrapper.maplyRender != null && renderControl.frameSize != null;
 	}
+
+	/**
+	 * Set scroll sensitivity multiplier
+	 * @param scale
+	 */
+	public void setScrollScale(double scale)
+	{
+		super.setScrollScale(scale);
+
+		if(gestureHandler != null)
+		{
+			gestureHandler.setScrollScale(scrollScale);
+		}
+	}
+
+	/**
+	 * Set acceleration momentum sensitivity multiplier
+	 * @param scale
+	 */
+	public void setAccelerationMomentumScale(double scale)
+	{
+		super.setAccelerationMomentumScale(scale);
+
+		if(gestureHandler != null)
+		{
+			gestureHandler.setMomentumScale(accelerationScale);
+		}
+	}
 	
 	/**
 	 * Animate to a new view position
