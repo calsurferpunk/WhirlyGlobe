@@ -20,7 +20,7 @@ import android.content.Context
 import android.content.res.AssetManager
 import android.graphics.*
 import android.util.Log
-import android.util.Size
+//import android.util.Size
 import androidx.annotation.ColorInt
 import androidx.collection.LruCache
 import androidx.core.graphics.*

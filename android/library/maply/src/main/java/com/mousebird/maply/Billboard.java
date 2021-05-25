@@ -21,7 +21,7 @@ package com.mousebird.maply;
 
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.util.Size;
+//import android.util.Size;
 
 import java.util.ArrayList;
 import java.util.List;

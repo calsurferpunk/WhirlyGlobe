@@ -16,7 +16,7 @@
 
 package com.mousebird.maply
 
-import android.util.Size
+//import android.util.Size
 import androidx.annotation.ColorInt
 
 class SimpleStyle {
