@@ -19,6 +19,32 @@ There’s a tutorial for both iOS and Android:
 - [Getting started with iOS](http://mousebird.github.io/WhirlyGlobe/tutorial/ios/getting_started.html) 
 - [Getting started with Android](http://mousebird.github.io/WhirlyGlobe/tutorial/android/getting-started.html) 
 
+Setup
+---
+
+Go to desired folder, then:
+
+git clone https://github.com/calsurferpunk/WhirlyGlobe.git
+
+cd WhirlyGlobe
+
+git checkout develop
+
+git submodule init
+
+git submodule update
+
+http://mousebird.github.io/WhirlyGlobe/tutorial/android/building-from-source.html
+
+Cherry-pick a Commit
+---
+
+git fetch https://github.com/calsurferpunk/WhirlyGlobe develop
+
+git cherry-pick
+
+git push
+
 Builds
 ---
 
