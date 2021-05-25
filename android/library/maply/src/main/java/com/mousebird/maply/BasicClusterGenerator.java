@@ -310,7 +310,9 @@ public class BasicClusterGenerator extends ClusterGenerator {
         }
 
         if (fontFeatures != null && !fontFeatures.isEmpty()) {
-            textPaint.setFontFeatureSettings(fontFeatures);
+            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                textPaint.setFontFeatureSettings(fontFeatures);
+            }
         }
         if (fontSettings != null && !fontSettings.isEmpty()) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
