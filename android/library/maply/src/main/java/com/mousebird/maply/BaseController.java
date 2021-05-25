@@ -536,7 +536,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 
 			Request request = new Request.Builder()
 					.url("http://analytics.mousebirdconsulting.com:8081/register")
-					.post(RequestBody.create(json, MediaType.parse("application/json")))
+					.post(RequestBody.create(MediaType.parse("application/json"), json))
 					.build();
 
 			OkHttpClient client = new OkHttpClient();
