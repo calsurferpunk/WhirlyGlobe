@@ -60,6 +60,7 @@ android {
                             "-Wno-sign-compare",
                             "-Wno-missing-braces",
                             "-Wno-null-pointer-arithmetic"
+                        version '3.18.1'
                     }
                 }
             }
@@ -73,6 +74,7 @@ android {
                 externalNativeBuild {
                     cmake {
                         cppFlags "-O2", "-DNDEBUG=1", "-DCMAKE_BUILD_TYPE=Release"
+                        version '3.18.1'
                     }
                 }
             }
@@ -81,6 +83,7 @@ android {
         externalNativeBuild {
             cmake {
                 cppFlags "-frtti", "-fexceptions", "-std=gnu++14"
+                version '3.18.1'
             }
         }
 
@@ -97,6 +100,7 @@ android {
     externalNativeBuild {
         cmake {
             path "CMakeLists.txt"
+            version '3.18.1'
         }
     }
     compileOptions {
