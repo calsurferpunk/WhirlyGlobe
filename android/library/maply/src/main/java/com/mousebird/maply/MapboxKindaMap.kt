@@ -485,8 +485,8 @@ open class MapboxKindaMap(
         val tileInfos = ArrayList<TileInfoNew>()
         val localFetchers = ArrayList<MBTileFetcher>()
         if (fetchSources) {
-            styleSheet?.sources?.forEach { source ->
-                source.tileSpec?.forEach { specItem ->
+            for(source in styleSheet?.sources!!) {
+                for(specItem in source.tileSpec!!) {
                     specItem.dict?.let {
                         minZoom = (it.getInt("minzoom") ?: minZoom).coerceAtMost(minZoom)
                         maxZoom = (it.getInt("maxzoom") ?: maxZoom).coerceAtLeast(maxZoom)

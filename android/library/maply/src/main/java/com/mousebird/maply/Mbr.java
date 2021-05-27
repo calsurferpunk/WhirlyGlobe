@@ -104,7 +104,7 @@ public class Mbr
 		}
 		if (thatObj instanceof Mbr) {
 			Mbr that = (Mbr) thatObj;
-			return Objects.equals(ll, that.ll) && Objects.equals(ur, that.ur);
+			return(((ll == that.ll) || (ll != null && ll.equals(that.ll))) && ((ur == that.ur) || (ur != null && ur.equals(that.ur))));
 		}
 		return false;
 	}

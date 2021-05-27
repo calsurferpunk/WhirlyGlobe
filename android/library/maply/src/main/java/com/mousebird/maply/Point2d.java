@@ -65,6 +65,10 @@ public class Point2d
 		final Point2d that = (Point2d)obj;
 		return getX() == that.getX() && getY() == that.getY();
 	}
+	public boolean equals(Point2d other)
+	{
+		return(this == other || (this != null && other != null && this.getX() == other.getX() && this.getY() == other.getY()));
+	}
 
 	public Point2d addTo(Point2d that)
 	{

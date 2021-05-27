@@ -33,8 +33,8 @@ class LegendEntry(
             append(indent)
             append(" name = ")
             appendLine(name)
-            entries.forEach {
-                appendLine(it.printString("$indent "))
+            for(entry in entries) {
+                appendLine(entry.printString(indent))
             }
         }.toString()
 }
