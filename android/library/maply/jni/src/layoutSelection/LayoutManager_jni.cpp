@@ -84,6 +84,12 @@ public:
             jclass theClass = env->GetObjectClass(clusterObj);
             startClusterGroupJava = env->GetMethodID(theClass, "startClusterGroup", "()V");
             makeClusterGroupJNIJava = env->GetMethodID(theClass, "makeClusterGroupJNI", "(I[Ljava/lang/String;)J");
+            if(env->ExceptionCheck())
+            {
+                // Set function to null and handle exception
+                makeClusterGroupJNIJava = nullptr;
+                env->ExceptionClear();
+            }
             endClusterGroupJava = env->GetMethodID(theClass, "endClusterGroup", "()V");
             shutdownClusterGroupJava = env->GetMethodID(theClass, "shutdown", "()V");
             env->DeleteLocalRef(theClass);
@@ -256,6 +262,13 @@ public:
         jobjectArray uniqueIDsObj = BuildStringArray(env, uniqueIDs);
         uniqueIDs.clear();
 
+        // If make cluster group function not set
+        if(clusterGenerator.makeClusterGroupJNIJava == nullptr)
+        {
+            // stop
+            return;
+        }
+
         // The texture gets created on the Java side, so we'll just use the ID
         const long texID = env->CallLongMethod(clusterGenerator.clusterObj,
                                                clusterGenerator.makeClusterGroupJNIJava,
@@ -272,7 +285,7 @@ public:
         {
             __android_log_print(ANDROID_LOG_WARN, "Maply", "No tex from makeClusterGroup");
         }
-        
+
         const Point2d size = clusterGenerator.layoutSize;
         const SimpleIdentity progID = maxPriorityObj->getTypicalProgramID();
 
@@ -289,7 +302,7 @@ public:
         smGeom.texCoords.emplace_back(0,0);
         smGeom.color = RGBAColor(255,255,255,255);
         smGeom.texIDs.push_back(texID);
-        
+
         retObj.layoutPts = smGeom.coords;
         retObj.selectPts = smGeom.coords;
 
