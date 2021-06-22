@@ -38,11 +38,11 @@ import kotlin.collections.ArrayList
  */
 @Suppress("unused", "MemberVisibilityCanBePrivate")
 open class MapboxKindaMap(
-    var styleSheetJSON: String?,
-    var styleURL: Uri?,
-    var localMBTiles: Sequence<File>? = null,
-    inControl: BaseController,
-    var styleSettings: VectorStyleSettings = defaultStyle()) {
+        var styleSheetJSON: String?,
+        var styleURL: Uri?,
+        var localMBTiles: Sequence<File>? = null,
+        inControl: BaseController,
+        var styleSettings: VectorStyleSettings = defaultStyle()) {
 
     companion object {
         fun defaultStyle() = VectorStyleSettings().apply {
@@ -50,7 +50,7 @@ open class MapboxKindaMap(
             drawPriorityPerLevel = 100
         }
     }
-
+    
     constructor(styleURL: Uri, control: BaseController, styleSettings: VectorStyleSettings = defaultStyle()) :
             this(null, styleURL, null, control, styleSettings)
     constructor(styleJSON: String, control: BaseController, styleSettings: VectorStyleSettings = defaultStyle()) :
@@ -109,7 +109,7 @@ open class MapboxKindaMap(
      *  anything in the style sheet, just do this
      */
     var mapboxURLFor: (Uri) -> Uri = {
-            file: Uri ->
+        file: Uri ->
         file
     }
 
@@ -118,7 +118,7 @@ open class MapboxKindaMap(
      */
     var spriteResFor: (String) -> Int = { uri ->
         val isMapbox = uri.startsWith("mapbox://") ||
-                uri.contains("mapbox.com/")
+                       uri.contains("mapbox.com/")
         if (isMapbox) 4 else 2
     }
 
@@ -127,7 +127,7 @@ open class MapboxKindaMap(
      * Font names in the style often don't map directly to local font names.
      */
     var mapboxFontFor: (String) -> String = {
-            name: String ->
+        name: String ->
         name
     }
 
@@ -152,7 +152,7 @@ open class MapboxKindaMap(
      * 1024^2 is good for vector tiles, 256^2 is good for image tiles
      */
     var minImportance = 1024.0 * 1024.0
-
+    
     var sampleParams: SamplingParams? = null; private set
 
     // These are run after a successful load of all the style
@@ -626,7 +626,7 @@ open class MapboxKindaMap(
         }.forEach {
             it.run()
         }
-    }
+     }
 
     private fun startHybridLoader(sampleParams: SamplingParams,
                                   tileInfos: ArrayList<TileInfoNew>,
@@ -634,23 +634,23 @@ open class MapboxKindaMap(
         val control = control.get() ?: return
         // Put together the tileInfoNew objects
         styleSheet?.sources?.mapNotNull { it.tileSpec }?.flatMap { it.asIterable() }
-            ?.mapNotNull { it.dict }?.forEach { tileSpec ->
-                val minZoom = tileSpec.getInt("minzoom")
-                val maxZoom = tileSpec.getInt("maxzoom")
-                if (minZoom < maxZoom) {
-                    // A tile source may list multiple URLs, but we only support one.
-                    tileSpec.getArray("tiles")
+                           ?.mapNotNull { it.dict }?.forEach { tileSpec ->
+            val minZoom = tileSpec.getInt("minzoom")
+            val maxZoom = tileSpec.getInt("maxzoom")
+            if (minZoom < maxZoom) {
+                // A tile source may list multiple URLs, but we only support one.
+                tileSpec.getArray("tiles")
                         .mapNotNull { it.string }
                         .firstOrNull()?.let { tileUrl ->
-                            tileInfos.add(RemoteTileInfoNew(tileUrl, minZoom, maxZoom).also { tileSource ->
-                                if (cacheDir != null) {
-                                    val cacheName = cacheNamePattern.replace(tileUrl, "_")
-                                    tileSource.cacheDir = File(cacheDir, cacheName)
-                                }
-                            })
+                    tileInfos.add(RemoteTileInfoNew(tileUrl, minZoom, maxZoom).also { tileSource ->
+                       if (cacheDir != null) {
+                            val cacheName = cacheNamePattern.replace(tileUrl, "_")
+                            tileSource.cacheDir = File(cacheDir, cacheName)
                         }
+                    })
                 }
             }
+        }
 
         if (styleSheetJSON == null)
             return
@@ -725,14 +725,14 @@ open class MapboxKindaMap(
         }
 
         loader = QuadImageLoader(sampleParams, tileInfos.toTypedArray(),
-            control, QuadLoaderBase.Mode.SingleFrame).apply {
+                                 control, QuadLoaderBase.Mode.SingleFrame).apply {
             setBaseDrawPriority(styleSettings.baseDrawPriority)
             setDrawPriorityPerLevel(styleSettings.drawPriorityPerLevel)
             setLoaderInterpreter(mapboxInterp)
             setTileFetcher(localFetchers.firstOrNull() ?:
-            RemoteTileFetcher(control,"Remote Tile Fetcher").apply {
-                debugMode = this@MapboxKindaMap.debugMode
-            })
+                RemoteTileFetcher(control,"Remote Tile Fetcher").apply {
+                    debugMode = this@MapboxKindaMap.debugMode
+                })
             debugMode = this@MapboxKindaMap.debugMode
         }
 
@@ -763,7 +763,7 @@ open class MapboxKindaMap(
     //  or shutdown the loader if we've gotten to that point
     fun stop() {
         val theControl = control.get() ?: return
-
+    
         // Gotta run on the main thread
         if (Looper.getMainLooper().thread != Thread.currentThread()) {
             theControl.activity?.runOnUiThread { stop() }
