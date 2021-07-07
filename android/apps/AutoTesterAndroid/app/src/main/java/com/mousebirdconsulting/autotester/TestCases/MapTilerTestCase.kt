@@ -35,23 +35,25 @@ open class MapTilerTestCase : MaplyTestCase
             prefs.edit().putString("MapTilerToken",token).apply()
         }
         
-        getStyleJson(whichMap)?.let { json ->
+        getStyleJson(whichMap)?.let { (json,img) ->
             loader?.shutdown()
             loader = null
             map?.stop()
             map = null
             
-            map = MapboxKindaMap(json, control).apply {
+            MapboxKindaMap(json, control).apply {
+                map = this
                 mapboxURLFor = { Uri.parse(it.toString().replace("MapTilerKey", token)) }
-                backgroundAllPolys = (control is GlobeController)
+                backgroundAllPolys = !img && (control is GlobeController)
                 imageVectorHybrid = true
+                postSetup = {
+                    // Set up an overlay with the same parameters showing the
+                    // tile boundaries, for debugging/troubleshooting purposes
+                    this@MapTilerTestCase.loader =
+                            QuadPagingLoader(it.sampleParams, OvlDebugImageLoaderInterpreter(), control)
+                }
                 setup(this)
                 start()
-            }
-            map?.postSetup = {
-                // Set up an overlay with the same parameters showing the
-                // tile boundaries, for debugging/troubleshooting purposes
-                loader = QuadPagingLoader(it.sampleParams, OvlDebugImageLoaderInterpreter(), control)
             }
         }
     }
@@ -60,18 +62,25 @@ open class MapTilerTestCase : MaplyTestCase
         map.styleSettings.drawPriorityPerLevel = 100
     }
 
-    protected open fun getStyleJson(whichMap: Int): String? =
+    protected open fun getStyleJson(whichMap: Int): Pair<String,Boolean>? =
         getMaps().elementAt(whichMap)?.let {
-            Log.i(javaClass.name, "Loading $it")
+            Toast.makeText(activity.applicationContext, "Loading ${it.first}", Toast.LENGTH_SHORT).show()
             try {
-                activity.assets.open(it).use { stream ->
-                    Okio.buffer(Okio.source(stream)).readUtf8()
+                activity.assets.open(it.first).use { stream ->
+                    Okio.source(stream).use { source ->
+                        Okio.buffer(source).use { buffer ->
+                            Pair(buffer.readUtf8(), it.second)
+                        }
+                    }
                 }
             } catch (e: IOException) {
                 Log.w(javaClass.simpleName, "Failed to load style $it", e)
                 return null
             }
-        } ?: customStyle
+        } ?: run {
+            Toast.makeText(activity.applicationContext, "Loading custom stylesheet", Toast.LENGTH_SHORT).show()
+            Pair(customStyle,false)
+        }
     
     // don't switch on long-press, it's too easy to do accidentally when pinching
     override fun userDidLongPress(globeControl: GlobeController?, selObjs: Array<SelectedObject?>?, loc: Point2d?, screenLoc: Point2d?) {
@@ -111,12 +120,20 @@ open class MapTilerTestCase : MaplyTestCase
         return true
     }
     
-    protected open fun getMaps(): Collection<String?> = listOf(
-        "maptiler_basic.json",
-        "maptiler_streets.json",
-        "maptiler_topo.json",
-        "maptiler_hybrid_satellite.json",
-        "maptiler_expr_test.json",
+    override fun shutdown() {
+        loader?.shutdown()
+        loader = null
+        map?.stop()
+        map = null
+        super.shutdown()
+    }
+
+    protected open fun getMaps(): Collection<Pair<String,Boolean>?> = listOf(
+        Pair("maptiler_basic.json", false),
+        Pair("maptiler_streets.json", false),
+        Pair("maptiler_topo.json", false),
+        Pair("maptiler_hybrid_satellite.json", true),
+        Pair("maptiler_expr_test.json", false),
         null        // placeholder for custom stylesheet below
     )
 
