@@ -19,6 +19,7 @@
 #import "OverlapHelper.h"
 #import "WhirlyGeometry.h"
 #import "VectorData.h"
+#import "Expect.h"
 
 using namespace Eigen;
 using namespace WhirlyKit;
@@ -249,7 +250,7 @@ void ClusterHelper::addObject(LayoutObjectEntryRef objEntry,const Point2dVector 
                 clusterID = -(which+1);
             } else {
                 // Hit another test object.  Remove it from the grid
-                Mbr testMbr;  testMbr.addPoints(testObj->pts);
+                const Mbr testMbr(testObj->pts);
                 removeFromCells(testMbr, which);
                 
                 // Make up a cluster for the two of them.
@@ -264,12 +265,14 @@ void ClusterHelper::addObject(LayoutObjectEntryRef objEntry,const Point2dVector 
             }
 
             newObj.parentObject = clusterID;
+            clusterObj->pts.clear();
             clusterObj->pts.reserve(4);
             clusterObj->pts.push_back(clusterObj->center + Point2d(-clusterMarkerSize.x()*resScale/2.0,-clusterMarkerSize.y()*resScale/2.0));
             clusterObj->pts.push_back(clusterObj->center + Point2d(clusterMarkerSize.x()*resScale/2.0,-clusterMarkerSize.y()*resScale/2.0));
             clusterObj->pts.push_back(clusterObj->center + Point2d(clusterMarkerSize.x()*resScale/2.0,clusterMarkerSize.y()*resScale/2.0));
             clusterObj->pts.push_back(clusterObj->center + Point2d(-clusterMarkerSize.x()*resScale/2.0,clusterMarkerSize.y()*resScale/2.0));
-            Mbr clusterMbr;  clusterMbr.addPoints(clusterObj->pts);
+
+            const Mbr clusterMbr(clusterObj->pts);
             addToCells(clusterMbr,-(clusterID+1));
             
             found = true;
@@ -282,26 +285,33 @@ void ClusterHelper::addObject(LayoutObjectEntryRef objEntry,const Point2dVector 
         addToCells(ptsMbr, newID);
 }
 
-void ClusterHelper::resolveClusters()
+void ClusterHelper::resolveClusters(volatile bool &cancel)
 {
     // Find single objects that overlap existing clusters.
     // We won't move the clusters here to keep it simpler
     for (int so=0;so<simpleObjects.size();so++)
     {
+        if (UNLIKELY(cancel))
+        {
+            return;
+        }
+
         SimpleObject *simpleObj = &simpleObjects[so];
         if (simpleObj->parentObject < 0)
         {
-            Mbr simpleMbr;  simpleMbr.addPoints(simpleObj->pts);
+            const Mbr simpleMbr(simpleObj->pts);
+
             std::set<int> testObjs;
             findObjectsWithin(simpleMbr, testObjs);
-            for (auto which : testObjs)
+
+            for (int which : testObjs)
             {
                 // Only care about the clusters
                 if (which < 0)
                 {
                     ClusterObject *clusterObj = &clusterObjects[-(which+1)];
 
-                    if (ConvexPolyIntersect(simpleObj->pts,clusterObj->pts))
+                    if (!clusterObj->children.empty() && ConvexPolyIntersect(simpleObj->pts,clusterObj->pts))
                     {
                         simpleObj->parentObject = -(which + 1);
                         clusterObj->children.push_back(so);
@@ -315,12 +325,19 @@ void ClusterHelper::resolveClusters()
     // Look for clusters that overlap one another
     for (int ci=0;ci<clusterObjects.size();ci++)
     {
+        if (UNLIKELY(cancel))
+        {
+            return;
+        }
+
         ClusterObject *clusterObj = &clusterObjects[ci];
         if (!clusterObj->children.empty())
         {
-            Mbr thisMbr;  thisMbr.addPoints(clusterObj->pts);
+            const Mbr thisMbr(clusterObj->pts);
+
             std::set<int> testObjs;
             findObjectsWithin(thisMbr, testObjs);
+
             for (auto which : testObjs)
             {
                 if (which < 0 && ci != -(which + 1))
