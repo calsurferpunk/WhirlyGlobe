@@ -9,14 +9,6 @@ android {
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_1_8
     }
-    signingConfigs {
-        config {
-            keyAlias 'key0'
-            keyPassword 'foofoo'
-            storeFile file('/home/james/.android/release.keystore')
-            storePassword 'foofoo'
-        }
-    }
     compileSdkVersion 31
     defaultConfig {
         applicationId "com.mousebirdconsulting.autotester"
@@ -32,7 +24,6 @@ android {
             debuggable false
             jniDebuggable false
             renderscriptDebuggable false
-            signingConfig signingConfigs.config
         }
         debug {
             jniDebuggable true
