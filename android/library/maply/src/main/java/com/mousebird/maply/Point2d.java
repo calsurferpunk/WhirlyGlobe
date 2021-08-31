@@ -24,10 +24,10 @@ import org.jetbrains.annotations.NotNull;
  * The Point2d class is the simple, dumb, 2D coordinate class.
  * The only things of note is this is wrapping the internal Maply
  * coordinate class and gets passed around a lot.
- * 
+ *
  * @author sjg
  */
-public class Point2d 
+public class Point2d
 {
 	/**
 	 * Construct with empty values.
@@ -35,7 +35,7 @@ public class Point2d
 	public Point2d() {
 		initialise();
 	}
-	
+
 	/**
 	 * Construct from an existing Point2d
 	 */
@@ -43,7 +43,7 @@ public class Point2d
 	{
 		this(that.getX(),that.getY());
 	}
-	
+
 	/**
 	 * Construct from two values.
 	 */
@@ -65,25 +65,15 @@ public class Point2d
 		final Point2d that = (Point2d)obj;
 		return getX() == that.getX() && getY() == that.getY();
 	}
-	public boolean equals(Point2d other)
-	{
-		return(this == other || (this != null && other != null && this.getX() == other.getX() && this.getY() == other.getY()));
-	}
 
-	public Point2d addTo(Point2d that) {
+	public Point2d addTo(Point2d that)
+	{
 		return new Point2d(getX()+that.getX(),getY()+that.getY());
 	}
-	public Point2d subtract(Point2d that) {
-		return new Point2d(getX() - that.getX(), getY() - that.getY());
-	}
-	public Point2d negate() {
-		return new Point2d(-getX(), -getY());
-	}
-	public Point2d multiplyBy(double t) {
+
+	public Point2d multiplyBy(double t)
+	{
 		return new Point2d(getX()*t,getY()*t);
-	}
-	public Point2d divideBy(double t) {
-		return new Point2d(getX()/t,getY()/t);
 	}
 
 	/**
@@ -108,12 +98,12 @@ public class Point2d
 	/**
 	 * Points are normally stored as radians, if they're positions on the globe or map.
 	 * This converts and returns degrees.
-     */
+	 */
 	public Point2d toDegrees()
 	{
 		return new Point2d(getX()/Math.PI * 180,getY()/Math.PI * 180);
 	}
-	
+
 	public void finalize()
 	{
 		dispose();
@@ -137,7 +127,7 @@ public class Point2d
 	 * Set the value of the point.
 	 */
 	public native void setValue(double x,double y);
-	
+
 	static
 	{
 		nativeInit();
