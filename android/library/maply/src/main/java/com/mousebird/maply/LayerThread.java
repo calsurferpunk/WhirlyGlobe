@@ -27,6 +27,7 @@ import androidx.annotation.Nullable;
 
 import com.mousebirdconsulting.whirlyglobemaply.BuildConfig;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -284,7 +285,7 @@ public class LayerThread extends HandlerThread implements View.ViewWatcher
 		return startOfWork() ? new WorkWrapper() : null;
 	}
 
-	public class WorkWrapper implements AutoCloseable {
+	public class WorkWrapper implements Closeable {
 		public WorkWrapper() {
 		}
 		public void close() {
