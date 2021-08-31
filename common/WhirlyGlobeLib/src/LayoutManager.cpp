@@ -52,7 +52,8 @@ void LayoutObject::setLayoutSize(const Point2d &layoutSize,const Point2d &offset
     if (layoutSize.x() == 0.0 && layoutSize.y() == 0.0)
         return;
 
-    layoutPts.reserve(layoutPts.size() + 4);
+    layoutPts.clear();
+    layoutPts.reserve(4);
     layoutPts.push_back(Point2d(0,0)+offset);
     layoutPts.push_back(Point2d(layoutSize.x(),0.0)+offset);
     layoutPts.push_back(layoutSize+offset);
@@ -64,7 +65,8 @@ void LayoutObject::setSelectSize(const Point2d &selectSize,const Point2d &offset
     if (selectSize.x() == 0.0 && selectSize.y() == 0.0)
         return;
 
-    selectPts.reserve(selectPts.size() + 4);
+    selectPts.clear();
+    selectPts.reserve(4);
     selectPts.push_back(Point2d(0,0)+offset);
     selectPts.push_back(Point2d(selectSize.x(),0.0)+offset);
     selectPts.push_back(selectSize+offset);
@@ -122,7 +124,7 @@ void LayoutManager::addLayoutObjects(const std::vector<LayoutObject> &newObjects
 
     std::lock_guard<std::mutex> guardLock(lock);
 
-    for (const auto & newObject : newObjects)
+    for (const auto &newObject : newObjects)
     {
         const LayoutObject &layoutObj = newObject;
         auto entry = std::make_shared<LayoutObjectEntry>(layoutObj.getId());
@@ -258,6 +260,37 @@ void LayoutManager::addClusterGenerator(PlatformThreadInfo *, ClusterGenerator *
     hasUpdates = true;
 }
 
+void LayoutManager::setRenderer(SceneRenderer *inRenderer)
+{
+    if (!inRenderer && renderer && !shutdown)
+    {
+        // An `updateLayout` may be running right now, and clearing `renderer` could crash.
+        // The scene should have canceled already, but try to handle it by setting the cancel
+        // flag and waiting just a little while for layout to not be running.
+        cancelUpdate();
+        constexpr auto wait = std::chrono::milliseconds(50);
+        const auto lock = std::unique_lock<std::timed_mutex>(internalLock, wait);
+        wkLogLevel(Warn, "Layout teardown without cancellation, %s",
+                   lock.owns_lock() ? "successfully canceled" : "proceeding unsafely");
+    }
+    SceneManager::setRenderer(inRenderer);
+}
+
+void LayoutManager::setScene(Scene *inScene)
+{
+    SceneManager::setScene(inScene);
+    if (!inScene)
+    {
+        cancelUpdate();
+    }
+}
+
+void LayoutManager::teardown()
+{
+    cancelUpdate();
+    SceneManager::teardown();
+}
+
 void LayoutManager::cancelUpdate()
 {
     std::lock_guard<std::mutex> guardLock(lock);
@@ -371,7 +404,7 @@ Matrix2d LayoutManager::calcScreenRot(float &screenRot,const ViewStateRef &viewS
                                       const Point2f &frameBufferSize)
 {
     // Switch from counter-clockwise to clockwise
-    double rot = 2*M_PI-ssObj->rotation;
+    const double rot = 2*M_PI-ssObj->rotation;
 
     Point3d upVec,northVec,eastVec;
     if (!globeViewState)
@@ -380,7 +413,7 @@ Matrix2d LayoutManager::calcScreenRot(float &screenRot,const ViewStateRef &viewS
         northVec = Point3d(0,1,0);
         eastVec = Point3d(1,0,0);
     } else {
-        Point3d worldLoc = ssObj->getWorldLoc();
+        const Point3d worldLoc = ssObj->getWorldLoc();
         upVec = worldLoc.normalized();
         // Vector pointing north
         northVec = Point3d(-worldLoc.x(),-worldLoc.y(),1.0-worldLoc.z());
@@ -389,22 +422,20 @@ Matrix2d LayoutManager::calcScreenRot(float &screenRot,const ViewStateRef &viewS
     }
 
     // This vector represents the rotation in world space
-    Point3d rotVec = eastVec * sin(rot) + northVec * cos(rot);
+    const Point3d rotVec = eastVec * sin(rot) + northVec * cos(rot);
 
     // Project down into screen space
-    Vector4d projRot = normalMat * Vector4d(rotVec.x(),rotVec.y(),rotVec.z(),0.0);
+    const Vector4d projRot = normalMat * Vector4d(rotVec.x(),rotVec.y(),rotVec.z(),0.0);
 
     // Use the resulting x & y
-    screenRot = (float)(atan2(projRot.y(),projRot.x())-M_PI/2.0);
+    screenRot = (float)(atan2(projRot.y(),projRot.x())-M_PI_2);
     // Keep the labels upright
-    if (ssObj->keepUpright && screenRot > M_PI/2 && screenRot < 3*M_PI/2)
+    if (ssObj->keepUpright && screenRot > M_PI_2 && screenRot < 3*M_PI_2)
     {
         screenRot = (float)(screenRot + M_PI);
     }
-    Matrix2d screenRotMat;
-    screenRotMat = Eigen::Rotation2Dd(screenRot);
 
-    return screenRotMat;
+    return Matrix2d(Eigen::Rotation2Dd(screenRot));
 }
 
 // Used for sorting layout objects
@@ -1228,14 +1259,14 @@ void LayoutManager::updateLayout(PlatformThreadInfo *threadInfo,const ViewStateR
         }
     }
 
-    std::unique_lock<std::mutex> guardLock(lock);
+    std::unique_lock<std::mutex> extLock(lock);
 
-    if (cancelLayout)
+    if (cancelLayout || shutdown)
     {
         return;
     }
 
-    // Make copies of the layout objects
+    // Make local copies of the layout objects
     const LayoutEntrySet localLayoutObjects(layoutObjects.begin(), layoutObjects.end());
     const std::unordered_set<std::string> localOverrideUUIDs(overrideUUIDs.begin(), overrideUUIDs.end());
 
@@ -1244,14 +1275,23 @@ void LayoutManager::updateLayout(PlatformThreadInfo *threadInfo,const ViewStateR
 
     // Release the external lock to allow objects to be added and removed while we're doing the
     // layout on our copies, and replace it with a separate lock to make sure we're only run once.
-    guardLock = std::unique_lock<std::mutex>(internalLock, std::try_to_lock);
+    // If we can't acquire the internal mutex instantly, we're already running on another thread.
+    extLock.unlock();
+    std::unique_lock<std::timed_mutex> intLock(internalLock, std::chrono::seconds(0));
 
     // If we couldn't acquire the lock, layout is already running on another thread.
     // Bail out immediately rather than waiting.  Even if it finished immediately, we wouldn't
     // want to run a layout pass on the now-obsolete copy of the layout items we have.
-    if (!guardLock.owns_lock())
+    if (!intLock.owns_lock())
     {
         wkLogLevel(Warn, "Layout called on multiple threads");
+        return;
+    }
+
+    // Locking may have taken some time, check for cancellation again
+    if (cancelLayout)
+    {
+        cancelLayout = false;
         return;
     }
 
@@ -1306,10 +1346,18 @@ void LayoutManager::updateLayout(PlatformThreadInfo *threadInfo,const ViewStateR
 //        NSLog(@"  Remove previous drawIDs = %lu",drawIDs.size());
     drawIDs.clear();
 
-    // Generate the drawables
+    // Generate the drawables.
+    // Note that the renderer is not managed by a shared pointer, and will be destroyed
+    // during shutdown, so we must stop using it quickly if controller shutdown is initiated.
     ScreenSpaceBuilder ssBuild(renderer,coordAdapter,renderer->scale);
+
     for (const auto &layoutObj : localLayoutObjects)
     {
+        if (UNLIKELY(cancelLayout))
+        {
+            break;
+        }
+
         layoutObj->obj.offset = Point2d(layoutObj->offset.x(),layoutObj->offset.y());
         if (!layoutObj->currentEnable)
         {
@@ -1396,6 +1444,11 @@ void LayoutManager::updateLayout(PlatformThreadInfo *threadInfo,const ViewStateR
     // Add in the clusters
     for (const auto &cluster : clusters)
     {
+        if (UNLIKELY(cancelLayout))
+        {
+            break;
+        }
+
         // Animate from the old cluster if there is one
         if (cluster.childOfCluster > -1)
         {

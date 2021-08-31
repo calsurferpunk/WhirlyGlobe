@@ -2,6 +2,8 @@ package com.mousebirdconsulting.autotester.TestCases
 
 import android.app.Activity
 import android.graphics.Color
+import android.os.Handler
+import android.util.Log
 import android.widget.Toast
 import com.mousebird.maply.*
 import com.mousebirdconsulting.autotester.Framework.MaplyTestCase
@@ -11,7 +13,7 @@ import java.util.*
 class VectorsTestCase(activity: Activity?) :
         MaplyTestCase(activity, "Vectors Test", TestExecutionImplementation.Both) {
 
-    val compObjs = ArrayList<ComponentObject>()
+    private val compObjs = ArrayList<ComponentObject>()
 
     @Throws(Exception::class)
     private fun overlayCountries(baseVC: BaseController) {
@@ -27,6 +29,10 @@ class VectorsTestCase(activity: Activity?) :
                         buf.readUtf8()
                     }
                 }
+            }
+            Log.d("Maply", "Loading $path")
+            if (!baseVC.isRunning || canceled) {
+                break
             }
             VectorObject.createFromGeoJSON(json)?.apply {
                 selectable = true
@@ -62,24 +68,38 @@ class VectorsTestCase(activity: Activity?) :
     
     @Throws(Exception::class)
     override fun setUpWithMap(mapVC: MapController): Boolean {
+        controller = mapVC
+        mapController = mapVC
         baseCase.setUpWithMap(mapVC)
         baseCase.setForwardMapDelegate(this)
-        mapVC.addPostSurfaceRunnable {
-            overlayCountries(mapVC)
-            onVectorsLoaded?.invoke(vectors)
-        }
+        loadVectorsDelayed()
         return true
     }
     
     @Throws(Exception::class)
     override fun setUpWithGlobe(globeVC: GlobeController): Boolean {
+        controller = globeVC
+        globeController = globeVC
         baseCase.setUpWithGlobe(globeVC)
         baseCase.setForwardGlobeDelegate(this)
-        globeVC.addPostSurfaceRunnable {
-            overlayCountries(globeVC)
-            onVectorsLoaded?.invoke(vectors)
-        }
+        loadVectorsDelayed()
         return true
+    }
+
+    private fun loadVectorsDelayed() {
+        controller?.addPostSurfaceRunnable {
+            // Load vectors on a separate thread so that you can
+            // back out of the test case before they're all loaded.
+            Thread({
+                Thread.sleep(500)
+                if (!canceled && controller != null) {
+                    overlayCountries(controller)
+                }
+                if (!canceled && controller != null) {
+                    onVectorsLoaded?.invoke(vectors)
+                }
+            }, "vector loader").start()
+        }
     }
     
     override fun shutdown() {
