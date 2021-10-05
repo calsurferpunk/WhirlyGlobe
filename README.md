@@ -33,6 +33,25 @@ git submodule update
 
 http://mousebird.github.io/WhirlyGlobe/tutorial/android/building-from-source.html
 
+Merge pull from mousebird with conflicts (notes)
+---
+
+git checkout -b mousebird-consulting-inc-develop develop
+
+git pull https://github.com/mousebird-consulting-inc/WhirlyGlobe.git develop
+
+git add .
+
+(handle conflicts, searching for every <<<<<<)
+
+git commit -m "Resolve merge conflicts"
+
+git checkout develop
+
+git merge --no-ff mousebird-consulting-inc-develop
+
+git push origin develop
+
 Cherry-pick a Commit
 ---
 
