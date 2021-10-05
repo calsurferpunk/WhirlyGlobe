@@ -154,13 +154,7 @@ public class MapController extends BaseController implements View.OnTouchListene
 
 		if (baseView != null)
 		{
-			if (baseView instanceof GLSurfaceView) {
-				GLSurfaceView glSurfaceView = (GLSurfaceView)baseView;
-				glSurfaceView.setOnTouchListener(this);
-			} else {
-				GLTextureView glTextureView = (GLTextureView)baseView;
-				glTextureView.setOnTouchListener(this);
-			}
+			baseView.setOnTouchListener(this);
 			gestureHandler = new MapGestureHandler(this,baseView);
 		}
 
@@ -170,6 +164,10 @@ public class MapController extends BaseController implements View.OnTouchListene
 	
 	@Override public void shutdown()
 	{
+		if (baseView != null) {
+			baseView.setOnTouchListener(null);
+		}
+
 		Choreographer c = Choreographer.getInstance();
 		if (c != null)
 			c.removeFrameCallback(this);
@@ -523,7 +521,8 @@ public class MapController extends BaseController implements View.OnTouchListene
 
 		Point3d localCoord = mapView.coordAdapter.coordSys.geographicToLocal(targetGeoLoc);
 		Point3d newPoint = new Point3d(localCoord.getX(),localCoord.getY(), targetGeoLoc.getZ());
-		MapAnimateTranslate dg = new MapAnimateTranslate(mapView, renderControl, newPoint, rot, (float)howLong, viewBounds);
+		MapAnimateTranslate dg = new MapAnimateTranslate(mapView, renderControl, newPoint, rot,
+		                                                 (float)howLong, viewBounds, zoomAnimationEasing);
 
 		mapView.cancelAnimation();
 		mapView.setAnimationDelegate(dg);

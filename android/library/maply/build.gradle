@@ -8,7 +8,7 @@ buildscript {
     }
     dependencies {
         classpath "com.android.tools.build:gradle:7.0.1"
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.5.30"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -52,6 +52,7 @@ android {
                             //"-O1",                  // Minimal optimize. (-Wuninitialized requires -O1)
                                                     // Change to -O0 if you're having trouble debugging
                             "-Wall", "-Wextra",     // warnings
+                            "-Wno-unknown-pragmas", // ignore, e.g., clang-tidy annotations
 
                             "-Wuninitialized",      // requires -O1 or above, but doesn't seem to work anyway
                             "-Wmissing-field-initializers",
@@ -64,6 +65,21 @@ android {
                             "-Wno-missing-braces",
                             "-Wno-null-pointer-arithmetic"
                         version '3.18.1'
+                    }
+                }
+            }
+            devRelease {
+                debuggable true
+                jniDebuggable true
+                ndk {
+                    abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86'
+                    debuggable true
+                }
+                externalNativeBuild {
+                    cmake {
+                        cppFlags "-O2", "-DNDEBUG=1",
+                                "-DCMAKE_BUILD_TYPE=Release",
+                                "-DWK_MIN_LOG_LEVEL=WKLogLevel::Verbose"
                     }
                 }
             }

@@ -48,3 +48,8 @@ android/apps/AutoTesterAndroid/app/gradlew
 android/apps/AutoTesterAndroid/app/gradlew.bat
 
 android/apps/AutoTesterAndroid/app/.cxx/
+
+android/library/Android/build/
+android/library/Android/libs/
+android/library/Android/obj/
+

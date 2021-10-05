@@ -434,7 +434,7 @@ bool BasicDrawableMTL::preProcess(SceneRendererMTL *sceneRender,id<MTLCommandBuf
         }
     }
 
-    if (texturesChanged || valuesChanged || prog->changed) {
+    if (texturesChanged || valuesChanged || prog->texturesChanged || prog->valuesChanged) {
         ret = true;
         
         // We need to blit the default values into place because we let those change
@@ -451,7 +451,7 @@ bool BasicDrawableMTL::preProcess(SceneRendererMTL *sceneRender,id<MTLCommandBuf
             [bltEncode copyFromBuffer:srcBuff.buffer sourceOffset:0 toBuffer:baseBuff.buffer destinationOffset:baseBuff.offset size:srcBuff.buffer.length];
         }
 
-        if (texturesChanged && (vertTexInfo || fragTexInfo)) {
+        if ((texturesChanged || prog->texturesChanged) && (vertTexInfo || fragTexInfo)) {
             activeTextures.clear();
             
             int numEntries = texInfo.size();
@@ -515,7 +515,7 @@ bool BasicDrawableMTL::preProcess(SceneRendererMTL *sceneRender,id<MTLCommandBuf
             }
         }
 
-        if (valuesChanged || prog->changed) {
+        if (valuesChanged || prog->valuesChanged) {
             if (vertABInfo)
                 vertABInfo->startEncoding(sceneRender->setupInfo.mtlDevice);
             if (fragABInfo)

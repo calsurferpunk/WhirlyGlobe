@@ -43,6 +43,7 @@ import java.lang.ref.WeakReference;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -72,7 +73,7 @@ import okhttp3.Response;
  *
  */
 @SuppressWarnings({"unused","UnusedReturnValue","RedundantSuppression"})
-public class BaseController implements RenderController.TaskManager, RenderControllerInterface
+public abstract class BaseController implements RenderController.TaskManager, RenderControllerInterface
 {
 	// This may be a GLSurfaceView or a GLTextureView
 	protected @Nullable View baseView = null;
@@ -123,8 +124,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
     /**
      * Return the current scene.  Only for sure within the library.
      */
-    public @Nullable Scene getScene()
-    {
+    public @Nullable Scene getScene() {
         return scene;
     }
 
@@ -538,7 +538,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 			String bundleVersion = pInfo.versionName;
 			String osversion = "Android " + Build.VERSION.RELEASE;
 			String model = Build.MANUFACTURER + " " + Build.MODEL;
-			String wgMaplyVersion = "3.3";
+			String wgMaplyVersion = "3.4";
 			String json = String.format(
 					"{ \"userid\":\"%s\", \"bundleid\":\"%s\", \"bundlename\":\"%s\", \"bundlebuild\":\"%s\", \"bundleversion\":\"%s\", \"osversion\":\"%s\", \"model\":\"%s\", \"wgmaplyversion\":\"%s\" }",
 					userID, bundleID, bundleName, bundleBuild, bundleVersion, osversion, model, wgMaplyVersion);
@@ -1214,7 +1214,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 	/**
 	 * Report performance stats in the console ever few frames.
 	 * Setting this to zero turns it off.
-	 * @param inPerfInterval seconds between performance reports
+	 * @param inPerfInterval frames between performance reports
 	 */
 	public void setPerfInterval(int inPerfInterval)
 	{
@@ -1302,6 +1302,24 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 		return renderControl.currentMapScale();
 	}
 
+	public interface ZoomAnimationEasing {
+		/** For current time t in (0.0,1.0) produce z in (z0,z1)
+		 */
+		double value(double z0, double z1, double t);
+	}
+	protected @Nullable ZoomAnimationEasing zoomAnimationEasing = null;
+
+	/** Set the function used for animating zoom heights
+	 */
+	public void setZoomAnimationEasing(ZoomAnimationEasing easing) {
+		zoomAnimationEasing = easing;
+	}
+	/** Get the function used for animating zoom heights
+	 */
+	public ZoomAnimationEasing getZoomAnimationEasing() {
+		return zoomAnimationEasing;
+	}
+
 	/**
 	 * Add a single layer.  This will start processing its data on the layer thread at some
 	 * point in the near future.
@@ -1352,7 +1370,8 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 		QuadSamplingLayer theLayer = null;
 
 		for (QuadSamplingLayer layer : samplingLayers) {
-			if (layer.params.equals(params)) {
+			// Layers being shut down should already be removed, but check anyway.
+			if (layer.params.equals(params) && !layer.isShuttingDown) {
 				theLayer = layer;
 				break;
 			}
@@ -1363,7 +1382,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 			theLayer = new QuadSamplingLayer(this,params);
 
 			// On its own layer thread
-			LayerThread layerThread = makeLayerThread(true);
+			final LayerThread layerThread = makeLayerThread(true);
 			if (layerThread == null) {
 				return null;
 			}
@@ -1390,26 +1409,31 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 		if (!samplingLayers.contains(samplingLayer))
 			return;
 
-		// Do the remove client on the layer thread
+		// If we're the last client, we expect to remove the sampling layer after disconnecting,
+		// but we have to do thread transitions during which a `findSamplingLayer` call could queue
+		// up an `addClient` call, causing us to delete the layer after being connected, cancelling
+		// any activity in that new client.
+		// To prevent that, remove it from the list of available sampling layers now.
+		final int remainingClients = samplingLayer.getNumClients() - 1;
+		if (remainingClients == 0) {
+			samplingLayers.remove(samplingLayer);
+		}
+
+		// Do the remove client on the layer thread itself
 		samplingLayer.layerThread.addTask(() -> {
 			samplingLayer.removeClient(user);
 
-			// Get rid of the sampling layer too
-			if (samplingLayer.getNumClients() == 0) {
-				// But that has to be done on the main thread
-				BaseController control = samplingLayer.control.get();
-				if (control != null) {
-					Activity activity = control.getActivity();
-					Looper looper = (activity != null) ? activity.getMainLooper() : null;
-					Handler handler = new Handler((looper != null) ? looper : Looper.getMainLooper());
-					handler.post(() -> {
-						// Someone maybe started using it
-						if (samplingLayer.getNumClients() == 0) {
-							removeLayerThread(samplingLayer.layerThread);
-							samplingLayers.remove(samplingLayer);
-						}
-					});
-				}
+			// If we were the last client, switch back to the main thread to remove the layer
+			if (remainingClients == 0) {
+				newMainLooperHandler().post(() -> {
+					// It shouldn't be possible to add clients, but check one more time, just in case
+					if (samplingLayer.getNumClients() == 0) {
+						removeLayerThread(samplingLayer.layerThread);
+					} else {
+						Log.w("Maply", "Unexpected sampling layer attach");
+						samplingLayers.add(samplingLayer);
+					}
+				});
 			}
 		});
 	}
@@ -1504,7 +1528,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 	 * @return The ComponentObject representing the vectors.  This is necessary for modifying
 	 * or deleting the vectors once created.
 	 */
-	public ComponentObject addVectors(final List<VectorObject> vecs,final VectorInfo vecInfo,RenderController.ThreadMode mode)
+	public ComponentObject addVectors(final Collection<VectorObject> vecs,final VectorInfo vecInfo,RenderController.ThreadMode mode)
 	{
 		if (!running)
 			return null;
@@ -1565,7 +1589,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 	 * @return The ComponentObject representing the vectors.  This is necessary for modifying
 	 * or deleting the vectors once created.
 	 */
-	public ComponentObject addWideVectors(final List<VectorObject> vecs,final WideVectorInfo wideVecInfo,RenderController.ThreadMode mode)
+	public ComponentObject addWideVectors(final Collection<VectorObject> vecs,final WideVectorInfo wideVecInfo,RenderController.ThreadMode mode)
 	{
 		if (!running)
 			return null;
@@ -1638,7 +1662,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 	 * @return The ComponentObject representing the vectors.  This is necessary for modifying
 	 * or deleting the features once created.
 	 */
-	public ComponentObject addLoftedPolys(final List<VectorObject> vecs,final LoftedPolyInfo loftInfo,RenderController.ThreadMode mode)
+	public ComponentObject addLoftedPolys(final Collection<VectorObject> vecs,final LoftedPolyInfo loftInfo,RenderController.ThreadMode mode)
 	{
 		if (!running)
 			return null;
@@ -1670,7 +1694,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 	 * @param mode Where to execute the add.  Choose ThreadAny by default.
 	 * @return This represents the screen markers for later modification or deletion.
 	 */
-	public ComponentObject addScreenMarkers(final List<ScreenMarker> markers,final MarkerInfo markerInfo,RenderController.ThreadMode mode)
+	public ComponentObject addScreenMarkers(final Collection<ScreenMarker> markers,final MarkerInfo markerInfo,RenderController.ThreadMode mode)
 	{		
 		if (!running)
 			return null;
@@ -1682,7 +1706,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
      * Add moving screen markers to the visual display.  These are the same as the regular
      * screen markers, but they have a start and end point and a duration.
      */
-	public ComponentObject addScreenMovingMarkers(final List<ScreenMovingMarker> markers,final MarkerInfo markerInfo,RenderController.ThreadMode mode)
+	public ComponentObject addScreenMovingMarkers(final Collection<ScreenMovingMarker> markers,final MarkerInfo markerInfo,RenderController.ThreadMode mode)
 	{
 		if (!running)
 			return null;
@@ -1713,7 +1737,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 	 * @param mode Where to execute the add.  Choose ThreadAny by default.
 	 * @return This represents the screen markers for later modification or deletion.
 	 */
-	public ComponentObject addMarkers(final List<Marker> markers,final MarkerInfo markerInfo,RenderController.ThreadMode mode)
+	public ComponentObject addMarkers(final Collection<Marker> markers,final MarkerInfo markerInfo,RenderController.ThreadMode mode)
 	{
 		if (!running)
 			return null;
@@ -1729,7 +1753,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 	 * @param mode Where to execute the add.  Choose ThreadAny by default.
 	 * @return This represents the stickers for later modification or deletion.
 	 */
-	public ComponentObject addStickers(final List<Sticker> stickers,final StickerInfo stickerInfo,RenderController.ThreadMode mode)
+	public ComponentObject addStickers(final Collection<Sticker> stickers,final StickerInfo stickerInfo,RenderController.ThreadMode mode)
 	{
 		if (!running)
 			return null;
@@ -1761,7 +1785,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 	 * @param mode Where to execute the add.  Choose ThreadAny by default.
      * @return This represents the geometry points for later modifictation or deletion.
      */
-	public ComponentObject addPoints(final List<Points> ptList,final GeometryInfo geomInfo,RenderController.ThreadMode mode)
+	public ComponentObject addPoints(final Collection<Points> ptList,final GeometryInfo geomInfo,RenderController.ThreadMode mode)
 	{
 		if (!running)
 			return null;
@@ -1789,14 +1813,10 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 	}
 
 	// Filled in by the subclass
-	public Point2d geoPointFromScreen(Point2d screenPt) {
-		return null;
-	}
+	public abstract Point2d geoPointFromScreen(Point2d screenPt);
 
 	// Filled in by the subclass
-	public Point2d screenPointFromGeo(Point2d geoCoord) {
-		return null;
-	}
+	public abstract Point2d screenPointFromGeo(Point2d geoCoord);
 
 	// Returns all the objects near a point
 	protected SelectedObject[] getObjectsAtScreenLoc(Point2d screenLoc,double maxDist) {
@@ -1951,7 +1971,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 	 * @param mode Where to execute the add.  Choose ThreadAny by default.
 	 * @return This represents the labels for modification or deletion.
 	 */
-	public ComponentObject addScreenLabels(final List<ScreenLabel> labels,final LabelInfo labelInfo,RenderController.ThreadMode mode)
+	public ComponentObject addScreenLabels(final Collection<ScreenLabel> labels,final LabelInfo labelInfo,RenderController.ThreadMode mode)
 	{
 		if (!running)
 			return null;
@@ -1969,7 +1989,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 	 * @param mode Where to execute the add.  Choose ThreadAny by default.
 	 * @return This represents the labels for modification or deletion.
 	 */
-	public ComponentObject addScreenMovingLabels(final List<ScreenMovingLabel> labels,final LabelInfo labelInfo,RenderController.ThreadMode mode)
+	public ComponentObject addScreenMovingLabels(final Collection<ScreenMovingLabel> labels,final LabelInfo labelInfo,RenderController.ThreadMode mode)
 	{
 		if (!running)
 			return null;
@@ -2042,7 +2062,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 	 * @param texs Textures to remove.
 	 * @param mode Remove immediately (current thread) or elsewhere.
      */
-	public void removeTextures(final List<MaplyTexture> texs,RenderController.ThreadMode mode)
+	public void removeTextures(final Collection<MaplyTexture> texs,RenderController.ThreadMode mode)
 	{
 	    renderControl.removeTextures(texs,mode);
 	}
@@ -2054,7 +2074,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 	 * @param texIDs Textures to remove
 	 * @param mode Remove immediately (current thread) or elsewhere.
 	 */
-	public void removeTexturesByID(final List<Long> texIDs,RenderController.ThreadMode mode)
+	public void removeTexturesByID(final Collection<Long> texIDs,RenderController.ThreadMode mode)
 	{
 	    renderControl.removeTexturesByID(texIDs,mode);
 	}
@@ -2179,7 +2199,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 	 * @param compObjs Objects to disable in the display.
 	 * @param mode Where to execute the add.  Choose ThreadAny by default.
 	 */
-	public void disableObjects(final List<ComponentObject> compObjs,RenderController.ThreadMode mode)
+	public void disableObjects(final Collection<ComponentObject> compObjs,RenderController.ThreadMode mode)
 	{
 		if (!running)
 			return;
@@ -2211,7 +2231,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 	 * @param compObjs Objects to enable disable.
 	 * @param mode Where to execute the enable.  Choose ThreadAny by default.
 	 */
-	public void enableObjects(final List<ComponentObject> compObjs,RenderController.ThreadMode mode)
+	public void enableObjects(final Collection<ComponentObject> compObjs,RenderController.ThreadMode mode)
 	{
 		if (!running)
 			return;
@@ -2259,7 +2279,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 	 * @param compObjs Component Objects to remove.
 	 * @param mode Where to execute the add.  Choose ThreadAny by default.
 	 */
-	public void removeObjects(final List<ComponentObject> compObjs,RenderController.ThreadMode mode)
+	public void removeObjects(final Collection<ComponentObject> compObjs, RenderController.ThreadMode mode)
 	{
 		if (!running)
 			return;
@@ -2390,12 +2410,39 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 	}
 
 	/**
+	 * Check whether fades are enabled on the layout manager
+	 */
+	public boolean getLayoutFadeEnabled() {
+		RenderController rc = renderControl;
+		if (rc != null) {
+			LayoutManager lm = rc.layoutManager;
+			if (lm != null) {
+				return lm.getFadeEnabled();
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Set whether fades are enabled on the layout manager
+	 */
+	public void setLayoutFadeEnabled(boolean enable) {
+		RenderController rc = renderControl;
+		if (rc != null) {
+			LayoutManager lm = rc.layoutManager;
+			if (lm != null) {
+				lm.setFadeEnabled(enable);
+			}
+		}
+	}
+
+	/**
 	 * This method will add the given MaplyShape derived objects to the current scene.  It will use the parameters in the description dictionary and it will do it on the thread specified.
 	 * @param shapes An array of Shape derived objects
 	 * @param shapeInfo Info controlling how the shapes look
 	 * @param mode Where to execute the add.  Choose ThreadAny by default.
      */
-	public ComponentObject addShapes(final List<Shape> shapes, final ShapeInfo shapeInfo, RenderController.ThreadMode mode) {
+	public ComponentObject addShapes(final Collection<Shape> shapes, final ShapeInfo shapeInfo, RenderController.ThreadMode mode) {
 		if (!running)
 			return null;
 
@@ -2465,18 +2512,14 @@ public class BaseController implements RenderController.TaskManager, RenderContr
      * Billboards are rectangles pointed toward the viewer.  They can either be upright, tied to a
      * surface, or oriented completely toward the user.
      */
-	public ComponentObject addBillboards(final List<Billboard> bills, final BillboardInfo info, final RenderController.ThreadMode threadMode) {
-		if (!running)
-			return null;
-
-		return renderControl.addBillboards(bills,info,threadMode);
+	public ComponentObject addBillboards(final Collection<Billboard> bills, final BillboardInfo info, final RenderController.ThreadMode threadMode) {
+		return running ? renderControl.addBillboards(bills,info,threadMode) : null;
 	}
 
 	/**
 	 * Returns the maximum line width on the current device.
 	 */
-	public float getMaxLineWidth()
-	{
+	public float getMaxLineWidth() {
 		setEGLContext(glContext);
 
 		float[] widths = new float[2];
@@ -2490,8 +2533,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 	/**
 	 * Return the frame size we're rendering to.
 	 */
-	public Point2d getFrameSize()
-	{
+	public Point2d getFrameSize() {
 		if (renderWrapper == null || renderWrapper.maplyRender == null) {
 			return null;
 		}
@@ -2503,8 +2545,7 @@ public class BaseController implements RenderController.TaskManager, RenderContr
 	/**
 	 * Return the current framebuffer size as ints.
 	 */
-	public int[] getFrameBufferSize()
-	{
+	public int[] getFrameBufferSize() {
 		return renderControl.getFrameBufferSize();
 	}
 

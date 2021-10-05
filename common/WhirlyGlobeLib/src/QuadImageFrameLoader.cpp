@@ -573,6 +573,11 @@ void QIFRenderState::updateScene(Scene *,
     // Useful if we're doing multi-stage rendering
     for (unsigned int focusID=0;focusID<curFrames.size();focusID++) {
         double curFrame = curFrames[focusID];
+      
+//      if (curFrame != curFrame) {
+//        continue;
+//      }
+      
         int activeFrames[2];
         activeFrames[0] = floor(curFrame);
         activeFrames[1] = ceil(curFrame);
@@ -1049,8 +1054,8 @@ void QuadImageFrameLoader::updateRenderState(ChangeSet &changes)
     // See if there's any loading happening
     bool allLoaded = true;
     for (const auto& it : tiles) {
-        auto tileID = it.first;
-        auto tile = it.second;
+        const auto &tileID = it.first;
+        const auto &tile = it.second;
         if (tileID.level == targetLevel && tile->anyFramesLoading(this)) {
             allLoaded = false;
             break;
@@ -1062,13 +1067,11 @@ void QuadImageFrameLoader::updateRenderState(ChangeSet &changes)
     if (curOvlLevel == -1) {
         curOvlLevel = targetLevel;
         if (debugMode)
-            wkLogLevel(Debug, "MaplyQuadImageLoader: Picking new overlay level %d, targetLevel = %d",curOvlLevel,targetLevel);
-    } else {
-        if (allLoaded) {
-            curOvlLevel = targetLevel;
-            if (debugMode)
-                wkLogLevel(Debug, "MaplyQuadImageLoader: Picking new overlay level %d, targetLevel = %d",curOvlLevel,targetLevel);
-        }
+            wkLogLevel(Debug, "MaplyQuadImageLoader: Picking new overlay level %d",curOvlLevel);
+    } else if (allLoaded && curOvlLevel != targetLevel) {
+        if (debugMode)
+            wkLogLevel(Debug, "MaplyQuadImageLoader: Picking new overlay level %d -> %d",curOvlLevel,targetLevel);
+        curOvlLevel = targetLevel;
     }
     
     // Work through the tiles, figuring out textures and objects
@@ -1144,7 +1147,7 @@ void QuadImageFrameLoader::updateRenderState(ChangeSet &changes)
                     }
                 }
             } else {
-                int newDrawPriority = baseDrawPriority + drawPriorityPerLevel * tileID.level;
+                const int newDrawPriority = baseDrawPriority + drawPriorityPerLevel * tileID.level;
                 for (int focusID = 0;focusID<getNumFocus();focusID++) {
                     for (const auto drawID : tile->getInstanceDrawIDs(focusID)) {
                         changes.push_back(new OnOffChangeRequest(drawID,false));
@@ -1359,7 +1362,6 @@ void QuadImageFrameLoader::builderLoad(PlatformThreadInfo *threadInfo,
         // Don't know about this one.  Punt
         if (it == tiles.end())
             continue;
-        auto &tile = it->second;
         
         // Clear out any associated data and remove it from our list
         removeTile(threadInfo,inTile, batchOps, changes);

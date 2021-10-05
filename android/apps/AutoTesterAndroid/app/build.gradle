@@ -19,6 +19,15 @@ android {
 
     }
     buildTypes {
+        devRelease {
+            minifyEnabled false
+            debuggable true
+            jniDebuggable true
+            renderscriptDebuggable false
+            signingConfig signingConfigs.debug
+            matchingFallbacks = ['release']
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), '../../../../library/maply/proguard-rules.pro'
+        }
         release {
             minifyEnabled false
             debuggable false
@@ -27,6 +36,7 @@ android {
         }
         debug {
             jniDebuggable true
+            signingConfig signingConfigs.debug
         }
     }
     ndkVersion '22.1.7171670'
