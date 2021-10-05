@@ -283,8 +283,6 @@ public class MapGestureHandler
 	{
 		private double scrollScale = 1.0;
 		private double momentumScale = 1.0;
-		MapController maplyControl;
-		MapView mapView;
 
 		public boolean isActive = false;
 		private Point2d startScreenPos = null;
