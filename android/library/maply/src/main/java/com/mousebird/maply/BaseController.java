@@ -36,6 +36,7 @@ import android.view.View;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
+import com.google.android.gms.security.ProviderInstaller;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -53,6 +54,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLContext;
 import javax.microedition.khronos.egl.EGLSurface;
+import javax.net.ssl.X509TrustManager;
 
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -171,7 +173,47 @@ public abstract class BaseController implements RenderController.TaskManager, Re
     public synchronized OkHttpClient getHttpClient()
 	{
 		if (httpClient == null) {
-			httpClient = new OkHttpClient();
+			//httpClient = new OkHttpClient();
+
+			OkHttpClient.Builder clientBuilder;
+			TLSSocketFactory socketFactory;
+			X509TrustManager manager;
+
+			if(Build.VERSION.SDK_INT <= 20)
+			{
+				try
+				{
+					//try to look for web protocol updates
+					ProviderInstaller.installIfNeeded(weakActivity.get());
+				}
+				catch(Exception ex)
+				{
+					//failed
+				}
+
+				//try to create TLS backwards compatibility
+				clientBuilder = new OkHttpClient.Builder();
+				try
+				{
+					socketFactory = new TLSSocketFactory();
+					manager = socketFactory.getTrustManager();
+
+					if(manager != null)
+					{
+						clientBuilder.sslSocketFactory(socketFactory, manager);
+					}
+				}
+				catch(Exception ex)
+				{
+					//do nothing
+				}
+
+				httpClient = clientBuilder.build();
+			}
+			else
+			{
+				httpClient = new OkHttpClient();
+			}
 
 			// This little dance lets the OKHttp client shutdown and then reject any random calls
 			// we may send its way
