@@ -128,14 +128,10 @@ public class TileFetchRequest implements Comparable<TileFetchRequest>
 
     @Override
     public int hashCode() {
-<<<<<<< HEAD
         if(Build.VERSION.SDK_INT >= 19)
-            return Objects.hash(priority, importance, group, tileSource, fetchInfo);
+            return Objects.hash(id, priority, importance, group, tileSource, fetchInfo);
         else
             return Arrays.hashCode(new Object[]{priority, importance, group, tileSource, fetchInfo});
-=======
-        return Objects.hash(id, priority, importance, group, tileSource, fetchInfo);
->>>>>>> 0b5ca7d2888d0dacbbc8b203a0750ac4d4712111
     }
 
     @NotNull
