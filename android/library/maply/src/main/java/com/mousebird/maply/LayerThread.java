@@ -28,6 +28,8 @@ import androidx.annotation.Nullable;
 import com.mousebirdconsulting.whirlyglobemaply.BuildConfig;
 
 import java.io.Closeable;
+import org.jetbrains.annotations.NotNull;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -91,6 +93,11 @@ public class LayerThread extends HandlerThread implements View.ViewWatcher
 		 * How long the layer can go without a viewUpdated() call.
 		 */
 		float getMaxLagTime();
+
+		/**
+		 * Some tiles were just removed
+		 */
+		void tilesUnloaded(@NotNull TileID[] ids);
 	}
 
 	// If set, this is a full layer thread.  If not, it just has the context
