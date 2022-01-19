@@ -246,14 +246,14 @@ std::tuple<int,QuadTreeNew::ImportantNodeSet> QuadTreeNew::calcCoverageVisible(
 {
     ImportantNodeSet sortedNodes;
 
-    // Start at the lowest level and work our way to higher resolution
-    ImportantNode node(0,0,0);
-    evalNodeImportance(node,minImportance,sortedNodes,maxRejectedImport);
-
     if (shutdown)
     {
         return {0,{}};
     }
+
+    // Start at the lowest level and work our way to higher resolution
+    ImportantNode node(0,0,0);
+    evalNodeImportance(node,minImportance,sortedNodes,maxRejectedImport);
 
     // Max level is the one we want to load (or try anyway)
     int targetLevel = -1;
