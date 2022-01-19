@@ -1,13 +1,12 @@
 package com.mousebirdconsulting.autotester.TestCases
 
-import okio.source
-import okio.buffer
 import android.app.Activity
 import com.mousebirdconsulting.autotester.Framework.MaplyTestCase
 import android.graphics.Color
 import android.util.Log
 import com.mousebird.maply.*
 import com.mousebird.maply.RenderControllerInterface.TextureSettings
+import okio.Okio
 import java.lang.Exception
 import java.util.ArrayList
 
@@ -53,7 +52,7 @@ class WideVectorsTestCase(activity: Activity?) :
 
         try {
             val stream = activity.assets.open("wide_vecs/$name")
-            VectorObject.createFromGeoJSON(stream.source().buffer().readUtf8())
+            VectorObject.createFromGeoJSON(Okio.buffer(Okio.source(stream)).readUtf8())
                     ?.subdivideToGlobeGreatCircle(0.0001)?.let {
                 return listOfNotNull(
                     baseController.addVector(it, vecInfo, ThreadMode.ThreadCurrent),
