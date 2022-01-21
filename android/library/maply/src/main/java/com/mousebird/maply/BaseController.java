@@ -313,6 +313,13 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 		return (wrap != null) ? wrap.renderThread : null;
 	}
 
+	/**
+	 * Return the detected renderer GPU type
+	 */
+	public byte getRenderGpuType()
+	{
+		return(renderGpuType);
+	}
 
 	/**
 	 * These are settings passed on construction.  We need these
@@ -441,7 +448,9 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 	}
 
 	ColorDrawable tempBackground = null;
-	
+
+	private byte renderGpuType = RenderGPUType.Unknown;
+
 	protected void Init()
 	{
 		if (!libraryLoaded)
@@ -1099,6 +1108,8 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 				egl.eglDestroyContext(renderControl.display, glContext.eglContext);
 				return;
 			}
+
+			renderGpuType = wrap.getRenderGpuType();
 
 			synchronized (layerThreads) {
 				for (LayerThread layerThread : layerThreads)

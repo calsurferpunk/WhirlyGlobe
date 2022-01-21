@@ -45,6 +45,7 @@ class RendererWrapper implements GLSurfaceView.Renderer, GLTextureView.Renderer
 	public Thread renderThread = null;
 
 	private boolean doScreenshot = false;
+	private byte renderGpuType = RenderGPUType.Unknown;
 	public BaseController.ScreenshotListener screenshotListener;
 
 	final protected WeakReference<RenderController> maplyRender;
@@ -76,6 +77,8 @@ class RendererWrapper implements GLSurfaceView.Renderer, GLTextureView.Renderer
 		{
 			return;
 		}
+
+		renderGpuType = getGPUType(gl);
 
 		// If the app shuts down the rendering right as the thread starts up, this can happen
 		if (valid) {
@@ -124,6 +127,7 @@ class RendererWrapper implements GLSurfaceView.Renderer, GLTextureView.Renderer
 				}
 			}
 		} finally {
+			renderGpuType = getGPUType(gl);
 			renderLock.release();
 		}
 	}
@@ -289,4 +293,34 @@ class RendererWrapper implements GLSurfaceView.Renderer, GLTextureView.Renderer
 		renderLock.release();
 	}
 
+	private byte getGPUType(GL10 gl)
+	{
+		String renderer;
+
+		if(gl != null)
+		{
+			renderer = gl.glGetString(GL10.GL_RENDERER);
+			renderer = (renderer == null ? "" : renderer.toLowerCase());
+
+			if(renderer.contains("mali"))
+			{
+				return(RenderGPUType.Mali);
+			}
+			else if(renderer.contains("powervr"))
+			{
+				return(RenderGPUType.PowerVr);
+			}
+			else if(renderer.contains("qualcomm"))
+			{
+				return(RenderGPUType.Qualcomm);
+			}
+		}
+
+		return(RenderGPUType.Unknown);
+	}
+
+	public byte getRenderGpuType()
+	{
+		return(renderGpuType);
+	}
 }
