@@ -18,6 +18,7 @@
 
 package com.mousebird.maply
 
+import android.annotation.SuppressLint
 import android.graphics.*
 import android.util.*
 import androidx.annotation.ColorInt
@@ -134,6 +135,7 @@ class MapboxVectorStyleSet : VectorStyleInterface {
     }
 
     // Return a label info
+    @SuppressLint("WrongConstant")
     @Suppress("unused") // called from JNI
     fun labelInfoForFont(fontName: String, fontSize: Float): LabelInfo {
         labelInfoMap[SizedTypeface(fontName, fontSize)]?.let { return it }
