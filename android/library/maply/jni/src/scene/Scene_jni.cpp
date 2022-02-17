@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 3/17/15.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -167,8 +167,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_Scene_changeRenderTarget(JNIEnv 
     {
         if (Scene *scene = SceneClassInfo::get(env,obj))
         {
-            ChangeSet changes = { new ChangeRenderTargetReq(renderTargetID, texID) };
-            scene->addChangeRequests(changes);
+            scene->addChangeRequest(new ChangeRenderTargetReq(renderTargetID, texID));
         }
     }
     MAPLY_STD_JNI_CATCH()
@@ -181,8 +180,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_Scene_removeRenderTargetNative(J
     {
         if (Scene *scene = SceneClassInfo::get(env,obj))
         {
-            ChangeSet changes = { new RemRenderTargetReq(targetID) };
-            scene->addChangeRequests(changes);
+            scene->addChangeRequest(new RemRenderTargetReq(targetID));
         }
     }
     MAPLY_STD_JNI_CATCH()

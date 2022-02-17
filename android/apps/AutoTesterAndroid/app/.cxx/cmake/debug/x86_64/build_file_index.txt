@@ -1,0 +1,4 @@
+/home/james/Downloads/WhirlyGlobe/android/library/maply/CMakeLists.txt
+/home/james/Downloads/WhirlyGlobe/android/library/maply/WhirlyGlobeLib/src/CMakeLists.txt
+/home/james/Downloads/WhirlyGlobe/android/library/maply/jni/CMakeLists.txt
+/home/james/Downloads/WhirlyGlobe/common/WhirlyGlobeLib/src/CMakeLists.txt

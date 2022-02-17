@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 6/2/14.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -57,6 +57,7 @@ void FontTextureManager_Android::FontManager_Android::teardown(PlatformThreadInf
 		((PlatformInfo_Android*)inst)->env->DeleteGlobalRef(typefaceObj);
 		typefaceObj = nullptr;
 	}
+	this->FontManager::teardown(inst);
 }
 
 FontTextureManager_Android::FontTextureManager_Android(PlatformThreadInfo *inst,
@@ -135,6 +136,10 @@ void FontTextureManager_Android::teardown(PlatformThreadInfo* threadInfo)
 	charRenderObj = nullptr;
 	renderMethodID = nullptr;
 	glyphClassRef = nullptr;
+
+	ChangeSet changes;
+	clear(changes);
+	discardChanges(changes);
 }
 
 std::unique_ptr<DrawableString> FontTextureManager_Android::addString(

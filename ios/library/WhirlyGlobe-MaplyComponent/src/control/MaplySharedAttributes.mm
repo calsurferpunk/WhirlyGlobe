@@ -2,7 +2,7 @@
  *  WhirlyGlobe-MaplyComponent
  *
  *  Created by Ranen Ghosh on 2/24/16.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -368,4 +368,7 @@ NSString* const kMaplyScreenSpaceDefaultProgram = @"Default Screenspace";
 NSString* const kMaplyScreenSpaceMaskProgram = @"Screenspace mask";
 NSString* const kMaplyScreenSpaceExpProgram = @"Screenspace with expressions";
 
-NSString* const kMaplyShaderParticleSystemPointDefault = @"Default Part Sys (Point)";
+NSString * const kMaplyAtmosphereProgram = @"Default Atmosphere";
+NSString * const kMaplyAtmosphereGroundProgram = @"Default Atmosphere Ground";
+
+NSString * const kMaplyShaderParticleSystemPointDefault = @"Default Part Sys (Point)";

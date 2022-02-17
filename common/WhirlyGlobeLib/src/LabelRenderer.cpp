@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 4/11/13.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -222,7 +222,10 @@ void LabelRenderer::render(PlatformThreadInfo *threadInfo,
             if (labelInfo->fadeIn > 0.0)
                 screenShape->setFade(curTime+labelInfo->fadeIn, curTime);
             else if (labelInfo->fadeOutTime != 0.0)
-                screenShape->setFade(labelInfo->fadeOutTime, labelInfo->fadeOutTime+labelInfo->fadeOut);
+            {
+                // up<down=fade out
+                screenShape->setFade(/*up=*/labelInfo->fadeOutTime, /*down=*/labelInfo->fadeOutTime+labelInfo->fadeOut);
+            }
             if (label->isSelectable && label->selectID != EmptyIdentity)
                 screenShape->setId(label->selectID);
             screenShape->setWorldLoc(coordAdapter->localToDisplay(coordAdapter->getCoordSystem()->geographicToLocal3d(label->loc)));

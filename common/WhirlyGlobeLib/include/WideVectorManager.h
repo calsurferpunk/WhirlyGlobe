@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 4/29/14.
- *  Copyright 2011-2020 mousebird consulting.
+ *  Copyright 2011-2022 mousebird consulting.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ typedef std::shared_ptr<WideVectorInfo> WideVectorInfoRef;
 struct WideVectorSceneRep : public Identifiable
 {
     WideVectorSceneRep() = default;
-    WideVectorSceneRep(SimpleIdentity inId) : Identifiable(inId), fade(0.0) {
+    WideVectorSceneRep(SimpleIdentity inId) : Identifiable(inId), fadeOut(0.0) {
     }
     ~WideVectorSceneRep() = default;
     
@@ -95,7 +95,7 @@ struct WideVectorSceneRep : public Identifiable
     
     SimpleIDSet drawIDs;
     SimpleIDSet instIDs;    // Instances if we're doing that
-    float fade = 0.0f;
+    float fadeOut = 0.0f;
 };
 
 typedef std::set<WideVectorSceneRep *,IdentifiableSorter> WideVectorSceneRepSet;

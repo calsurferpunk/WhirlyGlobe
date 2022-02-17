@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 2/15/19.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -82,7 +82,6 @@ void ComponentManager::setScene(Scene *scene)
     loftManager       = scene ? scene->getManager<LoftManager>(kWKLoftedPolyManager) : nullptr;
     billManager       = scene ? scene->getManager<BillboardManager>(kWKBillboardManager) : nullptr;
     geomManager       = scene ? scene->getManager<GeometryManager>(kWKGeometryManager) : nullptr;
-    fontTexManager    = scene ? scene->getFontTextureManager() : nullptr;
     partSysManager    = scene ? scene->getManager<ParticleSystemManager>(kWKParticleSystemManager) : nullptr;
 }
 
@@ -207,7 +206,7 @@ void ComponentManager::removeComponentObjects(PlatformThreadInfo *threadInfo,
                                               ChangeSet &changes,
                                               __unused bool disposeAfterRemoval)    // used by platform override
 {
-    if (compIDs.empty())
+    if (compIDs.empty() || !scene)
         return;
     
     std::vector<ComponentObjectRef> compRefs;
@@ -242,13 +241,16 @@ void ComponentManager::removeComponentObjects(PlatformThreadInfo *threadInfo,
             geomManager->removeGeometry(compObj->geomIDs, changes);
         if (!compObj->drawStringIDs.empty())
         {
-            // Giving the fonts 2s to stick around
-            //       This avoids problems with texture being paged out.
-            //       Without this we lose the textures before we're done with them
-            const TimeInterval when = scene->getCurrentTime() + 2.0;
-            for (SimpleIdentity dStrID : compObj->drawStringIDs)
+            if (const auto ftm = scene ? scene->getFontTextureManager() : nullptr)
             {
-                fontTexManager->removeString(threadInfo, dStrID, changes, when);
+                // Giving the fonts 2s to stick around
+                //       This avoids problems with texture being paged out.
+                //       Without this we lose the textures before we're done with them
+                const TimeInterval when = scene->getCurrentTime() + 2.0;
+                for (SimpleIdentity dStrID : compObj->drawStringIDs)
+                {
+                    ftm->removeString(threadInfo, dStrID, changes, when);
+                }
             }
         }
         for (const auto partSysID : compObj->partSysIDs)

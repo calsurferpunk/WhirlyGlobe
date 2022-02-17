@@ -2,7 +2,7 @@
  *  WhirlyGlobeComponent
  *
  *  Created by Steve Gifford on 7/21/12.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,7 +18,17 @@
 
 #import <WhirlyGlobe_iOS.h>
 #import "control/WhirlyGlobeViewController.h"
-#import "WhirlyGlobeViewController_private.h"
+#import "private/WhirlyGlobeViewController_private.h"
+#import "private/GlobeDoubleTapDelegate_private.h"
+#import "private/GlobeDoubleTapDragDelegate_private.h"
+#import "private/GlobePanDelegate_private.h"
+#import "private/GlobePinchDelegate_private.h"
+#import "private/GlobeRotateDelegate_private.h"
+#import "private/GlobeTapDelegate_private.h"
+#import "private/GlobeTiltDelegate_private.h"
+#import "private/GlobeTwoFingerTapDelegate_private.h"
+#import "gestures/GlobeTapMessage.h"
+#import "private/GlobeTapMessage_private.h"
 
 using namespace Eigen;
 using namespace WhirlyKit;
@@ -403,6 +413,7 @@ struct WhirlyGlobeViewWrapper : public WhirlyGlobe::GlobeViewAnimationDelegate, 
     return pinchDelegate != nil;
 }
 
+
 - (void)setRotateGesture:(bool)rotateGesture
 {
     if (rotateGesture)
@@ -577,6 +588,11 @@ struct WhirlyGlobeViewWrapper : public WhirlyGlobe::GlobeViewAnimationDelegate, 
 - (void)setFarClipPlane:(double)farClipPlane
 {
     globeView->setFarClippingPlane(farClipPlane);
+}
+
+- (double)getMaxHeightAboveGlobe
+{
+    return globeView->maxHeightAboveGlobe();
 }
 
 - (void)setTiltMinHeight:(float)minHeight maxHeight:(float)maxHeight minTilt:(float)minTilt maxTilt:(float)maxTilt
@@ -1175,12 +1191,16 @@ struct WhirlyGlobeViewWrapper : public WhirlyGlobe::GlobeViewAnimationDelegate, 
 {
     if (!renderControl)
         return;
-    
-    Point2f screenCorners[4];
-    screenCorners[0] = Point2f(0.0, 0.0);
-    screenCorners[1] = Point2f(renderControl->sceneRenderer->framebufferWidth,0.0);
-    screenCorners[2] = Point2f(renderControl->sceneRenderer->framebufferWidth,renderControl->sceneRenderer->framebufferHeight);
-    screenCorners[3] = Point2f(0.0, renderControl->sceneRenderer->framebufferHeight);
+
+    const Point2f frameSize = renderControl->sceneRenderer->getFramebufferSize();
+    const Point2f frameSizeScaled = renderControl->sceneRenderer->getFramebufferSizeScaled();
+
+    const Point2f screenCorners[4] = {
+        Point2f(0.0, 0.0),
+        Point2f(frameSize.x(),0.0),
+        frameSize,
+        Point2f(0.0, frameSize.y()),
+    };
     
     Eigen::Matrix4d modelTrans;
     Eigen::Affine3d trans(Eigen::Translation3d(0,0,-globeView->calcEarthZOffset()));
@@ -1189,7 +1209,6 @@ struct WhirlyGlobeViewWrapper : public WhirlyGlobe::GlobeViewAnimationDelegate, 
     
     modelTrans = viewMat * modelMat;
 
-    auto frameSizeScaled = renderControl->sceneRenderer->getFramebufferSizeScaled();
     for (unsigned int ii=0;ii<4;ii++)
     {
         Point3d hit;
@@ -1523,51 +1542,62 @@ struct WhirlyGlobeViewWrapper : public WhirlyGlobe::GlobeViewAnimationDelegate, 
 - (CGPoint)pointOnScreenFromGeo:(MaplyCoordinate)geoCoord globeView:(GlobeView *)theView
 {
     if (!renderControl)
-        return CGPointMake(0.0, 0.0);
-    
+    {
+        return CGPointZero;
+    }
+
+    const Point2f frameSizeScaled = renderControl->sceneRenderer->getFramebufferSizeScaled();
+    if (frameSizeScaled.x() <= 0 || frameSizeScaled.y() <= 0)
+    {
+        // Called too early, wait until we're set up
+        return CGPointZero;
+    }
+
     Point3d pt = theView->coordAdapter->localToDisplay(theView->coordAdapter->getCoordSystem()->geographicToLocal3d(GeoCoord(geoCoord.x,geoCoord.y)));
     
     Eigen::Matrix4d modelTrans = theView->calcFullMatrix();
     
-    auto screenPt = theView->pointOnScreenFromSphere(pt, &modelTrans, renderControl->sceneRenderer->getFramebufferSizeScaled());
+    auto screenPt = theView->pointOnScreenFromSphere(pt, &modelTrans, frameSizeScaled);
     return CGPointMake(screenPt.x(),screenPt.y());
 }
 
 - (CGPoint)screenPointFromGeo:(MaplyCoordinate)geoCoord
 {
 	CGPoint p;
-
-	if (![self screenPointFromGeo:geoCoord screenPt:&p]) {
-		return CGPointZero;
-	}
-
-	return p;
+	return [self screenPointFromGeo:geoCoord screenPt:&p] ? p : CGPointZero;
 }
 
 - (bool)screenPointFromGeo:(MaplyCoordinate)geoCoord screenPt:(CGPoint *)screenPt
 {
     if (!renderControl)
+    {
         return false;
-    
-    Point3d pt = renderControl->visualView->coordAdapter->localToDisplay(renderControl->visualView->coordAdapter->getCoordSystem()->geographicToLocal3d(GeoCoord(geoCoord.x,geoCoord.y)));
-    Point3f pt3f(pt.x(),pt.y(),pt.z());
-    
-    Eigen::Matrix4d modelTrans4d = renderControl->visualView->calcModelMatrix();
-    Eigen::Matrix4d viewTrans4d = renderControl->visualView->calcViewMatrix();
-    Eigen::Matrix4d modelAndViewMat4d = viewTrans4d * modelTrans4d;
-    Eigen::Matrix4f modelAndViewMat = Matrix4dToMatrix4f(modelAndViewMat4d);
-    Eigen::Matrix4f modelAndViewNormalMat = modelAndViewMat.inverse().transpose();
+    }
 
-    if (CheckPointAndNormFacing(pt3f,pt3f.normalized(),modelAndViewMat,modelAndViewNormalMat) < 0.0)
+    const auto adapter = renderControl->visualView->coordAdapter;
+    const Point3d localPt = adapter->getCoordSystem()->geographicToLocal3d(GeoCoord(geoCoord.x,geoCoord.y));
+    const Point3d displayPt = adapter->localToDisplay(localPt);
+    const Point3f displayPtf = displayPt.cast<float>();
+    
+    const Eigen::Matrix4d modelTrans4d = renderControl->visualView->calcModelMatrix();
+    const Eigen::Matrix4d viewTrans4d = renderControl->visualView->calcViewMatrix();
+    const Eigen::Matrix4d modelAndViewMat4d = viewTrans4d * modelTrans4d;
+    const Eigen::Matrix4f modelAndViewMat = Matrix4dToMatrix4f(modelAndViewMat4d);
+    const Eigen::Matrix4f modelAndViewNormalMat = modelAndViewMat.inverse().transpose();
+
+    if (CheckPointAndNormFacing(displayPtf,displayPtf.normalized(),modelAndViewMat,modelAndViewNormalMat) < 0.0)
+    {
         return false;
+    }
     
-    auto screenPt2f = globeView->pointOnScreenFromSphere(pt, &modelAndViewMat4d, renderControl->sceneRenderer->getFramebufferSizeScaled());
-    screenPt->x = screenPt2f.x();  screenPt->y = screenPt2f.y();
-    
-    if (screenPt->x < 0 || screenPt->y < 0 || screenPt->x > renderControl->sceneRenderer->framebufferWidth || screenPt->y > renderControl->sceneRenderer->framebufferHeight)
-        return false;
-    
-    return true;
+    const Point2f frameSizeScaled = renderControl->sceneRenderer->getFramebufferSizeScaled();
+
+    auto screenPt2f = globeView->pointOnScreenFromSphere(displayPt, &modelAndViewMat4d, frameSizeScaled);
+    *screenPt = CGPointMake(screenPt2f.x(), screenPt2f.y());
+
+    return (screenPt->x >= 0 && screenPt->y >= 0 &&
+            screenPt->x < frameSizeScaled.x() &&
+            screenPt->y < frameSizeScaled.y());
 }
 
 - (bool)geoPointFromScreen:(CGPoint)screenPt geoCoord:(MaplyCoordinate *)retCoord
@@ -1961,16 +1991,19 @@ static const float FullExtentEps = 1e-5;
     if (!renderControl)
         return 0;
     
-    float extentEps = visualBoxes ? FullExtentEps : 0.0;
+    const float extentEps = visualBoxes ? FullExtentEps : 0.0;
     
-    Point2f screenCorners[4];
-    screenCorners[0] = Point2f(0.0, 0.0);
-    screenCorners[1] = Point2f(renderControl->sceneRenderer->framebufferWidth,0.0);
-    screenCorners[2] = Point2f(renderControl->sceneRenderer->framebufferWidth,renderControl->sceneRenderer->framebufferHeight);
-    screenCorners[3] = Point2f(0.0, renderControl->sceneRenderer->framebufferHeight);
+    const Point2f frameSize = renderControl->sceneRenderer->getFramebufferSize();
+    const Point2f frameSizeScaled = renderControl->sceneRenderer->getFramebufferSizeScaled();
+
+    const Point2f screenCorners[4] = {
+        { 0.0, 0.0 },
+        { frameSize.x(), 0.0 },
+        frameSize,
+        { 0.0, frameSize.y() },
+    };
     
-    Eigen::Matrix4d modelTrans = globeView->calcFullMatrix();
-    auto frameSizeScaled = renderControl->sceneRenderer->getFramebufferSizeScaled();
+    const Eigen::Matrix4d modelTrans = globeView->calcFullMatrix();
 
     Point3d corners[4];
     bool cornerValid[4];
@@ -2159,11 +2192,9 @@ static const float FullExtentEps = 1e-5;
             }
         } else {
             // Check the poles
-            Point3d poles[2];
-            poles[0] = Point3d(0,0,1);
-            poles[1] = Point3d(0,0,-1);
+            const Point3d poles[2] = { { 0, 0, 1 }, { 0, 0, -1 } };
             
-            Eigen::Matrix4d modelAndViewNormalMat = modelTrans.inverse().transpose();
+            const Eigen::Matrix4d modelAndViewNormalMat = modelTrans.inverse().transpose();
             
             for (unsigned int ii=0;ii<2;ii++)
             {
@@ -2171,10 +2202,14 @@ static const float FullExtentEps = 1e-5;
                 if (CheckPointAndNormFacing(pt,pt.normalized(),modelTrans,modelAndViewNormalMat) < 0.0)
                     continue;
                 
-                Point2f screenPt = globeView->pointOnScreenFromSphere(pt, &modelTrans, frameSizeScaled);
+                const Point2f screenPt = globeView->pointOnScreenFromSphere(pt, &modelTrans, frameSizeScaled);
+                const Point2f frameSize = renderControl->sceneRenderer->getFramebufferSizeScaled();
             
-                if (screenPt.x() < 0 || screenPt.y() < 0 || screenPt.x() > renderControl->sceneRenderer->framebufferWidth || screenPt.y() > renderControl->sceneRenderer->framebufferHeight)
+                if (screenPt.x() < 0 || screenPt.y() < 0 ||
+                    screenPt.x() > frameSize.x() || screenPt.y() > frameSize.y())
+                {
                     continue;
+                }
 
                 // Include the pole and just do the whole area
                 switch (ii)

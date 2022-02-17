@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 6/2/14.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -415,7 +415,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_renderToBitmapN
 
 		// Copy the data
 		void* bitmapPixels = nullptr;
-		if (AndroidBitmap_lockPixels(env, bitmapObj, &bitmapPixels) < 0) {
+		if (AndroidBitmap_lockPixels(env, bitmapObj, &bitmapPixels) != ANDROID_BITMAP_RESULT_SUCCESS) {
 			wkLogLevel(Warn,"Failed to snapshot in RenderController:renderToBitmapNative() because of lockPixels.");
 			return;
 		}
@@ -427,21 +427,15 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_renderToBitmapN
 			auto *bt = (unsigned *) bitmapPixels;
 			for (int i = 0, k = 0; i < height; i++, k++)
 			{
-				//for (int j = 0; j < width; j++)
-				//{
-				//	bt[(height - k - 1) * width + j] = b[i * width + j];
-				//}
 				memcpy(&bt[(height - k - 1) * width], &b[i * width], width * 4);
 			}
-//			memmove(bitmapPixels,snapshot->data->getRawData(),snapshot->data->getLen());
-
-			AndroidBitmap_unlockPixels(env, bitmapObj);
 		}
 		catch (...)
 		{
 			AndroidBitmap_unlockPixels(env, bitmapObj);
 			throw;
 		}
+		AndroidBitmap_unlockPixels(env, bitmapObj);
 	}
 	catch (...)
 	{

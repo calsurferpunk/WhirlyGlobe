@@ -3,20 +3,17 @@
 //  AutoTester
 //
 //  Created by jmnavarro on 29/10/15.
-//  Copyright © 2015-2017 mousebird consulting.
+//  Copyright 2015-2022 mousebird consulting.
 //
 
 #import "VectorsTestCase.h"
-#import "MaplyBaseViewController.h"
+#import "SwiftBridge.h"
+
 #include <stdlib.h>
-#import "MaplyViewController.h"
-#import "WhirlyGlobeViewController.h"
-#import "AutoTester-Swift.h"
 
 @interface VectorsTestCase()
 
 @property (strong, nonatomic) MaplyVectorObject * selectedCountry;
-
 @end
 
 @implementation VectorsTestCase
@@ -43,6 +40,7 @@
         kMaplyFade: @(0.2),
     };
     NSDictionary *wideDict = @{
+        kMaplyWideVecImpl: kMaplyWideVecImplPerf,
         kMaplyDrawPriority: @(kMaplyVectorDrawPriorityDefault),
         kMaplyVecCloseAreals: @(false),
         kMaplyColor: [UIColor whiteColor],
@@ -102,21 +100,34 @@
 	[self overlayCountries:(MaplyBaseViewController*)mapVC];
 }
 
-- (void) handleSelection:(MaplyBaseViewController *)viewC
-				selected:(NSObject *)selectedObj
-{
-	// ensure it's a MaplyVectorObject. It should be one of our outlines.
-	if ([selectedObj isKindOfClass:[MaplyVectorObject class]]) {
-		MaplyVectorObject *theVector = (MaplyVectorObject *)selectedObj;
-		MaplyCoordinate location;
-		
-		if ([theVector centroid:&location]) {
-			MaplyAnnotation *annotate = [[MaplyAnnotation alloc]init];
-			annotate.title = @"Selected";
-			annotate.subTitle = (NSString *)theVector.attributes[@"title"];
-			[viewC addAnnotation:annotate forPoint:location offset:CGPointZero];
-		}
-	}
+- (void)handleSelection:(NSArray<NSObject *>*)selectedObjs
+                  atLoc:(MaplyCoordinate)coord
+               onScreen:(CGPoint)screenPt {
+    [self.baseViewController clearAnnotations];
+    
+    CGPoint offset = CGPointMake(0,0);
+    for (__strong NSObject* obj in selectedObjs) {
+        if ([obj isKindOfClass:[MaplySelectedObject class]]) {
+            obj = ((MaplySelectedObject *)obj).selectedObj;
+        }
+        // ensure it's a MaplyVectorObject. It should be one of our outlines.
+        if ([obj isKindOfClass:[MaplyVectorObject class]]) {
+            MaplyVectorObject *theVector = (MaplyVectorObject *)obj;
+
+            MaplyCoordinate location;
+            if (![theVector centroid:&location]) {
+                location = theVector.center;
+            }
+
+            MaplyAnnotation *annotate = [[MaplyAnnotation alloc]init];
+            annotate.title = [NSString stringWithFormat:@"Selected (at x=%.0f y=%.0f)", screenPt.x, screenPt.y];;
+            annotate.subTitle = (NSString *)theVector.attributes[@"title"];
+            [self.baseViewController addAnnotation:annotate
+                                          forPoint:location
+                                            offset:offset];
+            offset.x += 10;
+        }
+    }
 }
 
 - (void) stop

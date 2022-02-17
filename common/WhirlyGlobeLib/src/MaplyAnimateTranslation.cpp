@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 1/20/12.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -24,7 +24,11 @@ using namespace Eigen;
 
 namespace Maply {
     
-bool MaplyGestureWithinBounds(const Point2dVector &bounds,const Point3d &loc,SceneRenderer *sceneRender,MapView *testMapView,Point3d *newCenter)
+bool MaplyGestureWithinBounds(const Point2dVector &bounds,
+                              const Point3d &loc,
+                              SceneRenderer *sceneRender,
+                              MapView *testMapView,
+                              Point3d *newCenter)
 {
     if (newCenter)
         *newCenter = loc;
@@ -33,15 +37,16 @@ bool MaplyGestureWithinBounds(const Point2dVector &bounds,const Point3d &loc,Sce
         return true;
     
     // The corners of the view should be within the bounds
-    Point2f corners[4];
-    corners[0] = Point2f(0,0);
-    corners[1] = Point2f(sceneRender->framebufferWidth, 0.0);
-    corners[2] = Point2f(sceneRender->framebufferWidth, sceneRender->framebufferHeight);
-    corners[3] = Point2f(0.0, sceneRender->framebufferHeight);
-    
+    Point2f frameSize = sceneRender->getFramebufferSize();
+    const Point2f corners[4] = {
+        { 0, 0 },
+        { frameSize.x(), 0.0 },
+        frameSize,
+        { 0.0, frameSize.y() },
+    };
+
     bool isValid = false;
     Point2d locOffset(0,0);
-    Point2f frameSize(sceneRender->framebufferWidth,sceneRender->framebufferHeight);
     for (unsigned tests=0;tests<4;tests++)
     {
         Point3d newLoc = loc+Point3d(locOffset.x(),locOffset.y(),0.0);

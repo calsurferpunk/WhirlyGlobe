@@ -3,7 +3,7 @@
  *  MaplyComponent
  *
  *  Created by Steve Gifford on 12/14/12.
- *  Copyright 2012-2021 mousebird consulting
+ *  Copyright 2012-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -2065,7 +2065,6 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
 
     iosDictionary dictWrap(inDesc);
     ShapeInfo shapeInfo(dictWrap);
-    shapeInfo.insideOut = false;
     [self resolveInfoDefaults:inDesc info:&shapeInfo defaultShader:kMaplyDefaultTriangleShader];
     [self resolveDrawPriority:inDesc info:&shapeInfo drawPriority:kMaplyShapeDrawPriorityDefault offset:0];
 
@@ -2319,13 +2318,16 @@ typedef std::set<GeomModelInstances *,struct GeomModelInstancesCmp> GeomModelIns
     if (geomManager)
     {
         // Regular geometry instances
-        for (auto it : instSort)
+        for (const auto &it : instSort)
         {
             // Set up the textures and convert the geometry
-            MaplyGeomModel *model = it->model;
+            const MaplyGeomModel *model = it->model;
             
             // Return an existing base model or make a new one
-            SimpleIdentity baseModelID = [model getBaseModel:self fontTexManager:fontTexManager compObj:compObj mode:threadMode];
+            const SimpleIdentity baseModelID = [model getBaseModel:self
+                                                    fontTexManager:fontTexManager
+                                                           compObj:compObj
+                                                              mode:threadMode];
             
             // Reference count the textures for this comp obj
             compObj->contents->texs.insert(model->maplyTextures.begin(),model->maplyTextures.end());
@@ -2334,19 +2336,18 @@ typedef std::set<GeomModelInstances *,struct GeomModelInstancesCmp> GeomModelIns
             {
                 // Convert the instances
                 std::vector<GeometryInstance> matInst;
+                matInst.reserve(it->instances.size());
                 for (unsigned int ii=0;ii<it->instances.size();ii++)
                 {
                     MaplyGeomModelInstance *modelInst = it->instances[ii];
-                    Matrix4d localMat = localMat.Identity();
 
                     // Local transformation, before the placement
-                    if (modelInst.transform)
-                        localMat = modelInst.transform.mat;
+                    Matrix4d localMat = modelInst.transform ? modelInst.transform.mat : localMat.Identity();
                     
                     // Add in the placement
-                    Point3d localPt = coordSys->geographicToLocal(Point2d(modelInst.center.x,modelInst.center.y));
-                    Point3d dispLoc = coordAdapter->localToDisplay(Point3d(localPt.x(),localPt.y(),modelInst.center.z));
-                    Point3d norm = coordAdapter->normalForLocal(localPt);
+                    const Point3d localPt = coordSys->geographicToLocal(Point2d(modelInst.center.x,modelInst.center.y));
+                    const Point3d dispLoc = coordAdapter->localToDisplay(Point3d(localPt.x(),localPt.y(),modelInst.center.z));
+                    const Point3d norm = coordAdapter->normalForLocal(localPt);
                                         
                     // Construct a set of axes to build the shape around
                     Point3d xAxis,yAxis;
@@ -3631,11 +3632,6 @@ typedef std::set<GeomModelInstances *,struct GeomModelInstancesCmp> GeomModelIns
 
 // Search for a point inside any of our vector objects
 // Runs in layer thread
-- (NSArray *)findVectorsInPoint:(Point2f)pt
-{
-    return [self findVectorsInPoint:pt inView:nil multi:true];
-}
-
 - (NSArray *)findVectorsInPoint:(Point2f)pt inView:(MaplyBaseViewController *)vc multi:(bool)multi
 {
     if (!layerThread || !vc || !vc->renderControl)
@@ -3664,7 +3660,55 @@ typedef std::set<GeomModelInstances *,struct GeomModelInstancesCmp> GeomModelIns
 
 - (NSObject*)selectLabelsAndMarkerForScreenPoint:(CGPoint)screenPoint
 {
-    return nil;
+    return [[self selectMultipleLabelsAndMarkersForScreenPoint:screenPoint] firstObject];
+}
+
+- (NSMutableArray*)selectMultipleLabelsAndMarkersForScreenPoint:(CGPoint)screenPoint
+{
+    NSMutableArray *retSelectArr = [NSMutableArray array];
+    return retSelectArr;
+}
+
+- (NSMutableArray*__nullable)convertSelectedObjects:(const std::vector<WhirlyKit::SelectionManager::SelectedObject> &)selectedObjs
+{
+    NSMutableArray *retSelectArr = [NSMutableArray array];
+    // Work through the objects the manager found, creating entries for each
+    for (unsigned int ii = 0; ii < selectedObjs.size(); ii++)
+    {
+        const SelectionManager::SelectedObject &theSelObj = selectedObjs[ii];
+
+        for (auto selectID : theSelObj.selectIDs)
+        {
+            MaplySelectedObject *selObj = [[MaplySelectedObject alloc] init];
+            selObj.selectedObj = compManager->getSelectObject(selectID);
+
+            selObj.screenDist = theSelObj.screenDist;
+            selObj.cluster = theSelObj.isCluster;
+            selObj.zDist = theSelObj.distIn3D;
+
+            if (selObj.selectedObj)
+                [retSelectArr addObject:selObj];
+        }
+    }
+
+    return retSelectArr;
+}
+
+- (NSMutableArray*)convertSelectedVecObjects:(NSArray<MaplyVectorObject *>*)vecObjs
+{
+    NSMutableArray *retSelectArr = [NSMutableArray array];
+
+    for (MaplyVectorObject *vecObj in vecObjs)
+    {
+        MaplySelectedObject *selObj = [[MaplySelectedObject alloc] init];
+        selObj.selectedObj = vecObj;
+        selObj.screenDist = 0.0;
+        // Note: Not quite right
+        selObj.zDist = 0.0;
+        [retSelectArr addObject:selObj];
+    }
+    
+    return retSelectArr;
 }
 
 - (void)dumpStats

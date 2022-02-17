@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/16/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -359,6 +359,14 @@ struct ProjVertexTriB {
     float4 color;
     float2 texCoord0;
     float2 texCoord1;
+};
+
+struct ProjVertexTriNightDay {
+    float4 position [[invariant]] [[position]];
+    float4 color;
+    float2 texCoord0;
+    float2 texCoord1;
+    float ndotl;
 };
 
 /**

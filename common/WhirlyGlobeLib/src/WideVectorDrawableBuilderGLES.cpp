@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/14/19.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
  *  limitations under the License.
  */
 
-#import <WhirlyGlobe.h>
+#import <WhirlyGlobeLib.h>
 #import <WideVectorDrawableBuilderGLES.h>
 #import <WhirlyKitLog.h>
 
@@ -35,11 +35,12 @@ void WideVectorTweakerGLES::tweakForFrame(Drawable *inDraw,RendererFrameInfo *fr
         return;
     }
 
-    const double frameSize = std::min(frameInfo->sceneRenderer->framebufferWidth, frameInfo->sceneRenderer->framebufferHeight);
+    const Point2f frameSize = frameInfo->sceneRenderer->getFramebufferSize();
+    const double frameSpan = std::min(frameSize.x(), frameSize.y());
     const double screenSize = std::min(frameInfo->screenSizeInDisplayCoords.x(), frameInfo->screenSizeInDisplayCoords.y());
     const double screenWidth = frameInfo->screenSizeInDisplayCoords.x();
-    const double pixDispScale = screenSize / frameSize;
-    const double texScale = frameSize / (screenWidth * texRepeat);
+    const double pixDispScale = screenSize / frameSpan;
+    const double texScale = frameSpan / (screenWidth * texRepeat);
     const float zoom = (opacityExp || colorExp || widthExp) ? getZoom(*inDraw,*frameInfo->scene,0.0f) : 0.0f;
 
     Vector4f c = colorExp ? colorExp->evaluateF(zoom,color) : color.asRGBAVecF();

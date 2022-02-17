@@ -2,7 +2,7 @@
  *  MaplyComponent
  *
  *  Created by Steve Gifford on 9/6/12.
- *  Copyright 2012-2021 mousebird consulting
+ *  Copyright 2012-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,12 +18,22 @@
 
 #import <WhirlyGlobe_iOS.h>
 #import "MaplyViewController.h"
-#import "MaplyViewController_private.h"
-#import "MaplyInteractionLayer_private.h"
-#import "MaplyCoordinateSystem_private.h"
-#import "MaplyAnnotation_private.h"
 #import "MaplyAnimateTranslateMomentum.h"
 #import "GlobeView_iOS.h"
+#import "private/MaplyViewController_private.h"
+#import "private/MaplyInteractionLayer_private.h"
+#import "private/MaplyCoordinateSystem_private.h"
+#import "private/MaplyAnnotation_private.h"
+#import "private/MaplyDoubleTapDelegate_private.h"
+#import "private/MaplyDoubleTapDragDelegate_private.h"
+#import "private/MaplyPanDelegate_private.h"
+#import "private/MaplyPinchDelegate_private.h"
+#import "private/MaplyRotateDelegate_private.h"
+#import "private/MaplyTapDelegate_private.h"
+#import "private/MaplyTapMessage_private.h"
+#import "private/MaplyTouchCancelAnimationDelegate_private.h"
+#import "private/MaplyTwoFingerTapDelegate_private.h"
+#import "private/MaplyZoomGestureDelegate_private.h"
 
 using namespace Eigen;
 using namespace WhirlyKit;
@@ -958,12 +968,13 @@ struct MaplyViewControllerAnimationWrapper : public Maply::MapViewAnimationDeleg
 }
 
 // Bounds check on a single point
-- (bool)withinBounds:(Point3d &)loc view:(UIView *)view renderer:(SceneRenderer *)sceneRender mapView:(Maply::MapView *)testMapView newCenter:(Point3d *)newCenter
+- (bool)withinBounds:(const Point3d &)loc
+                view:(UIView *)view
+            renderer:(SceneRenderer *)sceneRender
+             mapView:(Maply::MapView *)testMapView
+           newCenter:(Point3d *)newCenter
 {
-    if (bounds.empty())
-        return true;
-    
-    return MaplyGestureWithinBounds(bounds,loc,sceneRender,testMapView,newCenter);
+    return bounds.empty() || MaplyGestureWithinBounds(bounds,loc,sceneRender,testMapView,newCenter);
 }
 
 // External facing set position
@@ -1248,13 +1259,16 @@ struct MaplyViewControllerAnimationWrapper : public Maply::MapViewAnimationDeleg
 - (CGPoint)screenPointFromGeo:(MaplyCoordinate)geoCoord mapView:(Maply::MapView *)theView
 {
     if (!renderControl)
-        return CGPointMake(0.0, 0.0);
-    
-    Point3d pt = theView->coordAdapter->localToDisplay(theView->coordAdapter->getCoordSystem()->geographicToLocal3d(GeoCoord(geoCoord.x,geoCoord.y)));
-    
-    Eigen::Matrix4d modelTrans = theView->calcFullMatrix();
-    auto frameSizeScaled = renderControl->sceneRenderer->getFramebufferSizeScaled();
-    Point2f screenPt = theView->pointOnScreenFromPlane(pt, &modelTrans, frameSizeScaled);
+    {
+        return CGPointZero;
+    }
+
+    const auto adapter = theView->coordAdapter;
+    const Point3d localPt = adapter->getCoordSystem()->geographicToLocal3d(GeoCoord(geoCoord.x,geoCoord.y));
+    const Point3d displayPt = adapter->localToDisplay(localPt);
+    const Eigen::Matrix4d modelTrans = theView->calcFullMatrix();
+    const Point2f frameSizeScaled = renderControl->sceneRenderer->getFramebufferSizeScaled();
+    const Point2f screenPt = theView->pointOnScreenFromPlane(displayPt, &modelTrans, frameSizeScaled);
     return CGPointMake(screenPt.x(),screenPt.y());
 }
 
@@ -1629,11 +1643,13 @@ struct MaplyViewControllerAnimationWrapper : public Maply::MapViewAnimationDeleg
     if (!renderControl)
         return;
     
-    CGPoint screenCorners[4];
-    screenCorners[0] = CGPointMake(0.0, 0.0);
-    screenCorners[1] = CGPointMake(renderControl->sceneRenderer->framebufferWidth,0.0);
-    screenCorners[2] = CGPointMake(renderControl->sceneRenderer->framebufferWidth,renderControl->sceneRenderer->framebufferHeight);
-    screenCorners[3] = CGPointMake(0.0, renderControl->sceneRenderer->framebufferHeight);
+    const Point2f frameSize = renderControl->sceneRenderer->getFramebufferSize();
+    const CGPoint screenCorners[4] = {
+        CGPointMake(0.0f, 0.0f),
+        CGPointMake(frameSize.x(),0.0f),
+        CGPointMake(frameSize.x(),frameSize.y()),
+        CGPointMake(0.0f, frameSize.y()),
+    };
     
     for (unsigned int ii=0;ii<4;ii++)
     {

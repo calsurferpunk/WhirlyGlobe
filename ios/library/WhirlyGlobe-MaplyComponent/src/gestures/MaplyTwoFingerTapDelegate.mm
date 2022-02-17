@@ -1,9 +1,7 @@
-/*
- *  MaplyTwoFingerTapDelegate.m
- *
+/*  MaplyTwoFingerTapDelegate.mm
  *
  *  Created by Jesse Crocker on 2/4/14.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,11 +13,11 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "gestures/MaplyTwoFingerTapDelegate.h"
-#import "MaplyZoomGestureDelegate_private.h"
+#import "private/MaplyTwoFingerTapDelegate_private.h"
+#import "private/MaplyZoomGestureDelegate_private.h"
 #import "MaplyAnimateTranslation.h"
 #import "ViewWrapper.h"
 
@@ -56,7 +54,8 @@ using namespace Maply;
     const Eigen::Matrix4d theTransform = self.mapView->calcFullMatrix();
     const CGPoint touchLoc = [tap locationInView:tap.view];
     const Point2f touchLoc2f(touchLoc.x,touchLoc.y);
-    if (self.mapView->pointOnPlaneFromScreen(touchLoc2f, &theTransform, Point2f(sceneRenderer->framebufferWidth/wrapView.contentScaleFactor,sceneRenderer->framebufferHeight/wrapView.contentScaleFactor), &hit, true))
+    const Point2f frameSize = sceneRenderer->getFramebufferSize();
+    if (self.mapView->pointOnPlaneFromScreen(touchLoc2f, &theTransform, frameSize / wrapView.contentScaleFactor, &hit, true))
     {
         const double newZ = curLoc.z() + (curLoc.z() - self.minZoom)/2.0;
         if (self.minZoom >= self.maxZoom || (self.minZoom < newZ && newZ < self.maxZoom))
@@ -67,7 +66,7 @@ using namespace Maply;
             Maply::MapView testMapView(*(self.mapView));
 
             // Check if we're still within bounds
-            if (MaplyGestureWithinBounds(bounds,newLoc,sceneRenderer,&testMapView,&newCenter))
+            if (MaplyGestureWithinBounds([self getBounds],newLoc,sceneRenderer,&testMapView,&newCenter))
             {
                 AnimateViewTranslation x(self.mapView,sceneRenderer,newCenter,_animTime);
                 self.mapView->setDelegate(std::make_shared<AnimateViewTranslation>(

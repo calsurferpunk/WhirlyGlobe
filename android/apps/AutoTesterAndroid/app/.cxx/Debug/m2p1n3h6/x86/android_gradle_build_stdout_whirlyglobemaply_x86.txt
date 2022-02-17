@@ -1,0 +1,2 @@
+ninja: Entering directory `/home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/.cxx/Debug/m2p1n3h6/x86'
+ninja: no work to do.

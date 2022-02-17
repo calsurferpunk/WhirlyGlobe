@@ -2,7 +2,7 @@
  *  MaplyComponent
  *
  *  Created by Steve Gifford on 9/6/12.
- *  Copyright 2012-2021 mousebird consulting
+ *  Copyright 2012-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@
  */
 
 #import <UIKit/UIKit.h>
-#import "math/MaplyCoordinate.h"
-#import "visual_objects/MaplyScreenMarker.h"
-#import "visual_objects/MaplyVectorObject.h"
-#import "control/MaplyViewTracker.h"
-#import "visual_objects/MaplyComponentObject.h"
-#import "MaplySharedAttributes.h"
-#import "control/MaplyBaseViewController.h"
+#import <WhirlyGlobe/MaplyCoordinate.h>
+#import <WhirlyGlobe/MaplyScreenMarker.h>
+#import <WhirlyGlobe/MaplyVectorObject.h>
+#import <WhirlyGlobe/MaplyViewTracker.h>
+#import <WhirlyGlobe/MaplyComponentObject.h>
+#import <WhirlyGlobe/MaplySharedAttributes.h>
+#import <WhirlyGlobe/MaplyBaseViewController.h>
 
 @class MaplyControllerLayer;
 @class MaplyViewController;

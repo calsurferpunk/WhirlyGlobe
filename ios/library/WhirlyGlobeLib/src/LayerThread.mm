@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 2/2/11.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -151,13 +151,12 @@ using namespace WhirlyKit;
 
 - (void)addChangeRequest:(WhirlyKit::ChangeRequest *)changeRequest
 {
-    std::vector<WhirlyKit::ChangeRequest *> requests;
+    ChangeSet requests;
     requests.push_back(changeRequest);
-    
     [self addChangeRequests:requests];
 }
 
-- (void)addChangeRequests:(std::vector<WhirlyKit::ChangeRequest *> &)newChangeRequests
+- (void)addChangeRequests:(ChangeSet &)newChangeRequests
 {
     if (self.isCancelled)
     {
@@ -182,6 +181,7 @@ using namespace WhirlyKit;
         [self performSelector:@selector(runAddChangeRequests) onThread:self withObject:nil waitUntilDone:NO];
     
     changeRequests.insert(changeRequests.end(), newChangeRequests.begin(), newChangeRequests.end());
+    newChangeRequests.clear();
 }
 
 - (void)flushChangeRequests

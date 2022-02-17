@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 7/16/13.
- *  Copyright 2011-2021 mousebird consulting.
+ *  Copyright 2011-2022 mousebird consulting.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -319,7 +319,8 @@ SimpleIdentity MarkerManager::addMarkers(const std::vector<Marker *> &markers,co
             }
             else if (markerInfo.fadeOut > 0.0 && markerInfo.fadeOutTime > 0.0)
             {
-                shape->setFade(markerInfo.fadeOutTime, markerInfo.fadeOutTime+markerInfo.fadeOut);
+                // up<down=fade out
+                shape->setFade(/*up=*/markerInfo.fadeOutTime, /*down=*/markerInfo.fadeOutTime+markerInfo.fadeOut);
             }
 
             shape->setVisibility((float)markerInfo.minVis, (float)markerInfo.maxVis);
@@ -622,6 +623,9 @@ void MarkerManager::enableMarkers(SimpleIDSet &markerIDs,bool enable,ChangeSet &
 
 void MarkerManager::removeMarkers(SimpleIDSet &markerIDs,ChangeSet &changes)
 {
+    if (!scene)
+        return;
+    
     const auto selectManager = scene->getManager<SelectionManager>(kWKSelectionManager);
     const auto layoutManager = scene->getManager<LayoutManager>(kWKLayoutManager);
 

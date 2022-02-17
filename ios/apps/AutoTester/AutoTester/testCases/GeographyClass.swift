@@ -3,10 +3,11 @@
 //  AutoTester
 //
 //  Created by Steve Gifford on 2/12/20.
-//  Copyright © 2015-2020 mousebird consulting.
+//  Copyright 2015-2022 mousebird consulting.
 //
 
 import UIKit
+import WhirlyGlobe
 
 public class GeographyClassTestCase: MaplyTestCase {
 

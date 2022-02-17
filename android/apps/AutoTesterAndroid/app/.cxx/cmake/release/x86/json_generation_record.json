@@ -1,0 +1,72 @@
+[
+  {
+    "level": "INFO",
+    "message": "Start JSON generation. Platform version: 18 min SDK version: x86",
+    "file": "/home/james/Downloads/WhirlyGlobe/android/library/maply/CMakeLists.txt",
+    "tag": "release|x86",
+    "diagnosticCode": "UNKNOWN"
+  },
+  {
+    "level": "INFO",
+    "message": "rebuilding JSON /home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/.cxx/cmake/release/x86/android_gradle_build.json due to:",
+    "file": "/home/james/Downloads/WhirlyGlobe/android/library/maply/CMakeLists.txt",
+    "tag": "release|x86",
+    "diagnosticCode": "UNKNOWN"
+  },
+  {
+    "level": "INFO",
+    "message": "- command changed from previous, will remove stale json folder",
+    "file": "/home/james/Downloads/WhirlyGlobe/android/library/maply/CMakeLists.txt",
+    "tag": "release|x86",
+    "diagnosticCode": "UNKNOWN"
+  },
+  {
+    "level": "INFO",
+    "message": "removing stale contents from \u0027/home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/.cxx/cmake/release/x86\u0027",
+    "file": "/home/james/Downloads/WhirlyGlobe/android/library/maply/CMakeLists.txt",
+    "tag": "release|x86",
+    "diagnosticCode": "UNKNOWN"
+  },
+  {
+    "level": "INFO",
+    "message": "created folder \u0027/home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/.cxx/cmake/release/x86\u0027",
+    "file": "/home/james/Downloads/WhirlyGlobe/android/library/maply/CMakeLists.txt",
+    "tag": "release|x86",
+    "diagnosticCode": "UNKNOWN"
+  },
+  {
+    "level": "INFO",
+    "message": "executing cmake Executable : /home/james/android/sdk/cmake/3.18.1/bin/cmake\narguments : \n-H/home/james/Downloads/WhirlyGlobe/android/library/maply\n-DCMAKE_FIND_ROOT_PATH\u003d/home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/.cxx/cmake/release/prefab/x86/prefab\n-DCMAKE_BUILD_TYPE\u003dRelease\n-DCMAKE_TOOLCHAIN_FILE\u003d/home/james/android/sdk/ndk/22.1.7171670/build/cmake/android.toolchain.cmake\n-DANDROID_ABI\u003dx86\n-DANDROID_NDK\u003d/home/james/android/sdk/ndk/22.1.7171670\n-DANDROID_PLATFORM\u003dandroid-18\n-DCMAKE_ANDROID_ARCH_ABI\u003dx86\n-DCMAKE_ANDROID_NDK\u003d/home/james/android/sdk/ndk/22.1.7171670\n-DCMAKE_EXPORT_COMPILE_COMMANDS\u003dON\n-DCMAKE_LIBRARY_OUTPUT_DIRECTORY\u003d/home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/build/intermediates/cmake/release/obj/x86\n-DCMAKE_RUNTIME_OUTPUT_DIRECTORY\u003d/home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/build/intermediates/cmake/release/obj/x86\n-DCMAKE_MAKE_PROGRAM\u003d/home/james/android/sdk/cmake/3.18.1/bin/ninja\n-DCMAKE_SYSTEM_NAME\u003dAndroid\n-DCMAKE_SYSTEM_VERSION\u003d18\n-B/home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/.cxx/cmake/release/x86\n-GNinja\njvmArgs : \n\n",
+    "file": "/home/james/Downloads/WhirlyGlobe/android/library/maply/CMakeLists.txt",
+    "tag": "release|x86",
+    "diagnosticCode": "UNKNOWN"
+  },
+  {
+    "level": "INFO",
+    "message": "Executable : /home/james/android/sdk/cmake/3.18.1/bin/cmake\narguments : \n-H/home/james/Downloads/WhirlyGlobe/android/library/maply\n-DCMAKE_FIND_ROOT_PATH\u003d/home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/.cxx/cmake/release/prefab/x86/prefab\n-DCMAKE_BUILD_TYPE\u003dRelease\n-DCMAKE_TOOLCHAIN_FILE\u003d/home/james/android/sdk/ndk/22.1.7171670/build/cmake/android.toolchain.cmake\n-DANDROID_ABI\u003dx86\n-DANDROID_NDK\u003d/home/james/android/sdk/ndk/22.1.7171670\n-DANDROID_PLATFORM\u003dandroid-18\n-DCMAKE_ANDROID_ARCH_ABI\u003dx86\n-DCMAKE_ANDROID_NDK\u003d/home/james/android/sdk/ndk/22.1.7171670\n-DCMAKE_EXPORT_COMPILE_COMMANDS\u003dON\n-DCMAKE_LIBRARY_OUTPUT_DIRECTORY\u003d/home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/build/intermediates/cmake/release/obj/x86\n-DCMAKE_RUNTIME_OUTPUT_DIRECTORY\u003d/home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/build/intermediates/cmake/release/obj/x86\n-DCMAKE_MAKE_PROGRAM\u003d/home/james/android/sdk/cmake/3.18.1/bin/ninja\n-DCMAKE_SYSTEM_NAME\u003dAndroid\n-DCMAKE_SYSTEM_VERSION\u003d18\n-B/home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/.cxx/cmake/release/x86\n-GNinja\njvmArgs : \n\n",
+    "file": "/home/james/Downloads/WhirlyGlobe/android/library/maply/CMakeLists.txt",
+    "tag": "release|x86",
+    "diagnosticCode": "UNKNOWN"
+  },
+  {
+    "level": "INFO",
+    "message": "done executing cmake",
+    "file": "/home/james/Downloads/WhirlyGlobe/android/library/maply/CMakeLists.txt",
+    "tag": "release|x86",
+    "diagnosticCode": "UNKNOWN"
+  },
+  {
+    "level": "INFO",
+    "message": "write command file /home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/.cxx/cmake/release/x86/build_command.txt",
+    "file": "/home/james/Downloads/WhirlyGlobe/android/library/maply/CMakeLists.txt",
+    "tag": "release|x86",
+    "diagnosticCode": "UNKNOWN"
+  },
+  {
+    "level": "INFO",
+    "message": "JSON generation completed without problems",
+    "file": "/home/james/Downloads/WhirlyGlobe/android/library/maply/CMakeLists.txt",
+    "tag": "release|x86",
+    "diagnosticCode": "UNKNOWN"
+  }
+]

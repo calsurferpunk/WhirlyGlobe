@@ -3,7 +3,7 @@
  *  WhirlyGlobe-MaplyComponent
  *
  *  Created by Steve Gifford on 11/26/14.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -74,19 +74,21 @@ using namespace Eigen;
 }
 
 // Convert to raw geometry
-- (void)asRawGeometry:(std::vector<WhirlyKit::GeometryRaw> &)outRawGeom withTexMapping:(const std::vector<WhirlyKit::SimpleIdentity> &)texFileMap
+- (void)asRawGeometry:(std::vector<WhirlyKit::GeometryRaw> &)outRawGeom
+       withTexMapping:(const std::vector<WhirlyKit::SimpleIdentity> &)texFileMap
 {
-    outRawGeom.reserve(outRawGeom.size()+rawGeom.size());
+    outRawGeom.reserve(rawGeom.size());
     // Remap the texture IDs to something used by the scene
-    for (auto geom : rawGeom)
+    for (const auto &geom : rawGeom)
     {
-        for (unsigned int ii=0;ii<geom.texIDs.size();ii++) {
-            if (geom.texIDs[ii] >= 0 && geom.texIDs[ii] < texFileMap.size())
+        outRawGeom.push_back(geom);
+        for (auto &texID : outRawGeom.back().texIDs)
+        {
+            if (texID >= 0 && texID < texFileMap.size())
             {
-                geom.texIDs[ii] = (int)texFileMap[geom.texIDs[ii]];
+                texID = (int)texFileMap[texID];
             }
         }
-        outRawGeom.push_back(geom);
     }
 }
 

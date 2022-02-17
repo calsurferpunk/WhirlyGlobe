@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 1/3/11.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -180,29 +180,38 @@ Scene::~Scene()
     }
     theChangeRequests.clear();
 
-    auto timedChanges = std::move(timedChangeRequests);
-    for (auto *theChangeRequest : timedChanges)
+    for (auto *theChangeRequest : timedChangeRequests)
     {
         delete theChangeRequest;
     }
-    timedChanges.clear();
+    timedChangeRequests.clear();
 
     activeModels.clear();
     
     subTextureMap.clear();
 
     programs.clear();
-    
-    fontTextureManager = nullptr;
+
+    if (fontTextureManager)
+    {
+        ChangeSet changes;
+        fontTextureManager->clear(changes);
+        discardChanges(changes);
+        fontTextureManager.reset();
+    }
 }
 
-void Scene::teardown(PlatformThreadInfo*)
+void Scene::teardown(PlatformThreadInfo* env)
 {
     {
         std::lock_guard<std::mutex> guardLock(managerLock);
         for (auto &manager : managers)
         {
             manager.second->teardown();
+        }
+        if (fontTextureManager)
+        {
+            fontTextureManager->teardown(env);
         }
     }
     setRenderer(nullptr);
@@ -220,17 +229,16 @@ void Scene::setDisplayAdapter(CoordSystemDisplayAdapter *newCoordAdapter)
 }
     
 // Add change requests to our list
-void Scene::addChangeRequests(const ChangeSet &newChanges)
+void Scene::addChangeRequests(ChangeSet &newChanges)
 {
     std::lock_guard<std::mutex> guardLock(changeRequestLock);
-    
-    for (ChangeRequest *change : newChanges)
-    {
+    for (ChangeRequest *change : newChanges) {
         if (change && change->when > 0.0)
             timedChangeRequests.insert(change);
         else
             changeRequests.push_back(change);
     }
+    newChanges.clear();
 }
 
 // Add a single change request
@@ -406,13 +414,16 @@ int Scene::preProcessChanges(WhirlyKit::View *view,SceneRenderer *renderer,__unu
     }
 
     // Run these outside of the lock, since they might use the lock
-    for (auto req : preRequests)
+    for (auto &req : preRequests)
     {
         req->execute(this,renderer,view);
         delete req;
+        req = nullptr;
     }
     
-    return preRequests.size();
+    const auto processed = (int)preRequests.size();
+    preRequests.clear();
+    return processed;
 }
 
 // Process outstanding changes.
@@ -440,7 +451,9 @@ int Scene::processChanges(WhirlyKit::View *view,SceneRenderer *renderer,TimeInte
             // Move them
             if (end != beg)
             {
-                std::copy(beg, end, std::back_inserter(changeRequests));
+                changeRequests.insert(changeRequests.end(),
+                                      std::make_move_iterator(beg),
+                                      std::make_move_iterator(end));
                 timedChangeRequests.erase(beg, end);
             }
         }
@@ -449,16 +462,19 @@ int Scene::processChanges(WhirlyKit::View *view,SceneRenderer *renderer,TimeInte
         localChanges.swap(changeRequests);
     }
 
-    for (auto req : localChanges)
+    for (auto &req : localChanges)
     {
         if (req)
         {
             req->execute(this,renderer,view);
             delete req;
+            req = nullptr;
         }
     }
 
-    return localChanges.size();
+    const auto processed = (int)localChanges.size();
+    localChanges.clear();
+    return processed;
 }
     
 bool Scene::hasChanges(TimeInterval now) const
@@ -737,9 +753,9 @@ void RemTextureReq::execute(Scene *scene,SceneRenderer *renderer,WhirlyKit::View
     TextureBaseRef tex = scene->getTexture(texture);
     if (tex)
     {
-        if (renderer->teardownInfo)
+        if (auto info = renderer->getTeardownInfo())
         {
-            renderer->teardownInfo->destroyTexture(renderer,tex);
+            info->destroyTexture(renderer,tex);
         }
         scene->removeTexture(texture);
     } else
@@ -816,10 +832,9 @@ RemDrawableReq::RemDrawableReq(SimpleIdentity drawId,TimeInterval inWhen)
 
 void RemDrawableReq::execute(Scene *scene,SceneRenderer *renderer,WhirlyKit::View *view)
 {
-    DrawableRef draw = scene->getDrawable(drawID);
-    if (draw)
+    if (DrawableRef draw = scene->getDrawable(drawID))
     {
-        renderer->removeDrawable(draw, true, renderer->teardownInfo);
+        renderer->removeDrawable(draw, true, renderer->getTeardownInfo());
         scene->remDrawable(draw);
     }
     else
@@ -836,7 +851,7 @@ void AddProgramReq::execute(Scene *scene,SceneRenderer *renderer,WhirlyKit::View
 
 void RemProgramReq::execute(Scene *scene,SceneRenderer *renderer,WhirlyKit::View *view)
 {
-    scene->removeProgram(programId,renderer->teardownInfo);
+    scene->removeProgram(programId,renderer->getTeardownInfo());
 }
     
 RunBlockReq::RunBlockReq(BlockFunc newFunc) : func(std::move(newFunc))
