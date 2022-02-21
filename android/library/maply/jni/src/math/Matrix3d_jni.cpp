@@ -176,6 +176,21 @@ JNIEXPORT jobject JNICALL Java_com_mousebird_maply_Matrix3d_scale(JNIEnv *env, j
     return nullptr;
 }
 
+extern "C"
+JNIEXPORT jobject JNICALL Java_com_mousebird_maply_Matrix3d_rotate(JNIEnv *env, jclass, jdouble rotation)
+{
+    try
+    {
+        return MakeMatrix3d(env, Affine2d(Eigen::Rotation2D<double>(-rotation)).matrix());
+    }
+    catch (...)
+    {
+        __android_log_print(ANDROID_LOG_ERROR, "Maply", "Crash in Matrix3d::rotate()");
+    }
+
+    return nullptr;
+}
+
 jobject MakeMatrix3d(JNIEnv *env,const Eigen::Matrix3d &mat)
 {
     // Make a Java Matrix3d

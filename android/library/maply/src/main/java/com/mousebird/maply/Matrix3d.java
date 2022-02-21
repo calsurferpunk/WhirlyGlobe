@@ -56,6 +56,8 @@ public class Matrix3d {
 
     public native static Matrix3d scale(double x, double y);
 
+    public native static Matrix3d rotate(double rotation);
+
     public native Matrix3d multiply(Matrix3d matrix);
     private long nativeHandle;
 }

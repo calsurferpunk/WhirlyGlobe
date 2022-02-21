@@ -104,6 +104,17 @@ public class ScreenObject {
     }
 
     /**
+     * Apply a rotation to all the pieces of the screen object
+     * @param rotation in radians
+     */
+    public void rotate(double rotation) {
+
+        Matrix3d mat = Matrix3d.rotate(rotation);
+
+        transform(mat);
+    }
+
+    /**
      * Apply the given 2D transform to the screen object.
      * @param mat Matrix to use for transform.
      */
