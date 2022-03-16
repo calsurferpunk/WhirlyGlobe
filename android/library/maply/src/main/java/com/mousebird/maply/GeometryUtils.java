@@ -102,7 +102,10 @@ public class GeometryUtils
 			}
 		}
 
-		retClosePt.setValue(closePt.getX(),closePt.getY());
+		if(closePt != null)
+		{
+			retClosePt.setValue(closePt.getX(),closePt.getY());
+		}
 
 		return Math.sqrt(minDist2);
 	}
