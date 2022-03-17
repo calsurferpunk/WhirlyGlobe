@@ -158,3 +158,5 @@ dependencies {
     //noinspection GradleDependency
     implementation 'com.squareup.okhttp3:okhttp:3.12.13'
 }
+
+android.buildTypes.release.ndk.debugSymbolLevel = 'full'
