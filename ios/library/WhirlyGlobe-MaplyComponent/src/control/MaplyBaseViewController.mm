@@ -246,7 +246,7 @@ using namespace WhirlyKit;
     NSString *build = infoDict[@"CFBundleVersion"];
     NSString *bundleVersion = infoDict[@"CFBundleShortVersionString"];
     // WGMaply version
-    NSString *wgmaplyVersion = @"3.4";
+    NSString *wgmaplyVersion = @"3.5";
     // OS version
     NSOperatingSystemVersion osversionID = [[NSProcessInfo processInfo] operatingSystemVersion];
     NSString *osversion = [NSString stringWithFormat:@"%d.%d.%d",(int)osversionID.majorVersion,(int)osversionID.minorVersion,(int) osversionID.patchVersion];
@@ -1702,6 +1702,26 @@ static const float PerfOutputDelay = 15.0;
         {
             block();
         }
+    }
+}
+
+- (int)retainZoomSlotMinZoom:(double)minZoom
+                   maxHeight:(double)maxHeight
+                     maxZoom:(double)maxZoom
+                   minHeight:(double)minHeight
+{
+    if (const auto render = renderControl ? renderControl->sceneRenderer : nullptr)
+    {
+        return render->retainZoomSlot(minZoom, maxHeight, maxZoom, minHeight);
+    }
+    return -1;
+}
+
+- (void)releaseZoomSlotIndex:(int)index
+{
+    if (const auto render = renderControl ? renderControl->sceneRenderer : nullptr)
+    {
+        render->releaseZoomSlot(index);
     }
 }
 
