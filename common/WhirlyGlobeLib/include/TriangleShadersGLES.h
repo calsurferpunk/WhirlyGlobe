@@ -30,6 +30,7 @@ ProgramGLES *BuildDefaultTriShaderLightingGLES(const std::string &name,SceneRend
 ProgramGLES *BuildDefaultTriShaderNoLightingGLES(const std::string &name,SceneRenderer *renderer);
 // Triangle shader for models
 ProgramGLES *BuildDefaultTriShaderModelGLES(const std::string &name,SceneRenderer *renderer);
+ProgramGLES *BuildDefaultTriShaderModelGLES(const std::string &name,SceneRenderer *renderer, bool useDepth);
 // Triangles with screen textures
 ProgramGLES *BuildDefaultTriShaderScreenTextureGLES(const std::string &name,SceneRenderer *renderer);
 // Triangles with multiple textures

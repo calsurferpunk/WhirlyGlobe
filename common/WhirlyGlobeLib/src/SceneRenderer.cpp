@@ -164,6 +164,12 @@ void SceneRenderer::setZBufferMode(WhirlyKitSceneRendererZBufferMode inZBufferMo
 void SceneRenderer::setPerfInterval(int howLong)
     { perfInterval = howLong; }
 
+void SceneRenderer::setModelsHaveDepth(bool useDepth)
+    { modelsHaveDepth = useDepth; }
+
+bool SceneRenderer::getModelsHaveDepth()
+    { return modelsHaveDepth; }
+
 void SceneRenderer::setUseViewChanged(bool newVal)
     { useViewChanged = newVal; }
 

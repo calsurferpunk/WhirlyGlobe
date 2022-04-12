@@ -255,10 +255,61 @@ void main()
 }
 )";
 
-// Triangle shader for models
-ProgramGLES *BuildDefaultTriShaderModelGLES(const std::string &name,SceneRenderer *)
+static const char *vertexShaderModelNoDepthTri = R"(
+precision highp float;
+
+struct directional_light {
+  vec3 direction;
+  vec3 halfplane;
+  vec4 ambient;
+  vec4 diffuse;
+  vec4 specular;
+  float viewdepend;
+};
+
+struct material_properties {
+  vec4 ambient;
+  vec4 diffuse;
+  vec4 specular;
+  float specular_exponent;
+};
+
+uniform mat4  u_mvpMatrix;
+uniform float u_fade;
+uniform float u_time;
+uniform int u_numLights;
+uniform directional_light light[8];
+uniform material_properties material;
+
+attribute vec3 a_position;
+attribute vec2 a_texCoord0;
+attribute vec4 a_color;
+attribute vec4 a_instanceColor;
+attribute float a_useInstanceColor;
+attribute vec3 a_normal;
+attribute mat4 a_singleMatrix;
+attribute vec3 a_modelCenter;
+attribute vec3 a_modelDir;
+
+varying vec2 v_texCoord;
+varying vec4 v_color;
+
+void main()
 {
-    auto *shader = new ProgramGLES(name,vertexShaderModelTri,fragmentShaderTri);
+   v_texCoord = a_texCoord0;
+   v_color = vec4(0.0,0.0,0.0,0.0);
+   v_color = a_useInstanceColor > 0.0 ? a_instanceColor : a_color;
+   vec3 center = a_modelDir * u_time + a_modelCenter;
+   vec3 vertPos = (a_singleMatrix * vec4(a_position,1.0)).xyz + center;
+
+   gl_Position = u_mvpMatrix * vec4(vertPos,1.0);
+}
+)";
+
+// Triangle shader for models
+ProgramGLES *BuildDefaultTriShaderModelGLES(const std::string &name,SceneRenderer *, bool useDepth)
+{
+    auto *shader = new ProgramGLES(name,(useDepth ? vertexShaderModelTri : vertexShaderModelNoDepthTri),fragmentShaderTri);
     if (!shader->isValid())
     {
         delete shader;
@@ -266,6 +317,10 @@ ProgramGLES *BuildDefaultTriShaderModelGLES(const std::string &name,SceneRendere
     }
     
     return shader;
+}
+ProgramGLES *BuildDefaultTriShaderModelGLES(const std::string &name,SceneRenderer *renderer)
+{
+    return(BuildDefaultTriShaderModelGLES(name, renderer, true));
 }
 
 static const char *vertexShaderScreenTexTri = R"(

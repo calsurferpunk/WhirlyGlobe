@@ -333,6 +333,10 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 		 */
 		public boolean useSurfaceView = true;
 		/**
+		 * If set, we'll use depth shading on models
+		 */
+		public boolean modelsHaveDepth = true;
+		/**
 		 * These are the number of working threads we'll create by default
 		 * at startup.  These are fully capable of adding geometry to the
 		 * system on their own (via ThreadCurrent).
@@ -440,6 +444,7 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 		if (settings != null) {
 			useTextureView = !settings.useSurfaceView;
 			numWorkingThreads = settings.numWorkingThreads;
+			setModelsHaveDepth(settings.modelsHaveDepth);
 			width = settings.width;
 			height = settings.height;
 		}
@@ -1119,6 +1124,7 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 			setClearColor(renderControl.clearColor);
 
 			// Register the shaders
+			renderControl.setModelsHaveDepth(modelsHaveDepth);
 			renderControl.setupShadersNative();
 
 			synchronized (workerThreads) {
@@ -1333,6 +1339,18 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 		perfInterval = inPerfInterval;
 		if (renderWrapper != null && renderWrapper.maplyRender != null)
 			renderControl.setPerfInterval(perfInterval);
+	}
+
+	private boolean modelsHaveDepth = true;
+	/**
+	 * Set if models use depth in shader
+	 * @param useDepth enable depth in shading
+	 */
+	public void setModelsHaveDepth(boolean useDepth)
+	{
+		modelsHaveDepth = useDepth;
+		if(renderWrapper != null && renderWrapper.maplyRender != null)
+			renderControl.setModelsHaveDepth(modelsHaveDepth);
 	}
 
 	protected double scrollScale = 1.0;

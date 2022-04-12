@@ -228,6 +228,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_setupShadersNat
 			return;
 
 		bool isGlobe = !renderer->getScene()->getCoordAdapter()->isFlat();
+		bool modelsHaveDepth = renderer->getModelsHaveDepth();
 
 		SceneRendererWrapper rendWrap(env,renderer->getScene(),obj);
 
@@ -243,7 +244,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_setupShadersNat
 		rendWrap.addShader(MaplyNoLightTriangleShader,ProgramGLESRef(BuildDefaultTriShaderNoLightingGLES(MaplyNoLightTriangleShader,renderer)));
 
 		// Model instancing
-		rendWrap.addShader(MaplyDefaultModelTriShader,ProgramGLESRef(BuildDefaultTriShaderModelGLES(MaplyDefaultModelTriShader,renderer)));
+		rendWrap.addShader(MaplyDefaultModelTriShader,ProgramGLESRef(BuildDefaultTriShaderModelGLES(MaplyDefaultModelTriShader,renderer,modelsHaveDepth)));
 
 		// Screen space texture application
 		rendWrap.addShader(MaplyDefaultTriScreenTexShader,ProgramGLESRef(BuildDefaultTriShaderScreenTextureGLES(MaplyDefaultTriScreenTexShader,renderer)));
@@ -487,6 +488,23 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_setPerfInterval
 	catch (...)
 	{
 		__android_log_print(ANDROID_LOG_VERBOSE, "Maply", "Crash in RenderController::setPerfInterval()");
+	}
+}
+
+extern "C"
+JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_setModelsHaveDepth(JNIEnv *env, jobject obj, jboolean useDepth)
+{
+	try
+	{
+		SceneRendererGLES_Android *renderer = SceneRendererInfo::getClassInfo()->getObject(env,obj);
+		if (!renderer)
+			return;
+
+		renderer->setModelsHaveDepth(useDepth);
+	}
+	catch (...)
+	{
+		__android_log_print(ANDROID_LOG_VERBOSE, "Maply", "Crash in RenderController::setModelsHaveDepth()");
 	}
 }
 

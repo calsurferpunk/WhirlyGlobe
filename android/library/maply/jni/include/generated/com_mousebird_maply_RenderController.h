@@ -91,6 +91,13 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_setPerfInterval
 
 /*
  * Class:     com_mousebird_maply_RenderController
+ * Method:    setModelsHaveDepth
+ */
+JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_setModelsHaveDepth
+  (JNIEnv *, jobject , jboolean);
+
+/*
+ * Class:     com_mousebird_maply_RenderController
  * Method:    addLight
  * Signature: (Lcom/mousebird/maply/DirectionalLight;)V
  */
