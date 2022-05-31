@@ -33,7 +33,7 @@ struct RenderSetupInfo
 {
 };
 
-class TextureBase;
+struct TextureBase;
 typedef std::shared_ptr<TextureBase> TextureBaseRef;
 class Drawable;
 typedef std::shared_ptr<Drawable> DrawableRef;
@@ -77,6 +77,9 @@ public:
     
     /// Set this if you need to be run before the active models are run
     virtual bool needPreExecute() { return false; }
+
+    /// The request will be discarded without being executed
+    virtual void cancel() { }
 
     /// If non-zero we'll execute this request after the given absolute time
     TimeInterval when = 0.0;

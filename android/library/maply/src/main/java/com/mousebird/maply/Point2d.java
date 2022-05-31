@@ -136,6 +136,24 @@ public class Point2d
 	 */
 	public native void setValue(double x,double y);
 
+	/**
+	 * Distance between points (WGS84, GeoLib)
+	 * @return Distance in meters, or negative on error.
+	 */
+	public native double getGeoDist(Point2d other);
+
+	/**
+	 * Initial azimuth from this point to another.
+	 * @return Azimuth in radians or NaN on error.
+	 */
+	public native double getGeoAzimuth(Point2d other);
+
+	/**
+	 * Distance between points (spherical, Haversine)
+	 * @return Distance in meters, or negative on error.
+	 */
+	public native double getGeoDistApprox(Point2d other);
+
 	static
 	{
 		nativeInit();

@@ -1,0 +1,228 @@
+{
+	"inputs" : 
+	[
+		{
+			"path" : "CMakeLists.txt"
+		},
+		{
+			"isGenerated" : true,
+			"path" : "/home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/.cxx/Debug/294b3522/x86_64/CMakeFiles/3.18.1-g262b901/CMakeSystem.cmake"
+		},
+		{
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/ndk/24.0.8215888/build/cmake/android.toolchain.cmake"
+		},
+		{
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/ndk/24.0.8215888/build/cmake/android-legacy.toolchain.cmake"
+		},
+		{
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/ndk/24.0.8215888/build/cmake/platforms.cmake"
+		},
+		{
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/ndk/24.0.8215888/build/cmake/compiler_id.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/CMakeSystemSpecificInitialize.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/Platform/Android-Initialize.cmake"
+		},
+		{
+			"isGenerated" : true,
+			"path" : "/home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/.cxx/Debug/294b3522/x86_64/CMakeFiles/3.18.1-g262b901/CMakeCCompiler.cmake"
+		},
+		{
+			"isGenerated" : true,
+			"path" : "/home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/.cxx/Debug/294b3522/x86_64/CMakeFiles/3.18.1-g262b901/CMakeCXXCompiler.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/CMakeSystemSpecificInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/CMakeGenericSystem.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/CMakeInitializeConfigs.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/Platform/Android.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/Platform/Linux.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/Platform/UnixPaths.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/CMakeCInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/CMakeLanguageInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/Compiler/Clang-C.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/Compiler/Clang.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/Compiler/CMakeCommonCompilerMacros.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/Compiler/GNU.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/Compiler/CMakeCommonCompilerMacros.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/Internal/CMakeCheckCompilerFlag.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/CMakeCheckCompilerFlagCommonPatterns.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/Platform/Android-Clang-C.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/Platform/Android-Clang.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/CMakeCommonLanguageInclude.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/CMakeCXXInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/CMakeLanguageInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/Compiler/Clang-CXX.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/Compiler/Clang.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/Platform/Android-Clang-CXX.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/Platform/Android-Clang.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/home/james/android/sdk/cmake/3.18.1/share/cmake-3.18/Modules/CMakeCommonLanguageInclude.cmake"
+		},
+		{
+			"isExternal" : true,
+			"path" : "/home/james/Downloads/WhirlyGlobe/common/local_libs/proj-4/src/wgmaplyCMakeLists.txt"
+		},
+		{
+			"isExternal" : true,
+			"path" : "/home/james/Downloads/WhirlyGlobe/common/local_libs/aaplus/wgmaplyCMakeLists.txt"
+		},
+		{
+			"isExternal" : true,
+			"path" : "/home/james/Downloads/WhirlyGlobe/common/local_libs/clipper/wgmaplyCMakeLists.txt"
+		},
+		{
+			"isExternal" : true,
+			"path" : "/home/james/Downloads/WhirlyGlobe/common/local_libs/nanopb/wgmaplyCMakeLists.txt"
+		},
+		{
+			"isExternal" : true,
+			"path" : "/home/james/Downloads/WhirlyGlobe/common/local_libs/shapefile/wgmaplyCMakeLists.txt"
+		},
+		{
+			"isExternal" : true,
+			"path" : "/home/james/Downloads/WhirlyGlobe/common/local_libs/glues/wgmaplyCMakeLists.txt"
+		},
+		{
+			"isExternal" : true,
+			"path" : "/home/james/Downloads/WhirlyGlobe/common/local_libs/libjson/wgmaplyCMakeLists.txt"
+		},
+		{
+			"isExternal" : true,
+			"path" : "/home/james/Downloads/WhirlyGlobe/common/local_libs/lodepng/wgmaplyCMakeLists.txt"
+		},
+		{
+			"isExternal" : true,
+			"path" : "/home/james/Downloads/WhirlyGlobe/common/local_libs/GeographicLib/wgmaplyCMakeLists.txt"
+		},
+		{
+			"isExternal" : true,
+			"path" : "/home/james/Downloads/WhirlyGlobe/common/WhirlyGlobeLib/src/CMakeLists.txt"
+		},
+		{
+			"path" : "WhirlyGlobeLib/src/CMakeLists.txt"
+		},
+		{
+			"path" : "jni/CMakeLists.txt"
+		}
+	],
+	"kind" : "cmakeFiles",
+	"paths" : 
+	{
+		"build" : "/home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/.cxx/Debug/294b3522/x86_64",
+		"source" : "/home/james/Downloads/WhirlyGlobe/android/library/maply"
+	},
+	"version" : 
+	{
+		"major" : 1,
+		"minor" : 0
+	}
+}

@@ -364,7 +364,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_render(JNIEnv *
 		const bool changes = renderer->hasChanges();
 
 		/// TODO: Make sure this is actually what we're using
-		renderer->render(1/60.0);
+		renderer->render(1/60.0, nullptr);
 
 		// Count down the extra frames if we need them
 		if (renderer->extraFrameMode) {
@@ -391,7 +391,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_renderToBitmapN
 		renderer->addSnapshotDelegate(snapshot);
 
 		renderer->forceDrawNextFrame();
-		renderer->render(1/60.0);
+		renderer->render(1/60.0, nullptr);
 
 		// Framebuffer info
 		const auto size = renderer->getFramebufferSize();
