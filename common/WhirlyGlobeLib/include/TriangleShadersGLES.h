@@ -26,6 +26,7 @@ namespace WhirlyKit
  
 // Triangle shader with lighting
 ProgramGLES *BuildDefaultTriShaderLightingGLES(const std::string &name,SceneRenderer *renderer);
+ProgramGLES *BuildDefaultTriShaderLightingGLES(const std::string &name,SceneRenderer *renderer, bool useDepth);
 // Triangle shader without lighting
 ProgramGLES *BuildDefaultTriShaderNoLightingGLES(const std::string &name,SceneRenderer *renderer);
 // Triangle shader for models

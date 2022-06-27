@@ -162,6 +162,12 @@ void SceneRenderer::setModelsHaveDepth(bool useDepth)
 bool SceneRenderer::getModelsHaveDepth()
     { return modelsHaveDepth; }
 
+void SceneRenderer::setTrianglesHaveDepth(bool useDepth)
+    { trianglesHaveDepth = useDepth; }
+
+bool SceneRenderer::getTrianglesHaveDepth()
+    { return trianglesHaveDepth; }
+
 void SceneRenderer::setUseViewChanged(bool newVal)
     { useViewChanged = newVal; }
 

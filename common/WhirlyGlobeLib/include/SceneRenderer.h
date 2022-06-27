@@ -269,6 +269,12 @@ public:
     // Gets if models have depth
     virtual bool getModelsHaveDepth();
 
+    // Sets if triangles have depth
+    virtual void setTrianglesHaveDepth(bool useDepth);
+
+    // Gets if triangles have depth
+    virtual bool getTrianglesHaveDepth();
+
     /// If set, we'll use the view changes to trigger rendering
     virtual void setUseViewChanged(bool newVal);
     
@@ -399,6 +405,9 @@ protected:
 
     /// Models have depth
     bool modelsHaveDepth;
+
+    /// Triangles have depth
+    bool trianglesHaveDepth;
 
     /// Set if we're using the view based change mechanism to tell when to draw.
     /// This works well for figuring out when the model matrix changes, but

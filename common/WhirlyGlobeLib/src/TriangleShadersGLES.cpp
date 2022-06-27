@@ -109,11 +109,30 @@ void main()
   gl_FragColor = v_color * baseColor;
 }
 )";
+
+static const char *fragmentShaderNoDepthTri = R"(
+precision highp float;
+
+uniform sampler2D s_baseMap0;
+uniform bool  u_hasTexture;
+
+varying vec2      v_texCoord;
+varying vec4      v_color;
+
+void main()
+{
+//"  vec4 baseColor = texture2D(s_baseMap0, v_texCoord);"
+  vec4 baseColor = u_hasTexture ? texture2D(s_baseMap0, v_texCoord) : vec4(1.0,1.0,1.0,1.0);
+//"  if (baseColor.a < 0.1)
+//"      discard;
+  gl_FragColor = baseColor;
+}
+)";
     
 // Triangle shader with lighting
-ProgramGLES *BuildDefaultTriShaderLightingGLES(const std::string &name,SceneRenderer *)
+ProgramGLES *BuildDefaultTriShaderLightingGLES(const std::string &name,SceneRenderer *, bool useDepth)
 {
-    auto *shader = new ProgramGLES(name,vertexShaderTri,fragmentShaderTri);
+    auto *shader = new ProgramGLES(name,vertexShaderTri,(useDepth ? fragmentShaderTri : fragmentShaderNoDepthTri));
     if (!shader->isValid())
     {
         delete shader;
@@ -121,6 +140,10 @@ ProgramGLES *BuildDefaultTriShaderLightingGLES(const std::string &name,SceneRend
     }
     
     return shader;
+}
+ProgramGLES *BuildDefaultTriShaderLightingGLES(const std::string &name,SceneRenderer *renderer)
+{
+    return(BuildDefaultTriShaderLightingGLES(name, renderer, true));
 }
 
 static const char *vertexShaderNoLightTri = R"(

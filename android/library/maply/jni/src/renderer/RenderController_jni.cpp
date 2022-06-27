@@ -229,6 +229,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_setupShadersNat
 
 		bool isGlobe = !renderer->getScene()->getCoordAdapter()->isFlat();
 		bool modelsHaveDepth = renderer->getModelsHaveDepth();
+        bool trianglesHaveDepth = renderer->getTrianglesHaveDepth();
 
 		SceneRendererWrapper rendWrap(env,renderer->getScene(),obj);
 
@@ -240,7 +241,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_setupShadersNat
 		rendWrap.addShader(MaplyNoBackfaceLineShader,ProgramGLESRef(BuildDefaultLineShaderNoCullingGLES(MaplyNoBackfaceLineShader,renderer)));
 
 		// Default triangle shaders
-		rendWrap.addShader(MaplyDefaultTriangleShader,ProgramGLESRef(BuildDefaultTriShaderLightingGLES(MaplyDefaultTriangleShader,renderer)));
+		rendWrap.addShader(MaplyDefaultTriangleShader,ProgramGLESRef(BuildDefaultTriShaderLightingGLES(MaplyDefaultTriangleShader,renderer,trianglesHaveDepth)));
 		rendWrap.addShader(MaplyNoLightTriangleShader,ProgramGLESRef(BuildDefaultTriShaderNoLightingGLES(MaplyNoLightTriangleShader,renderer)));
 
 		// Model instancing
@@ -505,6 +506,23 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_setModelsHaveDe
 	catch (...)
 	{
 		__android_log_print(ANDROID_LOG_VERBOSE, "Maply", "Crash in RenderController::setModelsHaveDepth()");
+	}
+}
+
+extern "C"
+JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_setTrianglesHaveDepth(JNIEnv *env, jobject obj, jboolean useDepth)
+{
+	try
+	{
+		SceneRendererGLES_Android *renderer = SceneRendererInfo::getClassInfo()->getObject(env,obj);
+		if (!renderer)
+			return;
+
+		renderer->setTrianglesHaveDepth(useDepth);
+	}
+	catch (...)
+	{
+		__android_log_print(ANDROID_LOG_VERBOSE, "Maply", "Crash in RenderController::setTrianglesHaveDepth()");
 	}
 }
 

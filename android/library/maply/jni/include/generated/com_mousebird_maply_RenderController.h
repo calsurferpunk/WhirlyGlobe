@@ -98,6 +98,14 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_setModelsHaveDe
 
 /*
  * Class:     com_mousebird_maply_RenderController
+ * Method:    setTrianglesHaveDepth
+ */
+JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_setTrianglesHaveDepth
+        (JNIEnv *, jobject , jboolean);
+
+
+/*
+ * Class:     com_mousebird_maply_RenderController
  * Method:    addLight
  * Signature: (Lcom/mousebird/maply/DirectionalLight;)V
  */
