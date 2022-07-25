@@ -19,6 +19,8 @@
 package com.mousebird.maply;
 
 import android.app.Activity;
+import android.os.Handler;
+import android.os.Looper;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -95,9 +97,14 @@ public class GlobeView extends View
 
 		if (didStop) {
 			final GlobeController theControl = control.get();
+			Runnable runnable = () -> theControl.handleStopMoving(false);
 			Activity activity = (theControl != null) ? theControl.getActivity() : null;
 			if (activity != null) {
-				activity.runOnUiThread(() -> theControl.handleStopMoving(false));
+				activity.runOnUiThread(runnable);
+			}
+			else {
+				Handler handler = new Handler(Looper.getMainLooper());
+				handler.post(runnable);
 			}
 		}
 	}

@@ -21,6 +21,7 @@ import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Handler
 import android.os.Looper
 import android.util.DisplayMetrics
 import android.util.Log
@@ -180,30 +181,52 @@ open class MapboxKindaMap(
     }
 
     val displayMetrics: DisplayMetrics get() =
-        control.get()?.activity?.resources?.displayMetrics ?: Resources.getSystem().displayMetrics
+        control.get()?.context?.resources?.displayMetrics ?: Resources.getSystem().displayMetrics
 
     // Information about the sources as we fetch them
     private fun addTask(task: Call) {
-        control.get()?.activity?.runOnUiThread {
-            outstandingFetches.add(task)
+        val runnable = Runnable { outstandingFetches.add(task) }
+        if(control.get() != null) {
+            if(control.get()?.activity != null) {
+                control.get()?.activity?.runOnUiThread (runnable)
+            }
+            else {
+                val handler = Handler(Looper.getMainLooper())
+                handler.post(runnable)
+            }
         }
     }
 
     private fun clearTask(task: Call) {
-        control.get()?.activity?.runOnUiThread {
-            outstandingFetches.remove(task)
+        val runnable = Runnable { outstandingFetches.remove(task) }
+        if(control.get() != null) {
+            if(control.get()?.activity != null) {
+                control.get()?.activity?.runOnUiThread (runnable)
+            }
+            else {
+                val handler = Handler(Looper.getMainLooper())
+                handler.post(runnable)
+            }
         }
     }
 
     // Check if we've finished loading stuff
     protected fun checkFinished() {
         // Start the map if no outstanding fetches are running
-        control.get()?.activity?.runOnUiThread {
-            if (!stopping && !finished && outstandingFetches.all { it == null }) {
-                finished = true
-                startLoader()
+        val runnable = Runnable { if (!stopping && !finished && outstandingFetches.all { it == null }) {
+            finished = true
+            startLoader()
+        } }
+        if(control.get() != null) {
+            if(control.get()?.activity != null) {
+                control.get()?.activity?.runOnUiThread(runnable)
             }
-        }     }
+            else {
+                val handler = Handler(Looper.getMainLooper())
+                handler.post(runnable)
+            }
+        }
+    }
 
     // If we're using a cache dir, look for the file there
     protected fun cacheResolve(url: Uri) : File? {
@@ -802,9 +825,15 @@ open class MapboxKindaMap(
         // Gotta run on the main thread
         if (Looper.getMainLooper().thread != Thread.currentThread()) {
             val activity = theControl.activity
-            if (activity != null) {
-                activity.runOnUiThread {
-                    stop()
+            val context = theControl.context
+            val runnable = Runnable { stop() }
+            if (activity != null || context != null) {
+                if(activity != null) {
+                    activity.runOnUiThread (runnable)
+                }
+                else {
+                    val handler = Handler(Looper.getMainLooper())
+                    handler.post(runnable)
                 }
                 return
             }

@@ -19,7 +19,9 @@
 package com.mousebird.maply;
 
 import android.app.Activity;
+import android.content.Context;
 import android.graphics.Color;
+import android.opengl.GLSurfaceView;
 import android.view.Choreographer;
 import android.view.MotionEvent;
 import android.view.View;
@@ -57,6 +59,12 @@ public class GlobeController extends BaseController implements View.OnTouchListe
 		 * we can avoid the flashing problem.
 		 */
 		public int clearColor = Color.BLACK;
+	}
+
+	public GlobeController(@NotNull Context context, GLSurfaceView glSurfaceView, @Nullable Settings settings)
+	{
+		super(context, glSurfaceView, settings);
+		Init(settings);
 	}
 
 	public GlobeController(@NotNull Activity mainActivity, @Nullable Settings settings)

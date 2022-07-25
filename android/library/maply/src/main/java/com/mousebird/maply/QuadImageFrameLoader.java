@@ -29,7 +29,7 @@ public class QuadImageFrameLoader extends QuadImageLoaderBase
         tileInfos = inTileInfos;
 
         valid = true;
-        Handler handler = new Handler(control.getActivity().getMainLooper());
+        Handler handler = new Handler(control.getContext().getMainLooper());
         handler.post(new Runnable() {
             @Override
             public void run() {

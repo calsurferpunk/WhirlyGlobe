@@ -82,6 +82,8 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 	protected @Nullable View baseView = null;
 
 	private final @NotNull WeakReference<Activity> weakActivity;
+	private final @NotNull WeakReference<Context> weakContext;
+	private final @NotNull WeakReference<GLSurfaceView> weakGLSurfaceView;
     public @Nullable OkHttpClient httpClient;
 
 	/**
@@ -185,7 +187,7 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 				try
 				{
 					//try to look for web protocol updates
-					ProviderInstaller.installIfNeeded(weakActivity.get());
+					ProviderInstaller.installIfNeeded(weakContext.get());
 				}
 				catch(Exception ex)
 				{
@@ -281,6 +283,18 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 			Log.w("Maply", "Activity destroyed, " + getClass().getSimpleName() + " not shut down");
 		}
 		return activity;
+	}
+
+	/**
+	 * Context for the whole app.
+	 */
+	@Nullable
+	public Context getContext() {
+		Context context = weakContext.get();
+		if (context == null && running) {
+			Log.w("Maply", "Context destroyed, " + getClass().getSimpleName() + " not shut down");
+		}
+		return context;
 	}
 
 	/**
@@ -420,9 +434,7 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 	}
 
 	/**
-	 * Construct the maply controller with an Activity.  We need access to a few
-	 * of the usual Android resources.
-	 * <p>
+	 * We need access to a few of the usual Android resources.
 	 * On construction the Controller will create the scene, the view, kick off
 	 * the OpenGL ES surface, and construct a layer thread for handling data
 	 * requests.
@@ -430,13 +442,10 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 	 * The controller also sets up some default gestures and handles those
 	 * callbacks.
 	 * <p>
-	 * @param mainActivity Your main activity that we'll attach ourselves to.
 	 * @param settings The controller settings
 	 */
-	public BaseController(@NotNull Activity mainActivity,@Nullable Settings settings)
+	private void create(@Nullable Settings settings)
 	{
-		weakActivity = new WeakReference<>(mainActivity);
-
 		// Note: Can't pull this one in anymore in Android Studio.  Hopefully not still necessary
 //		System.loadLibrary("gnustl_shared");
 		if (settings != null && settings.loadLibraryName != null)
@@ -476,6 +485,35 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 		renderControl = new RenderController();
 	}
 
+	/**
+	 * Construct the maply controller with an Activity.
+	 * <p>
+	 * @param mainActivity Your main activity that we'll attach ourselves to.
+	 * @param settings The controller settings
+	 */
+	public BaseController(@NotNull Activity mainActivity,@Nullable Settings settings)
+	{
+		weakActivity = new WeakReference<>(mainActivity);
+		weakContext = new WeakReference<>(mainActivity);
+		weakGLSurfaceView = new WeakReference<>(null);
+		create(settings);
+	}
+
+	/**
+	 * Construct the maply controller with a Context.
+	 * <p>
+	 * @param context Your context that we'll attach ourselves to.
+	 * @param glSurfaceView Surface view to use for display
+	 * @param settings The controller settings
+	 */
+	public BaseController(@NotNull Context context, GLSurfaceView glSurfaceView, @Nullable Settings settings)
+	{
+		weakActivity = new WeakReference<>(null);
+		weakContext = new WeakReference<>(context);
+		weakGLSurfaceView = new WeakReference<>(glSurfaceView);
+		create(settings);
+	}
+
 	ColorDrawable tempBackground = null;
 
 	private byte renderGpuType = RenderGPUType.Unknown;
@@ -502,7 +540,7 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 			layerThreads.add(layerThread);
 		}
 
-		Activity activity = getActivity();
+		Context activity = getContext();
 		if (activity == null) {
 			return;
 		}
@@ -513,7 +551,8 @@ public abstract class BaseController implements RenderController.TaskManager, Re
         if (supportsEs2)
         {
 			if (!useTextureView) {
-				GLSurfaceView glSurfaceView = new GLSurfaceView(activity);
+				GLSurfaceView savedSurfaceView = weakGLSurfaceView.get();
+				GLSurfaceView glSurfaceView = (savedSurfaceView != null ? savedSurfaceView : new GLSurfaceView(activity));
 
 				if (width > 0 && height > 0) {
 					glSurfaceView.getHolder().setFixedSize(width, height);
@@ -580,7 +619,7 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 	// Kick off the analytics logic.
 	private void startAnalytics()
 	{
-		Activity activity = getActivity();
+		Context activity = getContext();
 		if (activity == null) {
 			return;
 		}
@@ -636,7 +675,7 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 
 				@Override
 				public void onResponse(@NotNull Call call, @NotNull Response response) {
-					Activity activity2 = getActivity();
+					Context activity2 = getContext();
 					// We got a response, so save that in prefs
 					if (activity2 != null) {
 						SharedPreferences prefs = activity2.getSharedPreferences("WGMaplyPrefs", Context.MODE_PRIVATE);
@@ -1082,7 +1121,8 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 				return;
 
 			Activity activity = getActivity();
-			if (activity == null) {
+			Context context = getContext();
+			if (context == null) {
 				return;
 			}
 
@@ -1169,11 +1209,19 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 
 			// Call the post surface setup callbacks
 			for (final Runnable theRunnable : postSurfaceRunnables) {
-				activity.runOnUiThread(() -> {
+				Runnable runnable = () -> {
 					// If they shut things down right here, we have to check
 					if (running)
 						theRunnable.run();
-				});
+				};
+
+				if(activity != null) {
+					activity.runOnUiThread(runnable);
+				}
+				else {
+					Handler handler = new Handler(Looper.getMainLooper());
+					handler.post(runnable);
+				}
 			}
 			postSurfaceRunnables.clear();
 		}
@@ -2545,7 +2593,7 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 	 * Only needed if the automatically-added one was cleared.
 	 */
 	public boolean addDefaultClusterGenerator() {
-		Activity activity = getActivity();
+		Context activity = getContext();
 		if (activity == null) {
 			return false;
 		}
@@ -2788,7 +2836,7 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 	}
 
 	private Looper getMainLooper() {
-		Activity act = getActivity();
+		Context act = getContext();
 		Looper looper = (act != null) ? act.getMainLooper() : null;
 		return (looper != null) ? looper : Looper.getMainLooper();
 	}

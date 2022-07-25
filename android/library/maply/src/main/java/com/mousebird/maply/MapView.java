@@ -19,6 +19,8 @@
 package com.mousebird.maply;
 
 import android.app.Activity;
+import android.os.Handler;
+import android.os.Looper;
 
 import java.lang.ref.WeakReference;
 
@@ -102,14 +104,19 @@ public class MapView extends View
 
 		if (didStop) {
 			MapController theControl = control.get();
+			Runnable runnable = () -> {
+				MapController theControl2 = control.get();
+				if (theControl2 != null) {
+					theControl2.handleStopMoving(false);
+				}
+			};
 			Activity activity = (theControl != null) ? theControl.getActivity() : null;
 			if (activity != null) {
-				activity.runOnUiThread(() -> {
-					MapController theControl2 = control.get();
-					if (theControl2 != null) {
-						theControl2.handleStopMoving(false);
-					}
-				});
+				activity.runOnUiThread(runnable);
+			}
+			else {
+				Handler handler = new Handler(Looper.getMainLooper());
+				handler.post(runnable);
 			}
 		}
 	}

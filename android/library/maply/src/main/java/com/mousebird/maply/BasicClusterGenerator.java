@@ -18,6 +18,7 @@
 package com.mousebird.maply;
 
 import android.app.Activity;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -64,6 +65,10 @@ public class BasicClusterGenerator extends ClusterGenerator {
     }
 
     public BasicClusterGenerator(int[] colors, int clusterNumber, Point2d markerSize, BaseController viewC, Activity activity) {
+        this(colors,clusterNumber,markerSize,viewC);
+    }
+
+    public BasicClusterGenerator(int[] colors, int clusterNumber, Point2d markerSize, BaseController viewC, Context context) {
         this(colors,clusterNumber,markerSize,viewC);
     }
 
