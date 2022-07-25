@@ -1,6 +1,6 @@
 buildscript {
     ext {
-        kotlin_version = '1.7.0'
+        kotlin_version = '1.7.10'
     }
     repositories {
         google()
@@ -26,11 +26,11 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
-    compileSdkVersion 32
-    buildToolsVersion "32.0.0"
+    compileSdkVersion 33
+    buildToolsVersion "33.0.0"
     defaultConfig {
         minSdkVersion 18
-        targetSdkVersion 32
+        targetSdkVersion 33
         versionCode 1
         versionName "1.0"
 
@@ -142,7 +142,7 @@ android {
             }
         }
     }
-    ndkVersion '24.0.8215888'
+    ndkVersion '25.0.8775105'
 }
 
 dependencies {
