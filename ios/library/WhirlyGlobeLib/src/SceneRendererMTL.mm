@@ -30,19 +30,29 @@
 #import "RawData_NSData.h"
 #import "RenderTargetMTL.h"
 
+// Capture a range of frames to the developer tools (frames are 1-based)
+#define CAPTURE_FRAME_START 0
+#define CAPTURE_FRAME_END (CAPTURE_FRAME_START+0)
+
 using namespace Eigen;
 
 namespace WhirlyKit
 {
 
-WorkGroupMTL::WorkGroupMTL(GroupType inGroupType)
+WorkGroupMTL::WorkGroupMTL(GroupType inGroupType) :
+    WorkGroupMTL(inGroupType, std::string())
+{
+}
+
+WorkGroupMTL::WorkGroupMTL(GroupType inGroupType, std::string inName)
 {
     groupType = inGroupType;
+    name = std::move(inName);
     
     switch (groupType) {
         case Calculation:
             // For calculation we don't really have a render target
-            renderTargetContainers.push_back(WorkGroupMTL::makeRenderTargetContainer(NULL));
+            renderTargetContainers.push_back(WorkGroupMTL::makeRenderTargetContainer(nullptr));
             break;
         case Offscreen:
             break;
@@ -51,10 +61,6 @@ WorkGroupMTL::WorkGroupMTL(GroupType inGroupType)
         case ScreenRender:
             break;
     }
-}
-
-WorkGroupMTL::~WorkGroupMTL()
-{
 }
 
 RenderTargetContainerMTL::RenderTargetContainerMTL(RenderTargetRef renderTarget) :
@@ -86,24 +92,34 @@ SceneRendererMTL::SceneRendererMTL(id<MTLDevice> mtlDevice,id<MTLLibrary> mtlLib
     indirectRender = false;
 #endif
 
+    MTLCaptureManager* captureMgr = [MTLCaptureManager sharedCaptureManager];
+    cmdCaptureScope = [captureMgr newCaptureScopeWithCommandQueue:cmdQueue];
+    cmdCaptureScope.label = label.empty() ? @"Maply SceneRenderer" : [NSString stringWithUTF8String:label.c_str()];
+    if (!captureMgr.defaultCaptureScope)
+    {
+        captureMgr.defaultCaptureScope = cmdCaptureScope;
+    }
+
     init();
-        
+
     // Calculation shaders
-    workGroups.push_back(std::make_shared<WorkGroupMTL>(WorkGroup::Calculation));
+    workGroups.push_back(std::make_shared<WorkGroupMTL>(WorkGroup::Calculation, "Calc"));
     // Offscreen target render group
-    workGroups.push_back(std::make_shared<WorkGroupMTL>(WorkGroup::Offscreen));
+    workGroups.push_back(std::make_shared<WorkGroupMTL>(WorkGroup::Offscreen, "Offscreen"));
     // Middle one for weird stuff
-    workGroups.push_back(std::make_shared<WorkGroupMTL>(WorkGroup::ReduceOps));
+    workGroups.push_back(std::make_shared<WorkGroupMTL>(WorkGroup::ReduceOps, "Reduce"));
     // Last workgroup is used for on screen rendering
-    workGroups.push_back(std::make_shared<WorkGroupMTL>(WorkGroup::ScreenRender));
+    workGroups.push_back(std::make_shared<WorkGroupMTL>(WorkGroup::ScreenRender, "Screen"));
 
     setScale(inScale);
     setupInfo.mtlDevice = mtlDevice;
     setupInfo.uniformBuff = setupInfo.heapManage.allocateBuffer(HeapManagerMTL::Drawable,sizeof(WhirlyKitShader::Uniforms));
+    setupInfo.uniformBuff.buffer.label = @"uniforms";
     setupInfo.lightingBuff = setupInfo.heapManage.allocateBuffer(HeapManagerMTL::Drawable,sizeof(WhirlyKitShader::Lighting));
+    setupInfo.lightingBuff.buffer.label = @"lighting";
     releaseQueue = dispatch_queue_create("Maply release queue", DISPATCH_QUEUE_SERIAL);
 }
-    
+
 SceneRendererMTL::~SceneRendererMTL()
 {
 }
@@ -316,11 +332,17 @@ void SceneRendererMTL::updateWorkGroups(RendererFrameInfo *inFrameInfo)
     
     if (!indirectRender)
         return;
-    
+
     // Build the indirect command buffers if they're available
     if (@available(iOS 13.0, *)) {
+        const bool isCapturing = [MTLCaptureManager sharedCaptureManager].isCapturing;
+
+        int workGroupIndex = -1;
         for (const auto &workGroup : workGroups) {
+            ++workGroupIndex;
+            int targetContainerIndex = -1;
             for (const auto &targetContainer : workGroup->renderTargetContainers) {
+                ++targetContainerIndex;
                 if (targetContainer->drawables.empty() && !targetContainer->modified)
                     continue;
                 RenderTargetContainerMTLRef targetContainerMTL = std::dynamic_pointer_cast<RenderTargetContainerMTL>(targetContainer);
@@ -349,14 +371,10 @@ void SceneRendererMTL::updateWorkGroups(RendererFrameInfo *inFrameInfo)
                         continue;
                     }
 
-                    // Sort out what the zbuffer should be
-                    bool zBufferWrite;// = (zBufferMode == zBufferOn);
-                    bool zBufferRead;// = (zBufferMode == zBufferOn);
-                    if (renderTarget->getTex() != nil) {
-                        // Off screen render targets don't like z buffering
-                        zBufferRead = false;
-                        zBufferWrite = false;
-                    } else {
+                    // Off screen render targets don't like z buffering
+                    bool zBufferWrite = false;
+                    bool zBufferRead = false;
+                    if (renderTarget->getTex() == nil) {
                         // The drawable itself gets a say
                         zBufferRead = drawMTL->getRequestZBuffer();
                         zBufferWrite = drawMTL->getWriteZbuffer();
@@ -397,13 +415,21 @@ void SceneRendererMTL::updateWorkGroups(RendererFrameInfo *inFrameInfo)
                 cmdBuffDesc.maxFragmentBufferBindCount = WhirlyKitShader::WKSFragMaxBuffer;
 
                 // Build up indirect buffers for each draw group
+                int drawGroupIndex = -1;
                 for (const auto &drawGroup : targetContainerMTL->drawGroups) {
+                    ++drawGroupIndex;
                     int curCommand = 0;
                     drawGroup->numCommands = drawGroup->drawables.size();
                     drawGroup->indCmdBuff = [setupInfo.mtlDevice newIndirectCommandBufferWithDescriptor:cmdBuffDesc maxCommandCount:drawGroup->numCommands options:0];
                     if (!drawGroup->indCmdBuff) {
                         wkLogLevel(Error, "SceneRendererMTL: Failed to allocate indirect command buffer.  Skipping.");
                         continue;
+                    }
+
+                    if (isCapturing)
+                    {
+                        drawGroup->indCmdBuff.label = [NSString stringWithFormat:@"Workgroup=%d \"%s\" Target=%d Group=%d",
+                                                       workGroupIndex, workGroup->name.c_str(), targetContainerIndex, drawGroupIndex];
                     }
 
                     // Just run the calculation portion
@@ -418,7 +444,7 @@ void SceneRendererMTL::updateWorkGroups(RendererFrameInfo *inFrameInfo)
                             SimpleIdentity calcProgID = drawMTL->getCalculationProgram();
                             
                             // Figure out the program to use for drawing
-                            if (calcProgID == EmptyIdentity)
+                            if (calcProgID == EmptyIdentity || calcProgID == Program::NoProgramID)
                                 continue;
                             ProgramMTL *calcProgram = (ProgramMTL *)scene->getProgram(calcProgID);
                             if (!calcProgram) {
@@ -436,6 +462,9 @@ void SceneRendererMTL::updateWorkGroups(RendererFrameInfo *inFrameInfo)
                             DrawableMTL *drawMTL = dynamic_cast<DrawableMTL *>(draw.get());
                             if (!drawMTL) {
                                 wkLogLevel(Error, "SceneRendererMTL: Invalid drawable");
+                                continue;
+                            }
+                            if (drawMTL->getProgram() == Program::NoProgramID) {
                                 continue;
                             }
                             
@@ -583,6 +612,40 @@ void SceneRendererMTL::render(TimeInterval duration, RenderInfo *renderInfo)
     // Send the command buffer and encoders
     id<MTLDevice> mtlDevice = setupInfo.mtlDevice;
 
+    bool isCapturing = false;
+#if CAPTURE_FRAME_START && CAPTURE_FRAME_END >= CAPTURE_FRAME_START
+    if (@available(iOS 13.0, *))
+    {
+        // "When you capture a frame programmatically, you can capture Metal commands that span multiple
+        //  frames by using a custom capture scope. For example, by calling begin() at the start of frame
+        //  1 and end() after frame 3, the trace will contain command data from all the buffers that were
+        //  committed in the three frames."
+        // https://developer.apple.com/documentation/metal/debugging_tools/capturing_gpu_command_data_programmatically
+        MTLCaptureManager *captureMgr = [MTLCaptureManager sharedCaptureManager];
+        if (frameCount == CAPTURE_FRAME_START && !captureMgr.isCapturing &&
+            [captureMgr supportsDestination:MTLCaptureDestination::MTLCaptureDestinationDeveloperTools])
+        {
+            MTLCaptureDescriptor *desc = [MTLCaptureDescriptor new];
+            desc.captureObject = cmdCaptureScope;
+            desc.destination = MTLCaptureDestination::MTLCaptureDestinationDeveloperTools;
+            NSError *err = nil;
+            if ([captureMgr startCaptureWithDescriptor:desc error:&err])
+            {
+                [cmdCaptureScope beginScope];
+            }
+            else if (err)
+            {
+                NSLog(@"Failed to start Metal capture: %@", err);
+            }
+        }
+        isCapturing = captureMgr.isCapturing;
+        if (isCapturing)
+        {
+            wkLog("Capturing frame %d", frameCount);
+        }
+    }
+#endif
+
     const auto frameInfoRef = makeFrameInfo();
     auto &baseFrameInfo = *frameInfoRef;
     baseFrameInfo.frameLen = duration;
@@ -701,11 +764,17 @@ void SceneRendererMTL::render(TimeInterval duration, RenderInfo *renderInfo)
         renderEvent = [mtlDevice newEvent];
     
     // Workgroups force us to draw things in order
+    int workGroupIndex = -1;
     for (auto &workGroup : workGroups) {
+        ++workGroupIndex;
+
         if (perfInterval > 0)
             perfTimer.startTiming("Work Group: " + workGroup->name);
 
+        int targetContainerIndex = -1;
         for (auto &targetContainer : workGroup->renderTargetContainers) {
+            ++targetContainerIndex;
+
             // We'll skip empty render targets, except for the default one which we need at least to clear
             // Otherwise we get stuck on the last render, rather than a blank screen
             if (targetContainer->drawables.empty() &&
@@ -741,6 +810,13 @@ void SceneRendererMTL::render(TimeInterval duration, RenderInfo *renderInfo)
             // Ask all the drawables to set themselves up.  Mostly memory stuff.
             id<MTLFence> preProcessFence = [mtlDevice newFence];
             id<MTLBlitCommandEncoder> bltEncode = [cmdBuff blitCommandEncoder];
+
+            if (isCapturing)
+            {
+                preProcessFence.label = bltEncode.label =
+                    [NSString stringWithFormat:@"Workgroup=%d \"%s\" Target=%d Preprocessing",
+                        workGroupIndex, workGroup->name.c_str(), targetContainerIndex];
+            }
 
             // Resources used by this container
             ResourceRefsMTL resources;
@@ -811,27 +887,49 @@ void SceneRendererMTL::render(TimeInterval duration, RenderInfo *renderInfo)
                     baseFrameInfo.renderPassDesc = renderTarget->getRenderPassDesc(level);
                 }
                 cmdEncode = [cmdBuff renderCommandEncoderWithDescriptor:baseFrameInfo.renderPassDesc];
+                if (isCapturing)
+                {
+                    cmdEncode.label = [NSString stringWithFormat:@"Workgroup=%d \"%s\" Target=%d Level=%d",
+                                       workGroupIndex, workGroup->name.c_str(), targetContainerIndex, level];
+                }
                 [cmdEncode waitForFence:preProcessFence beforeStages:MTLRenderStageVertex];
 
                 resources.use(cmdEncode);
 
                 if (indirectRender) {
                     if (@available(iOS 12.0, *)) {
+                        if (isCapturing) {
+                            [cmdEncode pushDebugGroup:@"Indirect"];
+                        }
                         // Front-face culling on by default for globes
                         // Note: Would like to not set this every time
                         if (!isFlat) {
                             [cmdEncode setCullMode:MTLCullModeFront];
                         }
+                        int drawGroupIndex = -1;
                         for (const auto &drawGroup : targetContainerMTL->drawGroups) {
+                            ++drawGroupIndex;
                             if (drawGroup->numCommands > 0) {
+                                if (isCapturing) {
+                                    [cmdEncode pushDebugGroup:[NSString stringWithFormat:@"DrawGroup%d", drawGroupIndex]];
+                                }
                                 [cmdEncode setDepthStencilState:drawGroup->depthStencil];
                                 [cmdEncode executeCommandsInBuffer:drawGroup->indCmdBuff withRange:NSMakeRange(0,drawGroup->numCommands)];
+                                if (isCapturing) {
+                                    [cmdEncode popDebugGroup];
+                                }
                             }
+                        }
+                        if (isCapturing) {
+                            [cmdEncode popDebugGroup];
                         }
                     }
                 } else {
                     // Just run the calculation portion
                     if (workGroup->groupType == WorkGroup::Calculation) {
+                        if (isCapturing) {
+                            [cmdEncode pushDebugGroup:@"Calculation"];
+                        }
                         // Work through the drawables
                         for (const auto &draw : targetContainer->drawables) {
                             DrawableMTL *drawMTL = dynamic_cast<DrawableMTL *>(draw.get());
@@ -842,7 +940,7 @@ void SceneRendererMTL::render(TimeInterval duration, RenderInfo *renderInfo)
                             const SimpleIdentity calcProgID = drawMTL->getCalculationProgram();
                             
                             // Figure out the program to use for drawing
-                            if (calcProgID == EmptyIdentity)
+                            if (calcProgID == EmptyIdentity || calcProgID == Program::NoProgramID)
                                 continue;
 
                             ProgramMTL *calcProgram = (ProgramMTL *)scene->getProgram(calcProgID);
@@ -859,6 +957,10 @@ void SceneRendererMTL::render(TimeInterval duration, RenderInfo *renderInfo)
                             drawMTL->encodeDirectCalculate(&baseFrameInfo,cmdEncode,scene);
                         }
                     } else {
+                        if (isCapturing) {
+                            [cmdEncode pushDebugGroup:@"Direct"];
+                        }
+
                         // Keep track of state changes for z buffer state
                         bool firstDepthState = true;
                         bool zBufferWrite = (zBufferMode == zBufferOn);
@@ -882,6 +984,10 @@ void SceneRendererMTL::render(TimeInterval duration, RenderInfo *renderInfo)
                             }
 
                             // Figure out the program to use for drawing
+                            if (drawMTL->getProgram() == Program::NoProgramID &&
+                                drawMTL->getCalculationProgram() == Program::NoProgramID) {
+                                continue;
+                            }
                             ProgramMTL *program = (ProgramMTL *)scene->getProgram(drawMTL->getProgram());
                             if (!program) {
                                 program = (ProgramMTL *)scene->getProgram(drawMTL->getCalculationProgram());
@@ -1021,6 +1127,18 @@ void SceneRendererMTL::render(TimeInterval duration, RenderInfo *renderInfo)
     }
     lastRenderNo++;
 
+#if CAPTURE_FRAME_START && CAPTURE_FRAME_END >= CAPTURE_FRAME_START
+    if (@available(iOS 13.0, *))
+    {
+        MTLCaptureManager *captureMgr = [MTLCaptureManager sharedCaptureManager];
+        if (frameCount == CAPTURE_FRAME_END && captureMgr.isCapturing)
+        {
+            [cmdCaptureScope endScope];
+            //[captureMgr stopCapture];
+        }
+    }
+#endif
+
     if (perfInterval > 0)
         perfTimer.stopTiming("Render Frame");
     
@@ -1065,6 +1183,13 @@ void SceneRendererMTL::shutdown()
         draw->teardownForRenderer(nullptr, nullptr, nullptr);
     }
 
+    MTLCaptureManager* captureMgr = [MTLCaptureManager sharedCaptureManager];
+    if (captureMgr.defaultCaptureScope == cmdCaptureScope)
+    {
+        captureMgr.defaultCaptureScope = nil;
+    }
+
+    cmdCaptureScope = nil;
     cmdQueue = nil;
 
     SceneRenderer::shutdown();
@@ -1114,12 +1239,21 @@ BasicDrawableInstanceBuilderRef SceneRendererMTL::makeBasicDrawableInstanceBuild
 
 BillboardDrawableBuilderRef SceneRendererMTL::makeBillboardDrawableBuilder(const std::string &name) const
 {
+#if !MAPLY_MINIMAL
     return std::make_shared<BillboardDrawableBuilderMTL>(name,scene);
+#else
+    // need a stub for the vtable
+    return nullptr;
+#endif //!MAPLY_MINIMAL
 }
 
 ScreenSpaceDrawableBuilderRef SceneRendererMTL::makeScreenSpaceDrawableBuilder(const std::string &name) const
 {
+#if !MAPLY_MINIMAL
     return std::make_shared<ScreenSpaceDrawableBuilderMTL>(name,scene);
+#else
+    return nullptr;
+#endif //!MAPLY_MINIMAL
 }
 
 ParticleSystemDrawableBuilderRef  SceneRendererMTL::makeParticleSystemDrawableBuilder(const std::string &name) const
@@ -1129,7 +1263,11 @@ ParticleSystemDrawableBuilderRef  SceneRendererMTL::makeParticleSystemDrawableBu
 
 WideVectorDrawableBuilderRef SceneRendererMTL::makeWideVectorDrawableBuilder(const std::string &name) const
 {
+#if !MAPLY_MINIMAL
     return std::make_shared<WideVectorDrawableBuilderMTL>(name,this,scene);
+#else
+    return nullptr;
+#endif //!MAPLY_MINIMAL
 }
 
 RenderTargetRef SceneRendererMTL::makeRenderTarget() const
@@ -1139,7 +1277,11 @@ RenderTargetRef SceneRendererMTL::makeRenderTarget() const
 
 DynamicTextureRef SceneRendererMTL::makeDynamicTexture(const std::string &name) const
 {
+#if !MAPLY_MINIMAL
     return std::make_shared<DynamicTextureMTL>(name);
+#else
+    return nullptr;
+#endif //!MAPLY_MINIMAL
 }
 
 

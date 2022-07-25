@@ -347,7 +347,11 @@ public:
 
     // Called by the subclass
     virtual void init();
-    
+
+    void setLabel(const char* s) { label.clear(); if (s) label = s; }
+    void setLabel(std::string s) { label = std::move(s); }
+    const std::string &getLabel() const { return label; }
+
     // Possible post-target creation init
     virtual void defaultTargetInit(RenderTarget *);
 
@@ -477,6 +481,8 @@ protected:
 
     // Drawables that we currently know about, but are off
     std::set<DrawableRef> offDrawables;
+    
+    std::string label;
 };
 
 typedef std::shared_ptr<SceneRenderer> SceneRendererRef;

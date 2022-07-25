@@ -308,8 +308,10 @@ bool BasicDrawableInstanceMTL::preProcess(SceneRendererMTL *sceneRender,
                 id<MTLBlitCommandEncoder> bltEncode,
                 SceneMTL *scene)
 {
-    bool ret = false;
-    
+    if (programID == Program::None) {
+        return true;
+    }
+   
     ProgramMTL *prog = (ProgramMTL *)scene->getProgram(programID);
     if (!prog) {
         NSLog(@"Drawable %s missing program.",name.c_str());
@@ -317,6 +319,7 @@ bool BasicDrawableInstanceMTL::preProcess(SceneRendererMTL *sceneRender,
     }
     RenderSetupInfoMTL *setupMTL = (RenderSetupInfoMTL *)sceneRender->getRenderSetupInfo();
 
+    bool ret = false;
     if (texturesChanged || valuesChanged || prog->texturesChanged || prog->valuesChanged) {
         ret = true;
         if ((texturesChanged || prog->texturesChanged) && (vertTexInfo || fragTexInfo)) {
@@ -412,8 +415,16 @@ bool BasicDrawableInstanceMTL::preProcess(SceneRendererMTL *sceneRender,
                 auto uniBlock = it.second;
                 if (uniBlock->bufferID == WhirlyKitShader::WKSUniformVecEntryExp)
                     hasExp = true;
-                vertABInfo->updateEntry(sceneRender->setupInfo.mtlDevice,bltEncode,uniBlock->bufferID, (void *)uniBlock->blockData->getRawData(), uniBlock->blockData->getLen());
-                fragABInfo->updateEntry(sceneRender->setupInfo.mtlDevice,bltEncode,uniBlock->bufferID, (void *)uniBlock->blockData->getRawData(), uniBlock->blockData->getLen());
+                if (vertABInfo)
+                {
+                    vertABInfo->updateEntry(sceneRender->setupInfo.mtlDevice,bltEncode,uniBlock->bufferID,
+                                            (void *)uniBlock->blockData->getRawData(), uniBlock->blockData->getLen());
+                }
+                if (fragABInfo)
+                {
+                    fragABInfo->updateEntry(sceneRender->setupInfo.mtlDevice,bltEncode,uniBlock->bufferID,
+                                            (void *)uniBlock->blockData->getRawData(), uniBlock->blockData->getLen());
+                }
             }
             
             // If we're overriding the color, we copy that into its own buffer

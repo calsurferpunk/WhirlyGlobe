@@ -93,7 +93,8 @@ class WorkGroupMTL : public WorkGroup
 {
 public:
     WorkGroupMTL(GroupType groupType);
-    virtual ~WorkGroupMTL();
+    WorkGroupMTL(GroupType groupType, std::string name);
+    virtual ~WorkGroupMTL() = default;
     
 protected:
     virtual RenderTargetContainerRef makeRenderTargetContainer(RenderTargetRef renderTarget);
@@ -211,6 +212,7 @@ public:
     dispatch_queue_t releaseQueue;
 
     id<MTLCommandQueue> cmdQueue;
+    id<MTLCaptureScope> cmdCaptureScope;
 
     // This keeps us from stomping on the previous frame's uniforms
     int lastRenderNo;
