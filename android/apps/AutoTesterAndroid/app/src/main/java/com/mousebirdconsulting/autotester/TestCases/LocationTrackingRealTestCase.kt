@@ -18,6 +18,7 @@ open class LocationTrackingRealTestCase(activity: Activity) :
         MaplyTestCase(activity, "Location Tracking - Real"),
         LocationTrackerDelegate {
     
+    @Deprecated("Deprecated in Java")
     override fun onPreExecute() {
 
         activity.findViewById<FrameLayout>(R.id.content_frame)?.let { frame ->
