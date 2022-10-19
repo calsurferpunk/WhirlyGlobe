@@ -20,6 +20,7 @@ android {
 
     }
     buildTypes {
+        /*
         devRelease {
             minifyEnabled false
             debuggable true
@@ -29,6 +30,7 @@ android {
             matchingFallbacks = ['release']
             proguardFiles getDefaultProguardFile('proguard-android.txt'), '../../../../library/maply/proguard-rules.pro'
         }
+        */
         release {
             minifyEnabled false
             debuggable false
