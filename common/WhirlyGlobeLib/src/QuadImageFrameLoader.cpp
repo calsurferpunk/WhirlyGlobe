@@ -270,10 +270,10 @@ void QIFTileAsset::setupContents(QuadImageFrameLoader *loader,
             snprintf(&buf[0], buf.size() - 1, "%s %d:(%d,%d) frames=%d focus=%d kind=%d", label.c_str(),
                      loadedTile->ident.level, loadedTile->ident.x, loadedTile->ident.y,
                      loader->getNumFrames(), focusID, di.kind);
-            const char * const label = &buf[0];
 #else
-            constexpr char * label = "";
+            const char buf[1] = { '\0' };
 #endif
+            const char * const label = &buf[0];
 
             // Make a drawable instance to shadow the geometry
             auto drawInst = loader->getController()->getRenderer()->makeBasicDrawableInstanceBuilder(label);
@@ -1036,6 +1036,7 @@ void QuadImageFrameLoader::mergeLoadedTile(PlatformThreadInfo *threadInfo,QuadLo
                 image->clearTexture();
                 if (tex) {
                     tex->setFormat(texType);
+                    tex->setSingleByteSource(texByteSource);
                     texs.push_back(tex);
                 }
             }
@@ -1183,10 +1184,12 @@ void QuadImageFrameLoader::updateRenderState(ChangeSet &changes)
                 const int relX = tileID.x - texNode.x * (int)(1U<<relLevel);
                 int tileIDY = tileID.y;
                 int frameIdentY = texNode.y;
-                if (flipY) {
+                // Note: Confused why this works for both modes
+                //       Might be how the textures are laid out.  Still.  Wah?
+//                if (flipY) {
                     tileIDY = (int)(1U<<(unsigned)tileID.level)-tileIDY-1;
                     frameIdentY = (int)(1U<<(unsigned)texNode.level)-frameIdentY-1;
-                }
+//                }
                 const int relY = tileIDY - frameIdentY * (int)(1U<<relLevel);
 
                 // We'll want to match the draw priority of the tile we're changing to the texture we're using

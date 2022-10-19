@@ -1,7 +1,0 @@
-Executable : /home/james/android/sdk/cmake/3.18.1/bin/ninja
-arguments : 
--C
-/home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/.cxx/Debug/y5k4g3d2/arm64-v8a
-whirlyglobemaply
-jvmArgs : 
-
