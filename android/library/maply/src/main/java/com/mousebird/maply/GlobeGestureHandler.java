@@ -68,8 +68,8 @@ public class GlobeGestureHandler
 	{
 		sgd = null;
 		if (sl != null)
-		sl.maplyControl = null;
-			sl = null;
+			sl.maplyControl = null;
+		sl = null;
 		gd = null;
 		if (gl != null)
 			gl.globeControl = null;

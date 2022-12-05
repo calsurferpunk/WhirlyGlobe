@@ -1935,8 +1935,8 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 	{
 		if (!running)
 			return null;
-
-        return renderControl.addScreenMovingMarkers(markers,markerInfo,mode);
+		else
+        	return renderControl.addScreenMovingMarkers(markers,markerInfo,mode);
 	}
 
 	/**
