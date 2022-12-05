@@ -170,10 +170,22 @@ class RendererWrapper implements GLSurfaceView.Renderer, GLTextureView.Renderer
 		}
 	}
 
+	private long lastFrameTimeMs = 0;
+
 	@SuppressLint("ObsoleteSdkInt")
 	@Override
 	public void onDrawFrame(GL10 gl)
 	{
+		RenderController render = maplyRender.get();
+		double frameDelayMs = 1000 / (render != null ? render.getTargetFPS() : 60.0);
+		long frameTimeMs = System.currentTimeMillis();
+		long deltaMs = frameTimeMs - lastFrameTimeMs;
+
+		if(deltaMs < frameDelayMs)
+		{
+			return;
+		}
+
 		synchronized (singlePreFrameRuns) {
 			for (Runnable run: singlePreFrameRuns)
 				run.run();
@@ -214,7 +226,7 @@ class RendererWrapper implements GLSurfaceView.Renderer, GLTextureView.Renderer
 		try {
 			BaseController control = maplyControl.get();
 			if (control != null) {
-				RenderController render = maplyRender.get();
+				//RenderController render = maplyRender.get();
 				if (valid && render != null) {
 					render.doRender();
 				}
@@ -240,6 +252,8 @@ class RendererWrapper implements GLSurfaceView.Renderer, GLTextureView.Renderer
 			for (Runnable run: postFrameRuns)
 				run.run();
 		}
+
+		lastFrameTimeMs = System.currentTimeMillis();
 	}
 
 	private Bitmap getPixels(int x, int y, int w, int h, GL10 gl)

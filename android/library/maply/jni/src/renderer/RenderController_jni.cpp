@@ -363,9 +363,10 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_render(JNIEnv *
 			return;
 
 		const bool changes = renderer->hasChanges();
+		const double fps = renderer->getTargetFPS();
 
 		/// TODO: Make sure this is actually what we're using
-		renderer->render(1/60.0, nullptr);
+		renderer->render(1/fps, nullptr);
 
 		// Count down the extra frames if we need them
 		if (renderer->extraFrameMode) {
@@ -392,7 +393,8 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_renderToBitmapN
 		renderer->addSnapshotDelegate(snapshot);
 
 		renderer->forceDrawNextFrame();
-		renderer->render(1/60.0, nullptr);
+		const double fps = renderer->getTargetFPS();
+		renderer->render(1/fps, nullptr);
 
 		// Framebuffer info
 		const auto size = renderer->getFramebufferSize();
@@ -489,6 +491,41 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_setPerfInterval
 	catch (...)
 	{
 		__android_log_print(ANDROID_LOG_VERBOSE, "Maply", "Crash in RenderController::setPerfInterval()");
+	}
+}
+
+extern "C"
+JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_setTargetFPS(JNIEnv *env, jobject obj, jdouble fps)
+{
+	try
+	{
+		SceneRendererGLES_Android *renderer = SceneRendererInfo::getClassInfo()->getObject(env,obj);
+		if (!renderer)
+			return;
+
+		renderer->setTargetFPS(fps);
+	}
+	catch (...)
+	{
+		__android_log_print(ANDROID_LOG_VERBOSE, "Maply", "Crash in RenderController::setTargetFPS()");
+	}
+}
+
+extern "C"
+JNIEXPORT jdouble Java_com_mousebird_maply_RenderController_getTargetFPS(JNIEnv *env, jobject obj)
+{
+	try
+	{
+		SceneRendererGLES_Android *renderer = SceneRendererInfo::getClassInfo()->getObject(env,obj);
+		if (!renderer)
+			return(60.0);
+
+		return(renderer->getTargetFPS());
+	}
+	catch (...)
+	{
+		__android_log_print(ANDROID_LOG_VERBOSE, "Maply", "Crash in RenderController::getTargetFPS()");
+		return(60.0);
 	}
 }
 

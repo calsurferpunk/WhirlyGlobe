@@ -348,6 +348,10 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 		 */
 		public boolean useSurfaceView = true;
 		/**
+		 * Target frames per second to render
+		 */
+		public double targetFPS = 60.0;
+		/**
 		 * If set, we'll use depth shading on models
 		 */
 		public boolean modelsHaveDepth = true;
@@ -476,6 +480,7 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 		if (settings != null) {
 			useTextureView = !settings.useSurfaceView;
 			numWorkingThreads = settings.numWorkingThreads;
+			setTargetFPS(settings.targetFPS);
 			setModelsHaveDepth(settings.modelsHaveDepth);
 			setTrianglesHaveDepth(settings.trianglesHaveDepth);
 			width = settings.width;
@@ -1190,6 +1195,9 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 
 			setClearColor(renderControl.clearColor);
 
+			// Set target frames per second
+			renderControl.setTargetFPS(targetFPS);
+
 			// Register the shaders
 			renderControl.setModelsHaveDepth(modelsHaveDepth);
 			renderControl.setTrianglesHaveDepth(trianglesHaveDepth);
@@ -1419,6 +1427,18 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 		perfInterval = inPerfInterval;
 		if (renderWrapper != null && renderWrapper.maplyRender != null)
 			renderControl.setPerfInterval(perfInterval);
+	}
+
+	private double targetFPS = 60.0;
+	/**
+	 * Set target frames per second to render
+	 * @param fps target frames per second
+	 */
+	public void setTargetFPS(double fps)
+	{
+		targetFPS = fps;
+		if(renderWrapper != null && renderWrapper.maplyRender != null)
+			renderControl.setTargetFPS(targetFPS);
 	}
 
 	private boolean modelsHaveDepth = true;

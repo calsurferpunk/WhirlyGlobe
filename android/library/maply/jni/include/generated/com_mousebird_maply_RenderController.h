@@ -91,6 +91,13 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_setPerfInterval
 
 /*
  * Class:     com_mousebird_maply_RenderController
+ * Method:    setTargetFPS
+ */
+JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_setTargetFPS
+        (JNIEnv *, jobject , jdouble);
+
+/*
+ * Class:     com_mousebird_maply_RenderController
  * Method:    setModelsHaveDepth
  */
 JNIEXPORT void JNICALL Java_com_mousebird_maply_RenderController_setModelsHaveDepth

@@ -2001,6 +2001,8 @@ public class RenderController implements RenderControllerInterface
     protected native void render();
     protected native boolean hasChanges();
     public native void setPerfInterval(int perfInterval);
+    public native void setTargetFPS(double fps);
+    public native double getTargetFPS();
     public native void setModelsHaveDepth(boolean useDepth);
     public native void setTrianglesHaveDepth(boolean useDepth);
     public native void addLight(DirectionalLight light);

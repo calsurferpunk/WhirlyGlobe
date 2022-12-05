@@ -263,6 +263,12 @@ public:
     /// Set the performance counting interval (0 is off)
     virtual void setPerfInterval(int howLong);
 
+    // Sets target frames per second
+    virtual void setTargetFPS(double fps);
+
+    // Gets target frames per second
+    virtual double getTargetFPS();
+
     // Sets if models have depth
     virtual void setModelsHaveDepth(bool useDepth);
 
@@ -406,6 +412,9 @@ protected:
 
     /// Period over which we measure performance
     int perfInterval = 0;
+
+    /// Target frames per second to render
+    double targetFPS = 60.0;
 
     /// Models have depth
     bool modelsHaveDepth;

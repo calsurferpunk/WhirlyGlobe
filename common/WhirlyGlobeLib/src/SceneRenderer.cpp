@@ -156,6 +156,18 @@ void SceneRenderer::setZBufferMode(WhirlyKitSceneRendererZBufferMode inZBufferMo
 void SceneRenderer::setPerfInterval(int howLong)
     { perfInterval = howLong; }
 
+void SceneRenderer::setTargetFPS(double fps)
+{
+    if (fps < 1.0 || fps > 120.0) {
+        fps = 60.0;
+    }
+
+    targetFPS = fps;
+}
+
+double SceneRenderer::getTargetFPS()
+    { return targetFPS; }
+
 void SceneRenderer::setModelsHaveDepth(bool useDepth)
     { modelsHaveDepth = useDepth; }
 
