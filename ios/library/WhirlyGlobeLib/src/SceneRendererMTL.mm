@@ -115,7 +115,7 @@ SceneRendererMTL::SceneRendererMTL(id<MTLDevice> mtlDevice,id<MTLLibrary> mtlLib
     setupInfo.mtlDevice = mtlDevice;
     for (unsigned int ii=0;ii<MaxViewWrap;ii++) {
         setupInfo.uniformBuff[ii] = setupInfo.heapManage.allocateBuffer(HeapManagerMTL::Drawable,sizeof(WhirlyKitShader::Uniforms));
-        setupInfo.uniformBuff[ii].buffer.label = @"uniforms";
+        setupInfo.uniformBuff[ii].buffer.label = [NSString stringWithFormat:@"uniforms %d", ii];
     }
     setupInfo.lightingBuff = setupInfo.heapManage.allocateBuffer(HeapManagerMTL::Drawable,sizeof(WhirlyKitShader::Lighting));
     setupInfo.lightingBuff.buffer.label = @"lighting";
@@ -222,8 +222,11 @@ bool SceneRendererMTL::resize(int sizeX,int sizeY)
 
 void SceneRendererMTL::setupUniformBuffer(RendererFrameInfoMTL *frameInfo,int oi,id<MTLBlitCommandEncoder> bltEncode,CoordSystemDisplayAdapter *coordAdapter)
 {
-    SceneRendererMTL *sceneRender = (SceneRendererMTL *)frameInfo->sceneRenderer;
-    
+    const SceneRendererMTL *sceneRender = (SceneRendererMTL *)frameInfo->sceneRenderer;
+    const auto *mapView = dynamic_cast<Maply::MapView*>(theView);
+    const bool viewWrap = mapView && mapView->getWrap();
+    const Point2f frameSize = frameInfo->sceneRenderer->getFramebufferSize();
+
     WhirlyKitShader::Uniforms uniforms;
     bzero(&uniforms,sizeof(uniforms));
     CopyIntoMtlFloat4x4Pair(uniforms.mvpMatrix,uniforms.mvpMatrixDiff,frameInfo->mvpMat4d);
@@ -231,11 +234,14 @@ void SceneRendererMTL::setupUniformBuffer(RendererFrameInfoMTL *frameInfo,int oi
     CopyIntoMtlFloat4x4Pair(uniforms.mvMatrix,uniforms.mvMatrixDiff,frameInfo->viewAndModelMat4d);
     CopyIntoMtlFloat4x4(uniforms.mvNormalMatrix,frameInfo->viewModelNormalMat);
     CopyIntoMtlFloat4x4(uniforms.pMatrix,frameInfo->projMat);
+    CopyIntoMtlFloat4x4(uniforms.offsetMatrix,frameInfo->offsetMatrices[oi]);
+    CopyIntoMtlFloat4x4(uniforms.offsetInvMatrix,Matrix4d(frameInfo->offsetMatrices[oi].inverse()));
     CopyIntoMtlFloat3(uniforms.eyePos,frameInfo->eyePos);
     CopyIntoMtlFloat3(uniforms.eyeVec,frameInfo->eyeVec);
     CopyIntoMtlFloat2(uniforms.screenSizeInDisplayCoords,Point2f(frameInfo->screenSizeInDisplayCoords.x(),frameInfo->screenSizeInDisplayCoords.y()));
-    const Point2f frameSize = frameInfo->sceneRenderer->getFramebufferSize();
     CopyIntoMtlFloat2(uniforms.frameSize, frameSize);
+    uniforms.offsetView = oi;
+    uniforms.offsetViews = viewWrap ? frameInfo->offsetMatrices.size() : 0;
     uniforms.globeMode = !coordAdapter->isFlat();
     uniforms.isPanning = theView->getIsPanning();
     uniforms.isZooming = theView->getIsZooming();
@@ -260,7 +266,11 @@ void SceneRendererMTL::setupUniformBuffer(RendererFrameInfoMTL *frameInfo,int oi
     // Copy this to a buffer and then blit that buffer into place
     // TODO: Try to reuse these
     auto buff = setupInfo.heapManage.allocateBuffer(HeapManagerMTL::HeapType::Drawable, &uniforms, sizeof(uniforms));
-    [bltEncode copyFromBuffer:buff.buffer sourceOffset:buff.offset toBuffer:sceneRender->setupInfo.uniformBuff[oi].buffer destinationOffset:sceneRender->setupInfo.uniformBuff[oi].offset size:sizeof(uniforms)];
+    [bltEncode copyFromBuffer:buff.buffer
+                 sourceOffset:buff.offset
+                     toBuffer:sceneRender->setupInfo.uniformBuff[oi].buffer
+            destinationOffset:sceneRender->setupInfo.uniformBuff[oi].offset
+                         size:sizeof(uniforms)];
 }
 
 void SceneRendererMTL::setupLightBuffer(SceneMTL *scene,RendererFrameInfoMTL *frameInfo,id<MTLBlitCommandEncoder> bltEncode)
@@ -351,7 +361,7 @@ void SceneRendererMTL::updateWorkGroups(RendererFrameInfo *inFrameInfo,int numVi
     if (!indirectRender)
         return;
     
-    bool viewOffsetsChanged = numViewOffsets != lastNumViewOffsets;
+    //bool viewOffsetsChanged = numViewOffsets != lastNumViewOffsets;
     lastNumViewOffsets = numViewOffsets;
     
     // Build the indirect command buffers if they're available
@@ -489,7 +499,10 @@ void SceneRendererMTL::updateWorkGroups(RendererFrameInfo *inFrameInfo,int numVi
                                 continue;
                             }
                             
-                            for (int oi=0;oi<numViewOffsets;oi++) {
+                            // Draw once for each matrix, unless the drawable uses
+                            // clip coordinates and doesn't need to be transformed.
+                            const int numDraws = drawMTL->getClipCoords() ? 1 : numViewOffsets;
+                            for (int oi=0;oi<numDraws;oi++) {
                                 id<MTLIndirectRenderCommand> cmdEncode = [drawGroup->indCmdBuff indirectRenderCommandAtIndex:curCommand++];
                                 drawMTL->encodeIndirect(cmdEncode,oi,this,scene,renderTarget.get());
                             }
@@ -741,7 +754,7 @@ void SceneRendererMTL::render(TimeInterval duration, RenderInfo *renderInfo)
         perfTimer.stopTiming("Scene processing");
     
     // Work through the available offset matrices (only 1 if we're not wrapping)
-    std::vector<Matrix4d> &offsetMats = baseFrameInfo.offsetMatrices;
+    const Matrix4dVector &offsetMats = baseFrameInfo.offsetMatrices;
     std::vector<RendererFrameInfoMTL> offFrameInfos;
     // Turn these drawables in to a vector
     std::vector<Matrix4d> mvpMats;
@@ -1060,8 +1073,11 @@ void SceneRendererMTL::render(TimeInterval duration, RenderInfo *renderInfo)
                                 [cmdEncode setDepthStencilState:depthStencil];
                                 firstDepthState = false;
                             }
-                            
-                            for (unsigned int off=0;off<offFrameInfos.size();off++) {
+
+                            // Draw once for each matrix, unless the drawable uses
+                            // clip coordinates and doesn't need to be transformed.
+                            const size_t numDraws = drawMTL->getClipCoords() ? 1 : offFrameInfos.size();
+                            for (size_t off=0;off<numDraws;off++) {
                                 baseFrameInfo.program = program;
 
                                 // "Draw" using the given program

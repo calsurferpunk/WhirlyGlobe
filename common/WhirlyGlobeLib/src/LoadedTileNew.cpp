@@ -68,10 +68,21 @@ void LoadedTileNew::makeDrawables(SceneRenderer *sceneRender,TileGeomManager *ge
         return;
 
     MbrD theMbr = geomManage->quadTree->generateMbrForNode(ident);
+    //const MbrD origMbr = theMbr;
+
     Point2d texScale(1, 1);
     Point2d texOffset(0, 0);
     std::tie(theMbr.ll().x(), theMbr.ur().x(), texScale.x(), texOffset.x()) = clipDim(theMbr.x(), geomManage->mbr.x());
     std::tie(theMbr.ll().y(), theMbr.ur().y(), texScale.y(), texOffset.y()) = clipDim(theMbr.y(), geomManage->mbr.y());
+
+    //if (theMbr != origMbr)
+    //{
+    //    wkLog("Tile %d:%d,%d clip: %.8f,%.8f / %.8f,%.8f => %.8f,%.8f / %.8f,%.8f scale=%.4f,%.4f offset=%.4f,%.4f",
+    //          ident.level, ident.x, ident.y,
+    //          origMbr.ll().x(), origMbr.ll().y(), origMbr.ur().x(), origMbr.ur().y(),
+    //          theMbr.ll().x(), theMbr.ll().y(), theMbr.ur().x(), theMbr.ur().y(),
+    //          texScale.x(), texScale.y(), texOffset.x(), texOffset.y());
+    //}
 
     // Calculate a center for the tile
     const CoordSystemDisplayAdapter *sceneAdapter = geomManage->coordAdapter;
@@ -182,7 +193,7 @@ void LoadedTileNew::makeDrawables(SceneRenderer *sceneRender,TileGeomManager *ge
                 const auto ptA_3D = sceneAdapter->localToDisplay(CoordSystemConvert3d(cs,sceneCoordSys,Point3d(chunkLL.x()+(ix+1)*incr.x(),chunkLL.y()+iy*incr.y(),0.0)));
                 const auto ptB_3D = sceneAdapter->localToDisplay(CoordSystemConvert3d(cs,sceneCoordSys,Point3d(chunkLL.x()+ix*incr.x(),chunkLL.y()+(iy+1)*incr.y(),0.0)));
                 
-                const TexCoord texCoord(ix*texIncr.x() + texOffset.x(),
+                const TexCoord texCoord(ix*texIncr.x() - texOffset.x(),
                                         1.0f-(iy*texIncr.y()) + texOffset.y());
                 
                 chunk->addPoint(Point3d(org3D-chunkMidDisp));
@@ -284,7 +295,7 @@ void LoadedTileNew::makeDrawables(SceneRenderer *sceneRender,TileGeomManager *ge
                 //                        loc3D.z() = (drawPriority + nodeInfo->ident.level * 0.01)/10000;
 
                 // Do the texture coordinate separately
-                const TexCoord texCoord(ix*texIncr.x() + texOffset.x(),
+                const TexCoord texCoord(ix*texIncr.x() - texOffset.x(),
                                         1.0f-(iy*texIncr.y()) + texOffset.y());
                 texCoords[iy*(sphereTessX+1)+ix] = texCoord;
             }
