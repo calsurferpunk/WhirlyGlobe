@@ -183,7 +183,14 @@ class RendererWrapper implements GLSurfaceView.Renderer, GLTextureView.Renderer
 
 		if(deltaMs < frameDelayMs)
 		{
-			return;
+			try
+			{
+				Thread.sleep((int)Math.floor(frameDelayMs - deltaMs));
+			}
+			catch(Exception ex)
+			{
+				//do nothing
+			}
 		}
 
 		synchronized (singlePreFrameRuns) {
