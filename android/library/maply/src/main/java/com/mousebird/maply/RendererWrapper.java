@@ -46,6 +46,7 @@ class RendererWrapper implements GLSurfaceView.Renderer, GLTextureView.Renderer
 
 	private boolean doScreenshot = false;
 	private byte renderGpuType = RenderGPUType.Unknown;
+	private String renderGpuModel = null;
 	public BaseController.ScreenshotListener screenshotListener;
 
 	final protected WeakReference<RenderController> maplyRender;
@@ -78,7 +79,7 @@ class RendererWrapper implements GLSurfaceView.Renderer, GLTextureView.Renderer
 			return;
 		}
 
-		renderGpuType = getGPUType(gl);
+		getGPUInfo(gl);
 
 		// If the app shuts down the rendering right as the thread starts up, this can happen
 		if (valid) {
@@ -127,7 +128,7 @@ class RendererWrapper implements GLSurfaceView.Renderer, GLTextureView.Renderer
 				}
 			}
 		} finally {
-			renderGpuType = getGPUType(gl);
+			getGPUInfo(gl);
 			renderLock.release();
 		}
 	}
@@ -314,9 +315,14 @@ class RendererWrapper implements GLSurfaceView.Renderer, GLTextureView.Renderer
 		renderLock.release();
 	}
 
-	private byte getGPUType(GL10 gl)
+	private void getGPUInfo(GL10 gl)
 	{
+		int index;
 		String renderer;
+		String gpuPrefixString = null;
+
+		renderGpuType = RenderGPUType.Unknown;
+		renderGpuModel = null;
 
 		if(gl != null)
 		{
@@ -325,23 +331,35 @@ class RendererWrapper implements GLSurfaceView.Renderer, GLTextureView.Renderer
 
 			if(renderer.contains("mali"))
 			{
-				return(RenderGPUType.Mali);
+				renderGpuType = RenderGPUType.Mali;
+				gpuPrefixString = "mali-";
 			}
 			else if(renderer.contains("powervr"))
 			{
-				return(RenderGPUType.PowerVr);
+				renderGpuType = RenderGPUType.PowerVr;
+				gpuPrefixString = "powervr-";
 			}
 			else if(renderer.contains("qualcomm"))
 			{
-				return(RenderGPUType.Qualcomm);
+				renderGpuType = RenderGPUType.Qualcomm;
+				gpuPrefixString = "qualcomm-";
+			}
+
+			index = (gpuPrefixString != null ? renderer.indexOf(gpuPrefixString) : -1);
+			if(index >= 0 && (index + gpuPrefixString.length()) < renderer.length())
+			{
+				renderGpuModel = renderer.substring(index + gpuPrefixString.length());
 			}
 		}
-
-		return(RenderGPUType.Unknown);
 	}
 
 	public byte getRenderGpuType()
 	{
 		return(renderGpuType);
+	}
+
+	public String getRenderGpuModel()
+	{
+		return(renderGpuModel);
 	}
 }

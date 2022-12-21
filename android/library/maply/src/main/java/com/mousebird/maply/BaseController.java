@@ -337,6 +337,14 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 	}
 
 	/**
+	 * Return the detected renderer GPU model
+	 */
+	public String getRenderGpuModel()
+	{
+		return(renderGpuModel);
+	}
+
+	/**
 	 * These are settings passed on construction.  We need these
 	 * immediately at startup to create the right internal structures.
 	 */
@@ -522,6 +530,7 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 	ColorDrawable tempBackground = null;
 
 	private byte renderGpuType = RenderGPUType.Unknown;
+	private String renderGpuModel = null;
 
 	protected void Init()
 	{
@@ -1187,6 +1196,7 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 			}
 
 			renderGpuType = wrap.getRenderGpuType();
+			renderGpuModel = wrap.getRenderGpuModel();
 
 			synchronized (layerThreads) {
 				for (LayerThread layerThread : layerThreads)
