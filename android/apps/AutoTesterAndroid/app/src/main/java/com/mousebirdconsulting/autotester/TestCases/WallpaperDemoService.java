@@ -1,5 +1,6 @@
 package com.mousebirdconsulting.autotester.TestCases;
 
+import android.content.Context;
 import android.opengl.GLSurfaceView;
 import android.service.wallpaper.WallpaperService;
 import android.view.MotionEvent;
@@ -26,6 +27,45 @@ public class WallpaperDemoService extends WallpaperService
 
     private class WallpaperDemoEngine extends Engine
     {
+        private class WallpaperDemoSurfaceView extends GLSurfaceView
+        {
+            private boolean haveRenderer = false;
+            private SurfaceHolder surfaceHolder;
+
+            public WallpaperDemoSurfaceView(Context context)
+            {
+                super(context);
+                setPreserveEGLContextOnPause(true);
+            }
+
+            @Override
+            public SurfaceHolder getHolder()
+            {
+                if(surfaceHolder == null)
+                {
+                    surfaceHolder = wallpaperEngine.getSurfaceHolder();
+                }
+                return(surfaceHolder);
+            }
+
+            public void onDestroy()
+            {
+                super.onDetachedFromWindow();
+            }
+
+            @Override
+            public void setRenderer(Renderer renderer)
+            {
+                super.setRenderer(renderer);
+                haveRenderer = true;
+            }
+
+            public boolean getHaveRenderer()
+            {
+                return(haveRenderer);
+            }
+        }
+
         private WallpaperDemoSurfaceView wallpaperView;
         private QuadImageLoader imageLoader;
 
@@ -40,7 +80,7 @@ public class WallpaperDemoService extends WallpaperService
             GlobeController globeController;
             GlobeController.Settings globeSettings = new GlobeController.Settings();
 
-            wallpaperView = new WallpaperDemoSurfaceView();
+            wallpaperView = new WallpaperDemoSurfaceView(WallpaperDemoService.this);
             globeSettings.loadLibraryName = loadLibraryName();
             globeController = new GlobeController(WallpaperDemoService.this, wallpaperView, globeSettings);
             globeController.setKeepNorthUp(true);
@@ -77,6 +117,7 @@ public class WallpaperDemoService extends WallpaperService
         @Override
         public void onTouchEvent(MotionEvent event)
         {
+
             wallpaperView.onTouchEvent(event);
         }
 
@@ -85,14 +126,17 @@ public class WallpaperDemoService extends WallpaperService
         {
             super.onVisibilityChanged(visible);
 
-            if(visible)
+            if(wallpaperView != null && wallpaperView.getHaveRenderer())
             {
-                wallpaperView.onResume();
-                wallpaperView.requestRender();
-            }
-            else
-            {
-                wallpaperView.onPause();
+                if(visible)
+                {
+                    wallpaperView.onResume();
+                    wallpaperView.requestRender();
+                }
+                else
+                {
+                    wallpaperView.onPause();
+                }
             }
         }
 
@@ -101,31 +145,6 @@ public class WallpaperDemoService extends WallpaperService
          */
         public String loadLibraryName() {
             return "whirlyglobemaply";
-        }
-    }
-
-    private class WallpaperDemoSurfaceView extends GLSurfaceView
-    {
-        private SurfaceHolder surfaceHolder;
-
-        public WallpaperDemoSurfaceView()
-        {
-            super(WallpaperDemoService.this);
-        }
-
-        @Override
-        public SurfaceHolder getHolder()
-        {
-            if(surfaceHolder == null)
-            {
-                surfaceHolder = wallpaperEngine.getSurfaceHolder();
-            }
-            return(surfaceHolder);
-        }
-
-        public void onDestroy()
-        {
-            super.onDetachedFromWindow();
         }
     }
 }
