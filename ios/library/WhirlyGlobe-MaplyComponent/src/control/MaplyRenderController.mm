@@ -1,9 +1,8 @@
-/*
- *  MaplyRenderController.mm
+/*  MaplyRenderController.mm
  *  WhirlyGlobeMaplyComponent
  *
  *  Created by Stephen Gifford on 1/19/18.
- *  Copyright 2012-2021 Saildrone Inc.
+ *  Copyright 2012-2023 Saildrone Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "MaplyRenderController_private.h"
@@ -32,6 +30,7 @@
 #import "MaplyRenderTarget_private.h"
 #import "WorkRegion_private.h"
 #import "MaplyBaseInteractionLayer_private.h"
+#import "LayerThread.h"
 
 using namespace WhirlyKit;
 using namespace Eigen;
@@ -49,6 +48,8 @@ using namespace Eigen;
     NSData *snapshotData;
     CGSize initialFramebufferSize;
 }
+
+@synthesize errorReportingDelegate;
 
 - (instancetype __nullable)init
 {
@@ -145,6 +146,12 @@ using namespace Eigen;
         [tileFetcher shutdown];
     tileFetchers.clear();
     
+    for (MaplyActiveObject *theObj in activeObjects)
+    {
+        [theObj removeFromScene];
+    }
+    [activeObjects removeAllObjects];
+
     // This stuff is our responsibility if we created it
     if (offlineMode) {
         if (interactLayer)
@@ -229,7 +236,7 @@ using namespace Eigen;
     if (err) {
         NSLog(@"Failed to set up default Metal library in MaplyRenderController::loadSetup.  Things will be missing.");
     }
-    SceneRendererMTLRef sceneRendererMTL = std::make_shared<SceneRendererMTL>(mtlDevice,mtlLib,1.0);
+    SceneRendererMTLRef sceneRendererMTL = std::make_shared<SceneRendererMTL>(self,mtlDevice,mtlLib,1.0);
     if (offlineMode)
         sceneRendererMTL->setup((int)initialFramebufferSize.width,(int)initialFramebufferSize.height, true);
     sceneRenderer = sceneRendererMTL;
@@ -261,7 +268,11 @@ using namespace Eigen;
     layerThreads = [NSMutableArray array];
     
     // Need a layer thread to manage the layers
-    baseLayerThread = [[WhirlyKitLayerThread alloc] initWithScene:scene view:visualView.get() renderer:sceneRenderer.get() mainLayerThread:true];
+    baseLayerThread = [[WhirlyKitLayerThread alloc] initWithScene:scene
+                                                             view:visualView.get()
+                                                         renderer:sceneRenderer.get()
+                                                  mainLayerThread:true
+                                                    renderControl:self];
     [layerThreads addObject:baseLayerThread];
     
     // Layout still needs a layer to kick it off
@@ -990,8 +1001,7 @@ using namespace Eigen;
         NSLog(@"Default shader setup:  Failed to create %@",inName);
         return;
     }
-    
-    std::string name = [inName cStringUsingEncoding:NSASCIIStringEncoding];
+
     MaplyShader *shader = [[MaplyShader alloc] initWithProgram:program viewC:self];
     shader.name = inName;
     @synchronized (interactLayer->shaders) {
@@ -1020,7 +1030,7 @@ using namespace Eigen;
     if (!interactLayer)
         return;
     
-    bool isGlobe = !scene->getCoordAdapter()->isFlat();
+    const bool isGlobe = !scene->getCoordAdapter()->isFlat();
 
     // Get the default library.  This should be bundled with WhirlyGlobe-Maply
     SceneRendererMTL *sceneRenderMTL = (SceneRendererMTL *)sceneRenderer.get();
@@ -1029,11 +1039,11 @@ using namespace Eigen;
     id<MTLLibrary> mtlLib = [mtlDevice newDefaultLibraryWithBundle:[NSBundle bundleForClass:[MaplyRenderController class]] error:&err];
     
     auto defaultLineShader = std::make_shared<ProgramMTL>(
-        [kMaplyShaderDefaultLine cStringUsingEncoding:NSASCIIStringEncoding],
+        [kMaplyShaderDefaultLine cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
         [mtlLib newFunctionWithName:@"vertexLineOnly_globe"],
         [mtlLib newFunctionWithName:@"fragmentLineOnly_globe"]);
     auto defaultLineShaderNoBack = std::make_shared<ProgramMTL>(
-        [kMaplyShaderDefaultLineNoBackface cStringUsingEncoding:NSASCIIStringEncoding],
+        [kMaplyShaderDefaultLineNoBackface cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
         [mtlLib newFunctionWithName:@"vertexLineOnly_flat"],
         [mtlLib newFunctionWithName:@"fragmentLineOnly_flat"]);
 
@@ -1042,19 +1052,19 @@ using namespace Eigen;
 
     // Default triangle shaders
     [self addShader:kMaplyShaderDefaultTri program: std::make_shared<ProgramMTL>(
-        [kMaplyShaderDefaultTri cStringUsingEncoding:NSASCIIStringEncoding],
+        [kMaplyShaderDefaultTri cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
         [mtlLib newFunctionWithName:@"vertexTri_light"],
         [mtlLib newFunctionWithName:@"fragmentTri_basic"])];
     [self addShader:kMaplyShaderTriExp program: std::make_shared<ProgramMTL>(
-        [kMaplyShaderTriExp cStringUsingEncoding:NSASCIIStringEncoding],
+        [kMaplyShaderTriExp cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
         [mtlLib newFunctionWithName:@"vertexTri_lightExp"],
         [mtlLib newFunctionWithName:@"fragmentTri_basic"])];
     [self addShader:kMaplyShaderDefaultTriNoLighting program: std::make_shared<ProgramMTL>(
-        [kMaplyShaderDefaultTriNoLighting cStringUsingEncoding:NSASCIIStringEncoding],
+        [kMaplyShaderDefaultTriNoLighting cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
         [mtlLib newFunctionWithName:@"vertexTri_noLight"],
         [mtlLib newFunctionWithName:@"fragmentTri_basic"])];
     [self addShader:kMaplyShaderNoLightTriangleExp program: std::make_shared<ProgramMTL>(
-        [kMaplyShaderNoLightTriangleExp cStringUsingEncoding:NSASCIIStringEncoding],
+        [kMaplyShaderNoLightTriangleExp cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
         [mtlLib newFunctionWithName:@"vertexTri_noLightExp"],
         [mtlLib newFunctionWithName:@"fragmentTri_basic"])];
 
@@ -1062,37 +1072,37 @@ using namespace Eigen;
 
     // Multitexture shader - Used for animation
     [self addShader:kMaplyShaderDefaultTriMultiTex program: std::make_shared<ProgramMTL>(
-        [kMaplyShaderDefaultTriMultiTex cStringUsingEncoding:NSASCIIStringEncoding],
+        [kMaplyShaderDefaultTriMultiTex cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
         [mtlLib newFunctionWithName:@"vertexTri_multiTex"],
         [mtlLib newFunctionWithName:@"fragmentTri_multiTex"])];
     
     // Multitexture ramp shader - Very simple implementation of animated color lookup
     [self addShader:kMaplyShaderDefaultTriMultiTexRamp program: std::make_shared<ProgramMTL>(
-        [kMaplyShaderDefaultTriMultiTexRamp cStringUsingEncoding:NSASCIIStringEncoding],
+        [kMaplyShaderDefaultTriMultiTexRamp cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
         [mtlLib newFunctionWithName:@"vertexTri_multiTex"],
         [mtlLib newFunctionWithName:@"fragmentTri_multiTexRamp"])];
     
     // MultiTexture for Markers
     [self addShader:kMaplyShaderDefaultMarker program: std::make_shared<ProgramMTL>(
-        [kMaplyShaderDefaultTriMultiTex cStringUsingEncoding:NSASCIIStringEncoding],
+        [kMaplyShaderDefaultTriMultiTex cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
         [mtlLib newFunctionWithName:@"vertexTri_multiTex"],
         [mtlLib newFunctionWithName:@"fragmentTri_multiTex"])];
 
     // Model Instancing
     [self addShader:kMaplyShaderDefaultModelTri program: std::make_shared<ProgramMTL>(
-        [kMaplyShaderDefaultModelTri cStringUsingEncoding:NSASCIIStringEncoding],
+        [kMaplyShaderDefaultModelTri cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
         [mtlLib newFunctionWithName:@"vertexTri_model"],
         [mtlLib newFunctionWithName:@"fragmentTri_multiTex"])];
 
     // Night/Day Shader
     [self addShader:kMaplyShaderDefaultTriNightDay program: std::make_shared<ProgramMTL>(
-        [kMaplyShaderDefaultTriNightDay cStringUsingEncoding:NSASCIIStringEncoding],
+        [kMaplyShaderDefaultTriNightDay cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
         [mtlLib newFunctionWithName:@"vertexTri_multiTex_nightDay"],
         [mtlLib newFunctionWithName:@"fragmentTri_multiTex_nightDay"])];
 
     // Billboards
     auto billboardProg = std::make_shared<ProgramMTL>(
-        [kMaplyShaderBillboardGround cStringUsingEncoding:NSASCIIStringEncoding],
+        [kMaplyShaderBillboardGround cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
         [mtlLib newFunctionWithName:@"vertexTri_billboard"],
         [mtlLib newFunctionWithName:@"fragmentTri_basic"]);
     [self addShader:kMaplyShaderBillboardGround program:billboardProg];
@@ -1100,21 +1110,21 @@ using namespace Eigen;
 
     // Wide vectors
     [self addShader:kMaplyShaderDefaultWideVector program: std::make_shared<ProgramMTL>(
-        [kMaplyShaderDefaultWideVector cStringUsingEncoding:NSASCIIStringEncoding],
+        [kMaplyShaderDefaultWideVector cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
         [mtlLib newFunctionWithName:@"vertexTri_wideVec"],
         [mtlLib newFunctionWithName:@"fragmentTri_wideVec"])];
     [self addShader:kMaplyShaderWideVectorExp program: std::make_shared<ProgramMTL>(
-        [kMaplyShaderWideVectorExp cStringUsingEncoding:NSASCIIStringEncoding],
+        [kMaplyShaderWideVectorExp cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
         [mtlLib newFunctionWithName:@"vertexTri_wideVecExp"],
         [mtlLib newFunctionWithName:@"fragmentTri_wideVec"])];
     [self addShader:kMaplyShaderWideVectorPerformance program: std::make_shared<ProgramMTL>(
-        [kMaplyShaderWideVectorPerformance cStringUsingEncoding:NSASCIIStringEncoding],
+        [kMaplyShaderWideVectorPerformance cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
         [mtlLib newFunctionWithName:@"vertexTri_wideVecPerf"],
         [mtlLib newFunctionWithName:@"fragmentTri_wideVecPerf"])];
     
     // Screen Space (motion and regular are the same)
     auto screenSpace = std::make_shared<ProgramMTL>(
-        [kMaplyScreenSpaceDefaultProgram cStringUsingEncoding:NSASCIIStringEncoding],
+        [kMaplyScreenSpaceDefaultProgram cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
         [mtlLib newFunctionWithName:@"vertexTri_screenSpace"],
         [mtlLib newFunctionWithName:@"fragmentTri_basic"]);
     [self addShader:kMaplyScreenSpaceDefaultProgram program:screenSpace];
@@ -1129,7 +1139,7 @@ using namespace Eigen;
     
     // Screen Space that handles expressions
     auto screenSpaceExp = std::make_shared<ProgramMTL>(
-        [kMaplyScreenSpaceExpProgram cStringUsingEncoding:NSASCIIStringEncoding],
+        [kMaplyScreenSpaceExpProgram cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
         [mtlLib newFunctionWithName:@"vertexTri_screenSpaceExp"],
         [mtlLib newFunctionWithName:@"fragmentTri_basic"]);
     [self addShader:kMaplyScreenSpaceExpProgram program:screenSpaceExp];
@@ -1190,7 +1200,11 @@ using namespace Eigen;
         WhirlyKitLayerThread *layerThread = baseLayerThread;
         if ([newLayer isKindOfClass:[MaplyQuadSamplingLayer class]])
         {
-            layerThread = [[WhirlyKitLayerThread alloc] initWithScene:scene view:visualView.get() renderer:sceneRenderer.get() mainLayerThread:false];
+            layerThread = [[WhirlyKitLayerThread alloc] initWithScene:scene
+                                                                 view:visualView.get()
+                                                             renderer:sceneRenderer.get()
+                                                      mainLayerThread:false
+                                                        renderControl:self];
             [layerThreads addObject:layerThread];
             [layerThread start];
         }
@@ -1389,6 +1403,26 @@ using namespace Eigen;
     id<MTLLibrary> mtlLib = [renderMTL->setupInfo.mtlDevice newDefaultLibraryWithBundle:[NSBundle bundleForClass:[MaplyRenderController class]] error:&err];
     return mtlLib;
 
+}
+
+- (void)report:(NSString * __nonnull)tag error:(NSError * __nonnull)error
+{
+    if (self && tag && error)
+    if (__strong NSObject<MaplyErrorReportingDelegate> * delegate = self.errorReportingDelegate)
+    if ([delegate respondsToSelector:@selector(onError:withTag:viewC:)])
+    {
+        [delegate onError:error withTag:tag viewC:self];
+    }
+}
+
+- (void)report:(NSString * __nonnull)tag exception:(NSException * __nonnull)error
+{
+    if (self && tag && error)
+    if (__strong NSObject<MaplyErrorReportingDelegate> * delegate = self.errorReportingDelegate)
+    if ([delegate respondsToSelector:@selector(onException:withTag:viewC:)])
+    {
+        [delegate onException:error withTag:tag viewC:self];
+    }
 }
 
 @end

@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 7/15/13.
- *  Copyright 2011-2022 mousebird consulting.
+ *  Copyright 2011-2023 mousebird consulting.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -151,9 +151,12 @@ LayoutManager::LayoutManager() :
 
 LayoutManager::~LayoutManager()
 {
-    std::lock_guard<std::mutex> guardLock(lock);
-
-    layoutObjects.clear();
+    try
+    {
+        std::lock_guard<std::mutex> guardLock(lock);
+        layoutObjects.clear();
+    }
+    WK_STD_DTOR_CATCH()
 }
 
 void LayoutManager::setMaxDisplayObjects(int numObjects)
@@ -296,8 +299,8 @@ void LayoutManager::removeLayoutObjects(const SimpleIDSet &oldObjectIds)
 
 bool LayoutManager::hasChanges()
 {
-    std::lock_guard<std::mutex> guardLock(lock);
-    if (clusterGen->hasChanges())
+    if (auto cg = clusterGenerator)
+    if (cg->hasChanges())
     {
         hasUpdates = true;
     }
@@ -366,10 +369,9 @@ void LayoutManager::getScreenSpaceObjects(const SelectionManager::PlacementInfo 
     }
 }
 
-void LayoutManager::addClusterGenerator(PlatformThreadInfo *, ClusterGenerator *inClusterGen)
+void LayoutManager::addClusterGenerator(PlatformThreadInfo *, ClusterGeneratorRef inClusterGen)
 {
-    std::lock_guard<std::mutex> guardLock(lock);
-    clusterGen = inClusterGen;
+    clusterGenerator = std::move(inClusterGen);
     hasUpdates = true;
 }
 
@@ -775,12 +777,9 @@ bool LayoutManager::runLayoutRules(PlatformThreadInfo *threadInfo,
     // Need to scale for retina displays
     const float resScale = renderer->getScale();
 
-    if (clusterGen)
-    {
-        runLayoutClustering(threadInfo, layoutObjs, clusterGroups, clusterEntries,
-                            outClusterParams, viewState, mapViewState, globeViewState,
-                            frameBufferSize, screenMbr, modelTrans, normalMat);
-    }
+    runLayoutClustering(threadInfo, layoutObjs, clusterGroups, clusterEntries,
+                        outClusterParams, viewState, mapViewState, globeViewState,
+                        frameBufferSize, screenMbr, modelTrans, normalMat);
 
     if (UNLIKELY(cancelLayout))
     {
@@ -1021,6 +1020,12 @@ void LayoutManager::runLayoutClustering(PlatformThreadInfo *threadInfo,
                                         const Matrix4d &normalMat)
 {
     const float resScale = renderer->getScale();
+
+    const auto clusterGen = clusterGenerator;
+    if (!clusterGen)
+    {
+        return;
+    }
 
     clusterGen->startLayoutObjects(threadInfo);
 
@@ -1850,6 +1855,7 @@ void LayoutManager::updateLayout(PlatformThreadInfo *threadInfo,const ViewStateR
         layoutChanges = true;
     }
 
+    if (auto clusterGen = clusterGenerator)
     if (clusterGen->hasChanges())
     {
         layoutChanges = true;

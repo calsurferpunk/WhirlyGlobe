@@ -1,8 +1,7 @@
-/*
- *  ScreenObject.cpp
+/*  LayerThread_private.h
  *  WhirlyGlobeLib
  *
- *  Created by jmnavarro
+ *  Created by Steve Gifford on 2/1/11.
  *  Copyright 2011-2023 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,26 +14,10 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
-#import "ScreenObject.h"
+@protocol MaplyRenderControllerProtocol;
 
-using namespace Eigen;
-
-namespace WhirlyKit
-{
-
-SimplePoly::SimplePoly() :
-    texID(EmptyIdentity),
-    color(255,255,255,255)
-{
-}
-
-StringWrapper::StringWrapper() :
-    mat(Matrix3d::Identity()),
-    size(0.0,0.0)
-{
-}
-
-}
+@interface WhirlyKitLayerThread()
+@property (nonatomic, weak) MaplyRenderController * __nullable renderControl;
+@end
