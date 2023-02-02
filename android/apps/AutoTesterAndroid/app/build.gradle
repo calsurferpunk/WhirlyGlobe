@@ -17,7 +17,7 @@ android {
         targetSdkVersion 33
         versionCode 1
         versionName "1.0"
-
+        multiDexEnabled true
     }
     buildTypes {
         /*
@@ -42,7 +42,7 @@ android {
             signingConfig signingConfigs.debug
         }
     }
-    ndkVersion '25.1.8937393'
+    ndkVersion '25.2.9519653'
     externalNativeBuild {
         cmake {
             path file('../../../library/maply/CMakeLists.txt')
@@ -55,8 +55,9 @@ android {
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation project(path: ':maply')
-    implementation 'androidx.appcompat:appcompat:1.5.1'
-    implementation 'com.google.android.material:material:1.7.0'
+    implementation 'androidx.appcompat:appcompat:1.6.0'
+    implementation 'com.android.support:multidex:1.0.3'
+    implementation 'com.google.android.material:material:1.8.0'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
     //noinspection GradleDependency
