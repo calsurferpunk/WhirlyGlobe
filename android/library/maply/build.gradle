@@ -26,6 +26,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
+    namespace 'com.mousebird.maply'
     compileSdkVersion 33
     buildToolsVersion "33.0.1"
     defaultConfig {
