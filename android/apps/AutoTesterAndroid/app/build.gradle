@@ -10,7 +10,7 @@ android {
         jvmTarget = JavaVersion.VERSION_1_8
     }
     compileSdkVersion 33
-    buildToolsVersion "33.0.1"
+    buildToolsVersion "33.0.2"
     defaultConfig {
         applicationId "com.mousebirdconsulting.autotester"
         minSdkVersion 18
