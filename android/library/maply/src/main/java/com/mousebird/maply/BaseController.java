@@ -1198,6 +1198,13 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 			renderGpuType = wrap.getRenderGpuType();
 			renderGpuModel = wrap.getRenderGpuModel();
 
+			int[] ranges = new int[2];
+			int[] precisions = new int[1];
+			GLES20.glGetShaderPrecisionFormat(GLES20.GL_VERTEX_SHADER, GLES20.GL_HIGH_FLOAT, ranges, 0, precisions, 0);
+			if (!LayerThread.checkGLError(egl, "glGetShaderPrecisionFormat") && precisions[0] < 23) {
+				Log.w("Maply", "Vertex precision is only " + precisions[0]);
+			}
+
 			synchronized (layerThreads) {
 				for (LayerThread layerThread : layerThreads)
 					layerThread.viewUpdated(view);

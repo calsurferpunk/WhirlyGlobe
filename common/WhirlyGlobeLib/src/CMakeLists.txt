@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.4.1)
+project(WhirlyGlobeLibCommon)
 
 target_include_directories(
         ${WGTARGET}
@@ -86,6 +87,7 @@ target_sources(
         "${CMAKE_CURRENT_LIST_DIR}/../include/PerformanceTimer.h"
         "${CMAKE_CURRENT_LIST_DIR}/../include/Program.h"
         "${CMAKE_CURRENT_LIST_DIR}/../include/ProgramGLES.h"
+        "${CMAKE_CURRENT_LIST_DIR}/../include/ProfilingLockGuard.h"
         "${CMAKE_CURRENT_LIST_DIR}/../include/Proj4CoordSystem.h"
         "${CMAKE_CURRENT_LIST_DIR}/../include/QuadDisplayControllerNew.h"
         "${CMAKE_CURRENT_LIST_DIR}/../include/QuadImageFrameLoader.h"
@@ -209,6 +211,7 @@ target_sources(
         "${CMAKE_CURRENT_LIST_DIR}/PerformanceTimer.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/Program.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/ProgramGLES.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/ProfilingLockGuard.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/Proj4CoordSystem.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/QuadDisplayControllerNew.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/QuadImageFrameLoader.cpp"

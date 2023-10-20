@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 1/26/11.
- *  Copyright 2011-2022 mousebird consulting
+ *  Copyright 2011-2023 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -594,11 +594,15 @@ protected:
 
 VectorManager::~VectorManager()
 {
-    std::lock_guard<std::mutex> guardLock(lock);
-
-    for (auto it : vectorReps)
-        delete it;
-    vectorReps.clear();
+    try
+    {
+        std::lock_guard<std::mutex> guardLock(lock);
+        
+        for (auto it : vectorReps)
+            delete it;
+        vectorReps.clear();
+    }
+    WK_STD_DTOR_CATCH()
 }
 
 // TODO: Get rid of this version
@@ -824,7 +828,7 @@ SimpleIdentity VectorManager::addVectors(const std::vector<VectorShapeRef> &shap
 
     // Look for a geometry center.  We'll offset everything if there is one
     CoordSystemDisplayAdapter *coordAdapter = scene->getCoordAdapter();
-    CoordSystem *coordSys = coordAdapter->getCoordSystem();
+    const CoordSystem *coordSys = coordAdapter->getCoordSystem();
     Point3d center(0,0,0);
     bool centerValid = false;
     Point2d geoCenter(0,0);

@@ -2,7 +2,7 @@
  *  WhirlyGlobe-MaplyComponent
  *
  *  Created by Steve Gifford on 5/13/13.
- *  Copyright 2011-2022 mousebird consulting
+ *  Copyright 2011-2023 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
  */
 
 #import "MaplyCoordinateSystem_private.h"
+#import "NSString+Stuff.h"
 
 using namespace Eigen;
 using namespace WhirlyKit;
@@ -45,9 +46,9 @@ using namespace WhirlyKit;
     if (coordSystem)
     {
         const auto &ll = coordSystem->getBounds().ll();
-        return MaplyCoordinate { ll.x(), ll.y() };
+        return { ll.x(), ll.y() };
     }
-    return MaplyCoordinate();
+    return {0,0};
 }
 
 - (MaplyCoordinate)ur
@@ -55,9 +56,29 @@ using namespace WhirlyKit;
     if (coordSystem)
     {
         const auto &ur = coordSystem->getBounds().ur();
-        return MaplyCoordinate { ur.x(), ur.y() };
+        return { ur.x(), ur.y() };
     }
-    return MaplyCoordinate();
+    return {0,0};
+}
+
+- (MaplyCoordinateD)llD
+{
+    if (coordSystem)
+    {
+        const auto &ll = coordSystem->getBounds().ll();
+        return { ll.x(), ll.y() };
+    }
+    return {0,0};
+}
+
+- (MaplyCoordinateD)urD
+{
+    if (coordSystem)
+    {
+        const auto &ur = coordSystem->getBounds().ur();
+        return { ur.x(), ur.y() };
+    }
+    return {0,0};
 }
 
 - (WhirlyKit::CoordSystemRef)getCoordSystem
@@ -77,40 +98,46 @@ using namespace WhirlyKit;
 
 - (void)setBounds:(MaplyBoundingBox)bounds
 {
-    auto ll = [self localToGeo:bounds.ll];
-    auto ur = [self localToGeo:bounds.ur];
+    const auto ll = [self localToGeo:bounds.ll];
+    const auto ur = [self localToGeo:bounds.ur];
 	[self setBoundsLL:&ll ur:&ur];
 }
 
 - (void)setBoundsD:(MaplyBoundingBoxD)boundsD
 {
-    // Note: We don't have double versions of localToGeo exposed
-    MaplyBoundingBox box;
-    box.ll = MaplyCoordinateMake(boundsD.ll.x, boundsD.ll.y);
-    box.ur = MaplyCoordinateMake(boundsD.ur.x, boundsD.ur.y);
-    [self setBounds:box];
+    const auto ll = [self localToGeoD:boundsD.ll];
+    const auto ur = [self localToGeoD:boundsD.ur];
+    [self setBoundsDLL:&ll ur:&ur];
 }
 
 - (void)setBoundsDLocal:(MaplyBoundingBoxD)boundsD
 {
     if (coordSystem)
     {
-        coordSystem->setBounds(Point2f(boundsD.ll.x,boundsD.ll.y), Point2f(boundsD.ur.x,boundsD.ur.y));
+        coordSystem->setBounds(MbrD({boundsD.ll.x,boundsD.ll.y}, {boundsD.ur.x,boundsD.ur.y}));
     }
 }
 
 - (void)setBoundsLL:(const MaplyCoordinate *)inLL ur:(const MaplyCoordinate *)inUR
 {
-    if (coordSystem)
+    if (coordSystem && inLL && inUR)
     {
-        coordSystem->setBounds(Point2f(inLL->x,inLL->y), Point2f(inUR->x,inUR->y));
+        coordSystem->setBounds(MbrD({inLL->x, inLL->y}, {inUR->x, inUR->y}));
+    }
+}
+
+- (void)setBoundsDLL:(const MaplyCoordinateD *)inLL ur:(const MaplyCoordinateD *)inUR
+{
+    if (coordSystem && inLL && inUR)
+    {
+        coordSystem->setBounds(MbrD({inLL->x, inLL->y}, {inUR->x, inUR->y}));
     }
 }
 
 - (MaplyBoundingBox)getBounds
 {
-    const Point3d llLoc = coordSystem->geographicToLocal(coordSystem->getBounds().ll().cast<double>());
-    const Point3d urLoc = coordSystem->geographicToLocal(coordSystem->getBounds().ur().cast<double>());
+    const Point3d llLoc = coordSystem->geographicToLocal(coordSystem->getBoundsD().ll());
+    const Point3d urLoc = coordSystem->geographicToLocal(coordSystem->getBoundsD().ur());
     return {{(float)llLoc.x(),(float)llLoc.y()},{(float)urLoc.x(),(float)urLoc.y()}};
 }
 
@@ -123,6 +150,18 @@ using namespace WhirlyKit;
     if (inUR)
     {
         *inUR = self.ur;
+    }
+}
+
+- (void)getBoundsDLL:(MaplyCoordinateD * __nullable)inLL ur:(MaplyCoordinateD * __nullable)inUR
+{
+    if (inLL)
+    {
+        *inLL = self.llD;
+    }
+    if (inUR)
+    {
+        *inUR = self.urD;
     }
 }
 
@@ -146,6 +185,12 @@ using namespace WhirlyKit;
     retCoord.x = retPt.x();  retCoord.y = retPt.y();
     
     return retCoord;
+}
+
+- (MaplyCoordinateD)localToGeoD:(MaplyCoordinateD)coord
+{
+    const auto geo = coordSystem->localToGeographicD({coord.x,coord.y,0.0});
+    return {geo.x(), geo.y()};
 }
 
 - (MaplyCoordinate3dD)localToGeocentric:(MaplyCoordinate3dD)coord
@@ -250,8 +295,15 @@ using namespace WhirlyKit;
 
 - (nonnull instancetype)initWithString:(NSString * __nonnull)proj4Str
 {
-    self = [super init];
-    std::string str = [proj4Str cStringUsingEncoding:NSASCIIStringEncoding];
+    if (!(self = [super init]))
+    {
+        return nil;
+    }
+    std::string str = [proj4Str cStringUsingEncoding:NSASCIIStringEncoding withDefault:""];
+    if (str.empty())
+    {
+        return nil;
+    }
     coordSystem = std::make_shared<Proj4CoordSystem>(std::move(str));
     return self;
 }

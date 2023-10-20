@@ -1,7 +1,8 @@
-/*  MaplyDoubleTapDragDelegate.h
+/*  LayerThread_private.h
+ *  WhirlyGlobeLib
  *
- *  Created by Steve Gifford on 2/7/14.
- *  Copyright 2011-2022 mousebird consulting
+ *  Created by Steve Gifford on 2/1/11.
+ *  Copyright 2011-2023 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,11 +16,8 @@
  *  limitations under the License.
  */
 
-#import <WhirlyGlobe/MaplyZoomGestureDelegate.h>
+@protocol MaplyRenderControllerProtocol;
 
-@interface MaplyDoubleTapDragDelegate : MaplyZoomGestureDelegate
-
-/// Change if you want a shorter or longer press duration
-@property (nonatomic) float minimumPressDuration;
-
+@interface WhirlyKitLayerThread()
+@property (nonatomic, weak) MaplyRenderController * __nullable renderControl;
 @end

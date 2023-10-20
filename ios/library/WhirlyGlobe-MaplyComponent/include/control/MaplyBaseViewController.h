@@ -99,6 +99,8 @@ typedef void (__strong ^InitCompletionBlock)(void);
 
 @protocol MaplyLocationTrackerDelegate;
 
+@protocol MaplyErrorReportingDelegate;
+
 /** 
     Base class for the Maply and WhirlyGlobe view controllers.
     
@@ -1519,6 +1521,9 @@ typedef void (__strong ^InitCompletionBlock)(void);
 /// Turn on/off debug outlines for layout objects
 @property (nonatomic,assign) bool showDebugLayoutBoundaries;
 
+/// Set a delegate for error reporting
+@property (nonatomic,assign) NSObject<MaplyErrorReportingDelegate> * __nullable errorReportingDelegate;
+
 /** 
     See derived class method.
  */
@@ -1620,5 +1625,13 @@ typedef void (__strong ^InitCompletionBlock)(void);
 
 /// Release a zoom slot previously retained
 - (void)releaseZoomSlotIndex:(int)index;
+
+/**
+ By default most gestures will wait patiently for other gestures to complete.  This lets you attach your own custom gestures
+ successfully.  But if you don't have your own gestures there's a lot of waiting.
+ If this mode is set, we short wait times and ignore what other gestures might want.  It's much faster interaction.
+ This can only be modified before the controller initializes.
+ */
+@property(nonatomic,assign) bool fastGestures;
 
 @end

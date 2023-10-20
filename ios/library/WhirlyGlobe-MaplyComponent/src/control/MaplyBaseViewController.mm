@@ -2,7 +2,7 @@
  *  MaplyComponent
  *
  *  Created by Steve Gifford on 12/14/12.
- *  Copyright 2012-2022 mousebird consulting
+ *  Copyright 2012-2023 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -167,6 +167,7 @@ using namespace WhirlyKit;
     if (renderControl && renderControl->scene)
         [self teardown];
 }
+
 
 - (ViewRef) loadSetup_view
 {
@@ -504,6 +505,16 @@ static const float PerfOutputDelay = 15.0;
     }
 }
 #endif //!MAPLY_MINIMAL
+
+
+- (NSObject<MaplyErrorReportingDelegate> * __nullable)errorReportingDelegate
+{
+    return renderControl.errorReportingDelegate;
+}
+- (void)setErrorReportingDelegate:(NSObject<MaplyErrorReportingDelegate> *)delegate
+{
+    renderControl.errorReportingDelegate = delegate;
+}
 
 // Run every so often to dump out stats
 - (void)periodicPerfOutput
@@ -1030,6 +1041,9 @@ static const float PerfOutputDelay = 15.0;
 
 - (void)removeTexture:(MaplyTexture *)texture mode:(MaplyThreadMode)threadMode
 {
+    if (!texture) {
+        return;
+    }
     [renderControl removeTextures:@[texture] mode:threadMode];
 }
 
@@ -1088,7 +1102,7 @@ static const float PerfOutputDelay = 15.0;
 {
     std::set<std::string> uuidSet;
     for (NSString *uuid in uuids) {
-        std::string uuidStr = [uuid cStringUsingEncoding:NSASCIIStringEncoding];
+        std::string uuidStr = [uuid cStringUsingEncoding:NSASCIIStringEncoding withDefault:""];
         if (!uuidStr.empty())
             uuidSet.insert(uuidStr);
     }
@@ -1790,6 +1804,24 @@ static const float PerfOutputDelay = 15.0;
     if (const auto render = renderControl ? renderControl->sceneRenderer : nullptr)
     {
         render->releaseZoomSlot(index);
+    }
+}
+
+- (void)report:(NSString * __nonnull)tag error:(NSError * __nonnull)error
+{
+    if (self && tag && error)
+    if (MaplyRenderController *rc = renderControl)
+    {
+        [rc report:tag error:error];
+    }
+}
+
+- (void)report:(NSString * __nonnull)tag exception:(NSException * __nonnull)error
+{
+    if (self && tag && error)
+    if (MaplyRenderController *rc = renderControl)
+    {
+        [rc report:tag exception:error];
     }
 }
 

@@ -28,6 +28,9 @@
 using namespace WhirlyKit;
 using namespace Maply;
 
+class LayoutManagerWrapper;
+using LayoutManagerWrapperRef = std::shared_ptr<LayoutManagerWrapper>;
+
 // Wrapper that tracks the generator as well
 class LayoutManagerWrapper : public ClusterGenerator
 {
@@ -222,10 +225,9 @@ public:
     };
     typedef std::set<ClusterInfo> ClusterInfoSet;
 
-    LayoutManagerWrapper(PlatformThreadInfo *threadInfo, LayoutManagerRef layoutManager)
+    LayoutManagerWrapper(PlatformThreadInfo *, LayoutManagerRef layoutManager)
         : layoutManager(std::move(layoutManager))
     {
-        this->layoutManager->addClusterGenerator(threadInfo,this);
     }
 
     ~LayoutManagerWrapper() override = default;
@@ -311,7 +313,7 @@ public:
     {
         const auto env = ((PlatformInfo_Android*)threadInfo)->env;
 
-        oldClusterTex = currentClusterTex;
+        //oldClusterTex = currentClusterTex;
         currentClusterTex.clear();
 
         // Notify all the cluster generators
@@ -443,7 +445,7 @@ public:
     LayoutManagerRef layoutManager;
 
     SimpleIDSet currentClusterTex;
-    SimpleIDSet oldClusterTex;
+    //SimpleIDSet oldClusterTex;
     
     SimpleIdentity motionShaderID = EmptyIdentity;
     ClusterInfoSet clusterGens;
@@ -451,7 +453,7 @@ public:
     bool generatorChanges = true;
 };
 
-typedef JavaClassInfo<LayoutManagerWrapper> LayoutManagerWrapperClassInfo;
+typedef JavaClassInfo<LayoutManagerWrapperRef> LayoutManagerWrapperClassInfo;
 template<> LayoutManagerWrapperClassInfo *LayoutManagerWrapperClassInfo::classInfoObj = nullptr;
 
 extern "C"
@@ -465,11 +467,15 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LayoutManager_initialise(JNIEnv 
 {
     try
     {
-        const auto scene = SceneClassInfo::get(env,sceneObj);
-        const auto layoutManager = scene->getManager<LayoutManager>(kWKLayoutManager);
         PlatformInfo_Android threadInfo(env);
-        auto wrap = new LayoutManagerWrapper(&threadInfo, layoutManager);
-        LayoutManagerWrapperClassInfo::getClassInfo()->setHandle(env, obj, wrap);
+        if (const auto scene = SceneClassInfo::get(env,sceneObj))
+        if (const auto layoutManager = scene->getManager<LayoutManager>(kWKLayoutManager))
+        if (auto wrap = std::make_shared<LayoutManagerWrapper>(&threadInfo, layoutManager))
+        {
+            layoutManager->addClusterGenerator(&threadInfo, wrap);
+            auto handle = new LayoutManagerWrapperRef(std::move(wrap));
+            LayoutManagerWrapperClassInfo::getClassInfo()->setHandle(env, obj, handle);
+        }
     }
     MAPLY_STD_JNI_CATCH()
 }
@@ -484,7 +490,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LayoutManager_dispose(JNIEnv *en
         auto classInfo = LayoutManagerWrapperClassInfo::getClassInfo();
         {
             std::lock_guard<std::mutex> lock(disposeMutex);
-            LayoutManagerWrapper *wrap = classInfo->getObject(env, obj);
+            LayoutManagerWrapperRef *wrap = classInfo->getObject(env, obj);
             classInfo->clearHandle(env, obj);
             delete wrap;
         }
@@ -499,7 +505,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LayoutManager_setMaxDisplayObjec
     {
         if (auto wrap = LayoutManagerWrapperClassInfo::get(env, obj))
         {
-            wrap->layoutManager->setMaxDisplayObjects(maxObjs);
+            (*wrap)->layoutManager->setMaxDisplayObjects(maxObjs);
         }
     }
     MAPLY_STD_JNI_CATCH()
@@ -517,10 +523,10 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LayoutManager_updateLayout
             {
                 if (auto changeSet = ChangeSetClassInfo::get(env, changeSetObj))
                 {
-                    wrap->updateShader();
+                    (*wrap)->updateShader();
 
                     PlatformInfo_Android threadInfo(env);
-                    wrap->layoutManager->updateLayout(&threadInfo,*viewState,**changeSet);
+                    (*wrap)->layoutManager->updateLayout(&threadInfo,*viewState,**changeSet);
                 }
             }
         }
@@ -537,7 +543,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LayoutManager_cancelUpdate
     {
         if (auto wrap = LayoutManagerWrapperClassInfo::get(env, obj))
         {
-            if (auto lm = wrap->layoutManager)
+            if (auto lm = (*wrap)->layoutManager)
             {
                 lm->cancelUpdate();
             }
@@ -553,7 +559,7 @@ JNIEXPORT jboolean JNICALL Java_com_mousebird_maply_LayoutManager_hasChanges(JNI
     {
         if (auto wrap = LayoutManagerWrapperClassInfo::get(env, obj))
         {
-            return wrap->layoutManager->hasChanges();
+            return (*wrap)->layoutManager->hasChanges();
         }
     }
     MAPLY_STD_JNI_CATCH()
@@ -568,7 +574,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LayoutManager_addClusterGenerato
     {
         if (auto wrap = LayoutManagerWrapperClassInfo::get(env, obj))
         {
-            wrap->addClusterGenerator(env, clusterObj, clusterID, selectable, sizeX, sizeY);
+            (*wrap)->addClusterGenerator(env, clusterObj, clusterID, selectable, sizeX, sizeY);
         }
     }
     MAPLY_STD_JNI_CATCH()
@@ -582,7 +588,7 @@ JNIEXPORT jboolean JNICALL Java_com_mousebird_maply_LayoutManager_removeClusterG
     {
         if (auto wrap = LayoutManagerWrapperClassInfo::get(env, obj))
         {
-            return wrap->removeClusterGenerator(env, clusterID);
+            return (*wrap)->removeClusterGenerator(env, clusterID);
         }
     }
     MAPLY_STD_JNI_CATCH()
@@ -596,7 +602,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LayoutManager_clearClusterGenera
     {
         if (auto wrap = LayoutManagerWrapperClassInfo::get(env, obj))
         {
-            wrap->clearClusterGenerators(env);
+            (*wrap)->clearClusterGenerators(env);
         }
     }
     MAPLY_STD_JNI_CATCH()
@@ -610,7 +616,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LayoutManager_setFadeEnabled
     {
         if (auto wrap = LayoutManagerWrapperClassInfo::get(env, obj))
         {
-            wrap->layoutManager->setFadeEnabled(enable);
+            (*wrap)->layoutManager->setFadeEnabled(enable);
         }
     }
     MAPLY_STD_JNI_CATCH()
@@ -624,7 +630,7 @@ JNIEXPORT jboolean JNICALL Java_com_mousebird_maply_LayoutManager_getFadeEnabled
     {
         if (auto wrap = LayoutManagerWrapperClassInfo::get(env, obj))
         {
-            return wrap->layoutManager->getFadeEnabled();
+            return (*wrap)->layoutManager->getFadeEnabled();
         }
     }
     MAPLY_STD_JNI_CATCH()
@@ -639,7 +645,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LayoutManager_setShowDebugLayout
     {
         if (auto wrap = LayoutManagerWrapperClassInfo::get(env, obj))
         {
-            wrap->layoutManager->setShowDebugBoundaries(show);
+            (*wrap)->layoutManager->setShowDebugBoundaries(show);
         }
     }
     MAPLY_STD_JNI_CATCH()
@@ -653,7 +659,7 @@ JNIEXPORT jboolean JNICALL Java_com_mousebird_maply_LayoutManager_getShowDebugLa
     {
         if (auto wrap = LayoutManagerWrapperClassInfo::get(env, obj))
         {
-            return wrap->layoutManager->getShowDebugBoundaries();
+            return (*wrap)->layoutManager->getShowDebugBoundaries();
         }
     }
     MAPLY_STD_JNI_CATCH()

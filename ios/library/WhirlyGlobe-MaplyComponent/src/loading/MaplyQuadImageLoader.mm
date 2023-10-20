@@ -181,6 +181,10 @@ using namespace WhirlyKit;
     
     MaplyBoundingBox bbox = [loader geoBoundsForTile:loadReturn.tileID];
     MaplyScreenLabel *label = [[MaplyScreenLabel alloc] init];
+    if (!label)
+    {
+        return;
+    }
     MaplyCoordinate center;
     center.x = (bbox.ll.x+bbox.ur.x)/2.0;  center.y = (bbox.ll.y+bbox.ur.y)/2.0;
     label.loc = center;
@@ -201,8 +205,16 @@ using namespace WhirlyKit;
     coords[2] = bbox.ur;  coords[3] = MaplyCoordinateMake(bbox.ll.x, bbox.ur.y);
     coords[4] = coords[0];
     MaplyVectorObject *vecObj = [[MaplyVectorObject alloc] initWithLineString:coords numCoords:5 attributes:nil];
+    if (!vecObj)
+    {
+        return;
+    }
     [vecObj subdivideToGlobe:0.001];
     MaplyComponentObject *outlineObj = [vc addVectors:@[vecObj] desc:@{kMaplyEnable: @(false)} mode:MaplyThreadCurrent];
+    if (!outlineObj)
+    {
+        return;
+    }
     
     [loadReturn addCompObjs:@[labelObj,outlineObj]];
 }
@@ -388,7 +400,7 @@ static const int debugColors[MaxDebugColors] = {0x86812D, 0x5EB9C9, 0x2A7E3E, 0x
     return self;
 }
 
-- (bool)delayedInit
+- (bool)tryDelayedInit
 {
     if (![super delayedInit])
     {
@@ -511,6 +523,37 @@ static const int debugColors[MaxDebugColors] = {0x86812D, 0x5EB9C9, 0x2A7E3E, 0x
     [super postDelayedInit];
 
     return true;
+}
+
+- (bool)delayedInit
+{
+    const auto __strong vc = self.viewC;
+    try
+    {
+        return [self tryDelayedInit];
+    }
+    catch (const std::exception &ex)
+    {
+        NSLog(@"Exception in MaplyQuadLoaderBase.delayedInit: %s", ex.what());
+        [vc report:@"QuadPagingLoader-DelayedInit"
+             exception:[[NSException alloc] initWithName:@"STL Exception"
+                                                  reason:[NSString stringWithUTF8String:ex.what()]
+                                                userInfo:nil]];
+    }
+    catch (NSException *ex)
+    {
+        NSLog(@"Exception in MaplyQuadLoaderBase.delayedInit: %@", ex.description);
+        [vc report:@"QuadPagingLoader-DelayedInit" exception:ex];
+    }
+    catch (...)
+    {
+        NSLog(@"Exception in MaplyQuadLoaderBase.delayedInit");
+        [vc report:@"QuadPagingLoader-DelayedInit"
+             exception:[[NSException alloc] initWithName:@"C++ Exception"
+                                                  reason:@"Unknown"
+                                                userInfo:nil]];
+    }
+    return false;
 }
 
 - (void)setShader:(MaplyShader *)shader
@@ -658,7 +701,7 @@ static const int debugColors[MaxDebugColors] = {0x86812D, 0x5EB9C9, 0x2A7E3E, 0x
 
 - (void)changeTileInfo:(NSObject<MaplyTileInfoNew> *)tileInfo
 {
-    NSArray *tileInfos = @[tileInfo];
+    NSArray *tileInfos = tileInfo ? @[tileInfo] : @[];
     
     [super changeTileInfos:tileInfos];
 }
