@@ -54,6 +54,9 @@
 	   #define json_cold
     #endif
 
+	// NDK 26.1.10909125+ dirty fix
+	#define throw(...)
+
     #define json_nothrow throw()
     #define json_throws(x) throw(x)
 
