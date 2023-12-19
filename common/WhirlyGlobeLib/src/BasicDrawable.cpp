@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 2/1/11.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2023 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -27,26 +27,29 @@ using namespace Eigen;
 
 namespace WhirlyKit
 {
-    
-BasicDrawable::Triangle::Triangle()
-{
-}
 
 BasicDrawable::Triangle::Triangle(unsigned short v0,unsigned short v1,unsigned short v2)
 {
     verts[0] = v0;  verts[1] = v1;  verts[2] = v2;
 }
-    
-BasicDrawable::BasicDrawable(const std::string &name)
-: Drawable(name), motion(false)
+
+BasicDrawable::BasicDrawable(const std::string &name) :
+    Drawable(name),
+    motion(false)
 {
 }
 
 BasicDrawable::~BasicDrawable()
 {
-    for (unsigned int ii=0;ii<vertexAttributes.size();ii++)
-        delete vertexAttributes[ii];
-    vertexAttributes.clear();
+    try
+    {
+        for (auto & vertexAttribute : vertexAttributes)
+        {
+            delete vertexAttribute;
+        }
+        vertexAttributes.clear();
+    }
+    WK_STD_DTOR_CATCH()
 }
 
 void BasicDrawable::setTexRelative(int which,int size,int borderTexel,int relLevel,int relX,int relY)
@@ -109,33 +112,40 @@ bool BasicDrawable::isOn(RendererFrameInfo *frameInfo) const
     if (!on)
         return false;
     
-    double visVal = frameInfo->theView->heightAboveSurface();
-
     // Height based check
     if (minVisible != DrawVisibleInvalid && maxVisible != DrawVisibleInvalid)
     {
+        const double visVal = frameInfo->theView->heightAboveSurface();
         if (!((minVisible <= visVal && visVal <= maxVisible) ||
-                (maxVisible <= visVal && visVal <= minVisible)))
+              (maxVisible <= visVal && visVal <= minVisible)))
+        {
             return false;
+        }
     }
     
     // Viewer based check
-    if (minViewerDist != DrawVisibleInvalid && maxViewerDist != DrawVisibleInvalid &&
+    if (minViewerDist != DrawVisibleInvalid &&
+        maxViewerDist != DrawVisibleInvalid &&
         viewerCenter.x() != DrawVisibleInvalid)
     {
-        double dist2 = (viewerCenter - frameInfo->eyePos).squaredNorm();
+        const double dist2 = (viewerCenter - frameInfo->eyePos).squaredNorm();
         if (!(minViewerDist*minViewerDist < dist2 && dist2 <= maxViewerDist*maxViewerDist))
+        {
             return false;
+        }
     }
     
     // Zoom based check.  We need to be in the current zoom range
-    if (zoomSlot > -1 && zoomSlot <= MaplyMaxZoomSlots) {
-        float zoom = frameInfo->scene->getZoomSlotValue(zoomSlot);
+    if (zoomSlot > -1 && zoomSlot <= MaplyMaxZoomSlots &&
+        (minZoomVis != DrawVisibleInvalid || maxZoomVis != DrawVisibleInvalid))
+    {
+        const float zoom = frameInfo->scene->getZoomSlotValue(zoomSlot);
         if (zoom != MAXFLOAT) {
-            if (minZoomVis != DrawVisibleInvalid && zoom < minZoomVis)
+            if ((minZoomVis != DrawVisibleInvalid && zoom < minZoomVis) ||
+                (maxZoomVis != DrawVisibleInvalid && zoom >= maxZoomVis))
+            {
                 return false;
-            if (maxZoomVis != DrawVisibleInvalid && zoom >= maxZoomVis)
-                return false;
+            }
         }
     }
     
@@ -237,6 +247,17 @@ void BasicDrawable::setOverrideColor(unsigned char inColor[])
     setOverrideColor(RGBAColor(inColor[0],inColor[1],inColor[2],inColor[3]));
 }
 
+void BasicDrawable::setEnableTimeRange(TimeInterval inStartEnable,TimeInterval inEndEnable)
+{
+    if (inStartEnable != startEnable || inEndEnable != endEnable)
+    {
+        startEnable = inStartEnable;
+        endEnable = inEndEnable;
+        setValuesChanged();
+    }
+}
+
+// NOLINTNEXTLINE(google-default-arguments)
 void BasicDrawable::setVisibleRange(float minVis,float maxVis,float minVisBand,float maxVisBand)
 {
     if (minVisible == minVis && maxVisible == maxVis &&
@@ -352,14 +373,21 @@ void BasicDrawable::updateRenderer(SceneRenderer *renderer)
         renderer->addExtraFrameRenderRequest(getId(), extraFrames);
 }
 
+void BasicDrawable::setCalculationProgram(SimpleIdentity progID)
+{
+    calcProgramId = progID;
+}
+
 SimpleIdentity BasicDrawable::getCalculationProgram() const
 {
-    return EmptyIdentity;
+    return calcProgramId;
 }
         
 /// Return the active transform matrix, if we have one
 const Eigen::Matrix4d *BasicDrawable::getMatrix() const
-{ if (hasMatrix) return &mat;  return NULL; }
+{
+    return hasMatrix ? &mat : nullptr;
+}
     
 void BasicDrawable::setUniforms(const SingleVertexAttributeSet &newUniforms)
 {
@@ -407,7 +435,7 @@ void BasicDrawable::setUniform(SimpleIdentity nameID, const Eigen::Vector3f &vec
     SingleVertexAttribute attr;
     attr.nameID = nameID;
     attr.slot = -1;
-    attr.type = BDFloat2Type;
+    attr.type = BDFloat3Type;
     attr.data.vec3[0] = vec.x();
     attr.data.vec3[1] = vec.y();
     attr.data.vec3[2] = vec.z();
@@ -420,7 +448,7 @@ void BasicDrawable::setUniform(SimpleIdentity nameID, const Eigen::Vector4f &vec
     SingleVertexAttribute attr;
     attr.nameID = nameID;
     attr.slot = -1;
-    attr.type = BDFloat2Type;
+    attr.type = BDFloat4Type;
     attr.data.vec4[0] = vec.x();
     attr.data.vec4[1] = vec.y();
     attr.data.vec4[2] = vec.z();
@@ -441,13 +469,22 @@ void BasicDrawable::setUniBlock(const UniformBlock &uniBlock)
 {
     setValuesChanged();
 
-    for (int ii=0;ii<uniBlocks.size();ii++)
-        if (uniBlocks[ii].bufferID == uniBlock.bufferID) {
-            uniBlocks[ii] = uniBlock;
+    for (auto & ii : uniBlocks)
+    {
+        if (ii.bufferID == uniBlock.bufferID)
+        {
+            ii = uniBlock;
             return;
         }
+    }
     
     uniBlocks.push_back(uniBlock);
+}
+
+void BasicDrawable::setCalculationData(int numEntries,const std::vector<RawDataRef> &data)
+{
+    calcDataEntries = numEntries;
+    calcData = data;
 }
     
 void BasicDrawable::addTweaker(const DrawableTweakerRef &tweak)
@@ -471,38 +508,39 @@ void BasicDrawable::setTexturesChanged()
         renderTargetCon->modified = true;
 }
 
-BasicDrawableTexTweaker::BasicDrawableTexTweaker(std::vector<SimpleIdentity> &&texIDs,TimeInterval startTime,double period)
+BasicDrawableTexTweaker::BasicDrawableTexTweaker(std::vector<SimpleIdentity> texIDs,TimeInterval startTime,double period)
     : texIDs(std::move(texIDs)), startTime(startTime), period(period)
-{
-}
-
-BasicDrawableTexTweaker::BasicDrawableTexTweaker(const std::vector<SimpleIdentity> &texIDs,TimeInterval startTime,double period)
-    : texIDs(texIDs), startTime(startTime), period(period)
 {
 }
 
 void BasicDrawableTexTweaker::tweakForFrame(Drawable *draw,RendererFrameInfo *frame)
 {
-    BasicDrawable *basicDraw = dynamic_cast<BasicDrawable *>(draw);
-    
-    double t = fmod(frame->currentTime-startTime,period)/period;
-    int base = floor(t * texIDs.size());
-    int next = (base+1)%texIDs.size();
-    double interp = t*texIDs.size()-base;
+    const auto basicDraw = dynamic_cast<BasicDrawable*>(draw);
+    if (!basicDraw)
+    {
+        return;
+    }
+
+    const double deltaT = std::max(0.0, frame->currentTime - startTime);
+    const double t = std::fmod(deltaT, period) / period;
+    const auto base = (size_t)std::floor(t * texIDs.size());
+    const auto next = (base + 1) % texIDs.size();
+    const auto interp = (float)(t * texIDs.size() - base);
     
     basicDraw->setTexId(0, texIDs[base]);
     basicDraw->setTexId(1, texIDs[next]);
 
     // Interpolation as well
     SingleVertexAttributeSet uniforms;
-    uniforms.insert(SingleVertexAttribute(u_interpNameID,-1,(float)interp));
+    uniforms.emplace(u_interpNameID,-1,interp);
     basicDraw->setUniforms(uniforms);
 
     // This forces a redraw every frame
     // Note: There has to be a better way
     frame->scene->addChangeRequest(nullptr);
 }
-    
+
+// NOLINTNEXTLINE(modernize-pass-by-value)
 BasicDrawableScreenTexTweaker::BasicDrawableScreenTexTweaker(const Point3d &centerPt,const Point2d &texScale)
     : centerPt(centerPt), texScale(texScale)
 {
@@ -510,7 +548,7 @@ BasicDrawableScreenTexTweaker::BasicDrawableScreenTexTweaker(const Point3d &cent
     
 void BasicDrawableScreenTexTweaker::tweakForFrame(Drawable *draw,RendererFrameInfo *frameInfo)
 {
-    BasicDrawable *basicDraw = dynamic_cast<BasicDrawable *>(draw);
+    const auto basicDraw = dynamic_cast<BasicDrawable *>(draw);
 
     if (basicDraw && frameInfo->program)
     {
@@ -530,8 +568,8 @@ void BasicDrawableScreenTexTweaker::tweakForFrame(Drawable *draw,RendererFrameIn
     }
 }
 
-ColorChangeRequest::ColorChangeRequest(SimpleIdentity drawId,RGBAColor inColor)
-: DrawableChangeRequest(drawId)
+ColorChangeRequest::ColorChangeRequest(SimpleIdentity drawId,RGBAColor inColor) :
+    DrawableChangeRequest(drawId)
 {
     color[0] = inColor.r;
     color[1] = inColor.g;
@@ -566,10 +604,12 @@ void OnOffChangeRequest::execute2(Scene *scene,SceneRenderer *renderer,DrawableR
     {
         basicDrawInst->setEnable(newOnOff);
     }
+#if !MAPLY_MINIMAL
     else if (auto partSys = dynamic_cast<ParticleSystemDrawable*>(draw.get()))
     {
         partSys->setOnOff(newOnOff);
     }
+#endif //!MAPLY_MINIMAL
 }
 
 VisibilityChangeRequest::VisibilityChangeRequest(SimpleIdentity drawId,float minVis,float maxVis)
@@ -598,23 +638,32 @@ FadeChangeRequest::FadeChangeRequest(SimpleIdentity drawId,TimeInterval fadeUp,T
 void FadeChangeRequest::execute2(Scene *scene,SceneRenderer *renderer,DrawableRef draw)
 {
     // Fade it out, then remove it
-    if (auto basicDrawable = dynamic_cast<BasicDrawable*>(draw.get()))
+    if (const auto basicDrawable = dynamic_cast<BasicDrawable*>(draw.get()))
     {
         basicDrawable->setFade(fadeDown, fadeUp);
     }
-    
+
     // And let the renderer know
     renderer->setRenderUntil(fadeDown);
     renderer->setRenderUntil(fadeUp);
 }
 
-DrawTexChangeRequest::DrawTexChangeRequest(SimpleIdentity drawId,unsigned int which,SimpleIdentity newTexId)
-: DrawableChangeRequest(drawId), which(which), newTexId(newTexId), relSet(false), relLevel(0), relX(0), relY(0)
+DrawTexChangeRequest::DrawTexChangeRequest(SimpleIdentity drawId,unsigned int which,SimpleIdentity newTexId) :
+    DrawableChangeRequest(drawId),
+    which(which),
+    newTexId(newTexId)
 {
 }
 
-DrawTexChangeRequest::DrawTexChangeRequest(SimpleIdentity drawId,unsigned int which,SimpleIdentity newTexId,int size,int borderTexel,int relLevel,int relX,int relY)
-: DrawableChangeRequest(drawId), which(which), newTexId(newTexId), relSet(true), size(size), borderTexel(borderTexel), relLevel(relLevel), relX(relX), relY(relY)
+DrawTexChangeRequest::DrawTexChangeRequest(SimpleIdentity drawId,unsigned int which,SimpleIdentity newTexId,
+                                           int size,int borderTexel,int relLevel,int relX,int relY) :
+    DrawableChangeRequest(drawId),
+    which(which),
+    newTexId(newTexId),
+    relSet(true), size(size),
+    borderTexel(borderTexel),
+    relLevel(relLevel),
+    relX(relX), relY(relY)
 {
 }
     
@@ -624,9 +673,9 @@ void DrawTexChangeRequest::execute2(Scene *scene,SceneRenderer *renderer,Drawabl
     if (basicDrawable) {
         basicDrawable->setTexId(which,newTexId);
         if (relSet)
-            basicDrawable->setTexRelative(which, size, borderTexel, relLevel, relX, relY);
+            basicDrawable->setTexRelative((int)which, size, borderTexel, relLevel, relX, relY);
         else
-            basicDrawable->setTexRelative(which, 0, 0, 0, 0, 0);
+            basicDrawable->setTexRelative((int)which, 0, 0, 0, 0, 0);
     } else {
         BasicDrawableInstanceRef refDrawable = std::dynamic_pointer_cast<BasicDrawableInstance>(draw);
         if (refDrawable) {
@@ -638,16 +687,16 @@ void DrawTexChangeRequest::execute2(Scene *scene,SceneRenderer *renderer,Drawabl
                 }
                 refDrawable->setTexId(which,newTexId);
                 if (relSet)
-                    refDrawable->setTexRelative(which, size, borderTexel, relLevel, relX, relY);
+                    refDrawable->setTexRelative((int)which, size, borderTexel, relLevel, relX, relY);
                 else
-                    refDrawable->setTexRelative(which, 0, 0, 0, 0, 0);
+                    refDrawable->setTexRelative((int)which, 0, 0, 0, 0, 0);
             }
         }
     }
 }
 
-DrawTexturesChangeRequest::DrawTexturesChangeRequest(SimpleIdentity drawId,const std::vector<SimpleIdentity> &newTexIDs)
-: DrawableChangeRequest(drawId), newTexIDs(newTexIDs)
+DrawTexturesChangeRequest::DrawTexturesChangeRequest(SimpleIdentity drawId, std::vector<SimpleIdentity> newTexIDs)
+    : DrawableChangeRequest(drawId), newTexIDs(std::move(newTexIDs))
 {
 }
 
@@ -680,13 +729,13 @@ void DrawOrderChangeRequest::execute2(Scene *scene,SceneRenderer *renderer,Drawa
 
     BasicDrawableRef basicDrawable = std::dynamic_pointer_cast<BasicDrawable>(draw);
     if (basicDrawable && basicDrawable->drawOrder != drawOrder) {
-        renderer->removeDrawable(draw,false,NULL);
+        renderer->removeDrawable(draw,false,nullptr);
         basicDrawable->setDrawOrder(drawOrder);
         renderer->addDrawable(draw);
     } else {
         BasicDrawableInstanceRef basicDrawInst = std::dynamic_pointer_cast<BasicDrawableInstance>(draw);
         if (basicDrawInst && basicDrawInst->getDrawOrder() != drawOrder) {
-            renderer->removeDrawable(draw,false,NULL);
+            renderer->removeDrawable(draw,false,nullptr);
             basicDrawInst->setDrawOrder(drawOrder);
             renderer->addDrawable(draw);
         }
@@ -703,13 +752,13 @@ void DrawPriorityChangeRequest::execute2(Scene *scene,SceneRenderer *renderer,Dr
 
     BasicDrawableRef basicDrawable = std::dynamic_pointer_cast<BasicDrawable>(draw);
     if (basicDrawable && basicDrawable->drawPriority != drawPriority) {
-        renderer->removeDrawable(draw,false,NULL);
+        renderer->removeDrawable(draw,false,nullptr);
         basicDrawable->setDrawPriority(drawPriority);
         renderer->addDrawable(draw);
     } else {
         BasicDrawableInstanceRef basicDrawInst = std::dynamic_pointer_cast<BasicDrawableInstance>(draw);
         if (basicDrawInst && basicDrawInst->getDrawPriority() != drawPriority) {
-            renderer->removeDrawable(draw,false,NULL);
+            renderer->removeDrawable(draw,false,nullptr);
             basicDrawInst->setDrawPriority(drawPriority);
             renderer->addDrawable(draw);
         }
@@ -733,8 +782,8 @@ void LineWidthChangeRequest::execute2(Scene *scene,SceneRenderer *renderer,Drawa
     }
 }
     
-DrawUniformsChangeRequest::DrawUniformsChangeRequest(SimpleIdentity drawID,const SingleVertexAttributeSet &attrs)
-    : DrawableChangeRequest(drawID), attrs(attrs)
+DrawUniformsChangeRequest::DrawUniformsChangeRequest(SimpleIdentity drawID, SingleVertexAttributeSet attrs)
+    : DrawableChangeRequest(drawID), attrs(std::move(attrs))
 {
 }
     
@@ -757,7 +806,7 @@ RenderTargetChangeRequest::RenderTargetChangeRequest(SimpleIdentity drawID,Simpl
     
 void RenderTargetChangeRequest::execute2(Scene *scene,SceneRenderer *renderer,DrawableRef draw)
 {
-    renderer->removeDrawable(draw,false,NULL);
+    renderer->removeDrawable(draw,false,nullptr);
     
     BasicDrawableRef basicDrawable = std::dynamic_pointer_cast<BasicDrawable>(draw);
     if (basicDrawable)
@@ -766,11 +815,13 @@ void RenderTargetChangeRequest::execute2(Scene *scene,SceneRenderer *renderer,Dr
         BasicDrawableInstanceRef basicDrawInst = std::dynamic_pointer_cast<BasicDrawableInstance>(draw);
         if (basicDrawInst)
             basicDrawInst->setRenderTarget(targetID);
+#if !MAPLY_MINIMAL
         else {
             ParticleSystemDrawableRef partDrawable = std::dynamic_pointer_cast<ParticleSystemDrawable>(draw);
             if (partDrawable)
                 partDrawable->setRenderTarget(targetID);
         }
+#endif //!MAPLY_MINIMAL
     }
     
     renderer->addDrawable(draw);
@@ -792,11 +843,13 @@ void UniformBlockSetRequest::execute2(Scene *scene,SceneRenderer *renderer,Drawa
         BasicDrawableInstanceRef basicDrawInst = std::dynamic_pointer_cast<BasicDrawableInstance>(draw);
         if (basicDrawInst)
             basicDrawInst->setUniBlock(uniBlock);
+#if !MAPLY_MINIMAL
         else {
             ParticleSystemDrawableRef partDrawable = std::dynamic_pointer_cast<ParticleSystemDrawable>(draw);
             if (partDrawable)
                 partDrawable->setUniBlock(uniBlock);
         }
+#endif //!MAPLY_MINIMAL
     }
 }
 

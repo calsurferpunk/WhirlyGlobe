@@ -1,9 +1,8 @@
-/*
- *  WhirlyGeometry.h
+/*  WhirlyGeometry.h
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 1/18/11.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "WhirlyVector.h"
@@ -63,8 +61,9 @@ double ClosestPointToPolygon(const Point2dVector &pts,const Point2d &pt,Point2d 
 bool IntersectLines(const Point2f &a0,const Point2f &a1,const Point2f &b0,const Point2f &b1,Point2f *iPt);
     
 /// Clip and return a polygon represented in homogeneous coordinates
+void ClipHomogeneousPolygon(Vector4dVector &&pts,Vector4dVector &outPts);
 void ClipHomogeneousPolygon(const Vector4dVector &pts,Vector4dVector &outPts);
-	
+
 /// Project and clip a given polygon to screen space.  Clips in homogeneous coordinates.
 void ClipAndProjectPolygon(Eigen::Matrix4d &modelMat,Eigen::Matrix4d &projMat,Point2f frameSize,Point3dVector &poly,Point2fVector &screenPoly);
         

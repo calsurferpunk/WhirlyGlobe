@@ -1,9 +1,8 @@
-/*
- *  MaplyVectorStyle.h
+/*  MaplyVectorStyle.h
  *  WhirlyGlobe-MaplyComponent
  *
  *  Created by Steve Gifford on 1/3/14.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,12 +14,11 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import <UIKit/UIKit.h>
-#import "loading/MaplyTileSourceNew.h"
-#import "control/MaplyBaseViewController.h"
+#import <WhirlyGlobe/MaplyTileSourceNew.h>
+#import <WhirlyGlobe/MaplyBaseViewController.h>
 
 @class MaplyVectorTileData;
 
@@ -38,8 +36,12 @@
 @property (nonatomic) float lineScale;
 /// Text sizes will be scaled by this amount before display.
 @property (nonatomic) float textScale;
-/// Markers will be scaled by this amount before display.
+/// Markers (symbols+circles) will be scaled by this amount before display.
 @property (nonatomic) float markerScale;
+/// Symbols will be scaled by this amount before display.
+@property (nonatomic) float symbolScale;
+/// Circles will be scaled by this amount before display.
+@property (nonatomic) float circleScale;
 /// Importance for markers in the layout engine
 @property (nonatomic) float markerImportance;
 /// Default marker size when none is specified
@@ -71,6 +73,9 @@
 /// Use widened vectors (which do anti-aliasing and such)
 @property (nonatomic) bool useWideVectors;
 
+/// Use GPU-based wide vector implementation
+@property (nonatomic) bool usePerfWideVectors;
+
 /// Where we're using old vectors (e.g. not wide) scale them by this amount
 @property (nonatomic) float oldVecWidthScale;
 
@@ -82,6 +87,9 @@
 
 /// If set, we'll make all the features selectable.  If not, we won't.
 @property (nonatomic) bool selectable;
+
+/// Allow- per-object color overrides
+@property (nonatomic) bool enableOverrideColor;
 
 /// If set, icons will be loaded from this directory
 @property (nonatomic, strong) NSString * _Nullable iconDirectory;
@@ -146,6 +154,13 @@
              forTile:(MaplyVectorTileData * __nonnull)tileData
                viewC:(NSObject<MaplyRenderControllerProtocol> * _Nonnull)viewC
                 desc:(NSDictionary * _Nullable)desc;
+
+/// Construct objects related to this style based on the input data.
+- (void)buildObjects:(NSArray * _Nonnull)vecObjs
+             forTile:(MaplyVectorTileData * __nonnull)tileData
+               viewC:(NSObject<MaplyRenderControllerProtocol> * _Nonnull)viewC
+                desc:(NSDictionary * _Nullable)desc
+            cancelFn:(bool(^__nullable)(void))cancelFn;
 
 @end
 

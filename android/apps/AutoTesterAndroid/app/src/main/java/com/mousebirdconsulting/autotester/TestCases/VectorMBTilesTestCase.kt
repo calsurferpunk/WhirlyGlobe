@@ -1,9 +1,8 @@
-/*
- *  VectorMBTilesTestCase.kt
+/*  VectorMBTilesTestCase.kt
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 package com.mousebirdconsulting.autotester.TestCases
 
@@ -35,19 +33,13 @@ import java.io.IOException
 /**
  * Loads vector tiles over southern France.
  */
-class VectorMBTilesTestCase : MaplyTestCase {
-
-    constructor(activity: Activity) : super(activity) {
-        setTestName("Vector MBTiles")
-        implementation = TestExecutionImplementation.Both
-    }
-
+class VectorMBTilesTestCase(activity: Activity) : MaplyTestCase(activity, "Vector MBTiles") {
+    
     var loader: QuadLoaderBase? = null
 
     fun setupCountriesRaster(control: BaseController) {
         val mbTiles: File
 
-        // We need to copy the file from the asset so that it can be used as a file
         // We need to copy the file from the asset so that it can be used as a file
         try {
             mbTiles = this.getFile("mbtiles", "mbtiles/countries-raster.mbtiles", "countries-raster.mbtiles")
@@ -60,10 +52,8 @@ class VectorMBTilesTestCase : MaplyTestCase {
         }
 
         // The fetcher fetches tile from the MBTiles file
-        // The fetcher fetches tile from the MBTiles file
         val mbTileFetcher = MBTileFetcher(control, mbTiles)
 
-        // Set up the parameters to match the MBTile file
         // Set up the parameters to match the MBTile file
         val params = SamplingParams()
         params.coordSystem = SphericalMercatorCoordSystem()
@@ -78,7 +68,7 @@ class VectorMBTilesTestCase : MaplyTestCase {
         this.loader = loader
     }
 
-    fun setupContriesVector(control: BaseController) {
+    fun setupCountriesVector(control: BaseController) {
         val mbTiles: File
 
         // We need to copy the file from the asset so that it can be used as a file
@@ -119,6 +109,8 @@ class VectorMBTilesTestCase : MaplyTestCase {
         this.loader = loader
     }
 
+    var count = 0
+
     fun setupFranceVector(control: BaseController) {
         val mbTileFile = getFile("mbtiles", "mbtiles/France.mbtiles", "France.mbtiles")
         val fetcher = MBTileFetcher(control, mbTileFile)
@@ -153,9 +145,11 @@ class VectorMBTilesTestCase : MaplyTestCase {
 //
 //            val handler = Handler()
 //            handler.postDelayed({
-//                this.setupFranceVector(control)
-//            }, 1000)
-//        }, 500)
+//                count = count + 1
+//                if (count < 2)
+//                    this.setupFranceVector(control)
+//            }, 4000)
+//        }, 1500)
     }
 
     fun setupShapefile(control: BaseController) {
@@ -168,7 +162,7 @@ class VectorMBTilesTestCase : MaplyTestCase {
         val vecInfo = VectorInfo()
         vecInfo.setColor(Color.MAGENTA)
         vecInfo.drawPriority = 1000000
-        control.addVector(shpData, vecInfo, RenderControllerInterface.ThreadMode.ThreadAny)
+        control.addVector(shpData, vecInfo, ThreadMode.ThreadAny)
     }
 
     var baseCase: GeographyClass? = null
@@ -180,7 +174,7 @@ class VectorMBTilesTestCase : MaplyTestCase {
         mapVC.setPositionGeo(coord.x, coord.y, 0.07)
 
 //        setupCountriesRaster(mapVC as BaseController)
-//        setupContriesVector(mapVC as BaseController)
+//        setupCountriesVector(mapVC as BaseController)
         setupFranceVector(mapVC as BaseController)
 //        setupShapefile(mapVC as BaseController)
 
@@ -194,7 +188,7 @@ class VectorMBTilesTestCase : MaplyTestCase {
         globeVC.setPositionGeo(coord.x, coord.y, 0.07)
 
 //        setupCountriesRaster(globeVC as BaseController)
-//        setupContriesVector(globeVC as BaseController)
+//        setupCountriesVector(globeVC as BaseController)
         setupFranceVector(globeVC as BaseController)
 //        setupShapefile(globeVC as BaseController)
 

@@ -1,9 +1,8 @@
-/*
- *  VectorData.mm
+/*  VectorData.cpp
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 3/7/11.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2023 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,43 +14,58 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import <string>
 #import "VectorData.h"
 #import "ShapeReader.h"
 #import "WhirlyKitLog.h"
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wall"
 #import "libjson.h"
+#pragma clang diagnostic pop
 
 namespace WhirlyKit
 {
 
-template <typename T>
-double CalcLoopArea(const std::vector<T,Eigen::aligned_allocator<T>> &loop)
+using TDefInt = detail::TDefaultIntermediate;
+
+template <typename T, typename TRet = double, typename TInt = TDefInt>
+TRet CalcLoopArea(const std::vector<T,Eigen::aligned_allocator<T>> &loop, size_t loopSize)
 {
-    if (loop.empty())
+    if (loopSize < 3 || loopSize > loop.size())
     {
         return 0;
     }
     // If the loop returns to the initial point, stop there.
     // If it does not, force it to be closed by re-considering the first point.
-    const bool closed = !loop.empty() && loop.front() == loop.back();
-    const auto loopSize = loop.size();
+    const bool closed = (loop[0] == loop[loopSize - 1]);
     const auto maxIter = closed ? loopSize - 1 : loopSize;
 
-    double area = 0.0;
+    TInt area = 0.0;
     for (unsigned int ii=0;ii<maxIter;ii++)
     {
         const auto &p1 = loop[ii];
         const auto &p2 = loop[(ii+1)%loopSize];
-        area += p1.x()*p2.y() - p1.y()*p2.x();
+
+        // Inputs may be floats or doubles.  Watch out for truncation on intermediate values.
+        area += (TInt)p1.x() * (TInt)p2.y();
+        area -= (TInt)p1.y() * (TInt)p2.x();
     }
-    return area;
+    return (TRet)area;
 }
 
+template <typename T, typename TRet, typename TInt>
+TRet CalcLoopArea(const std::vector<T,Eigen::aligned_allocator<T>> &loop)
+{
+    return CalcLoopArea<T,TRet,TInt>(loop,loop.size());
+}
+
+#if !MAPLY_MINIMAL
+
 // Calculate the centroid of a loop when the area is already known
-template <typename T>
+template <typename T, typename TInt>
 T CalcLoopCentroid(const std::vector<T,Eigen::aligned_allocator<T>> &loop, double loopArea)
 {
     if (loop.empty())
@@ -71,14 +85,14 @@ T CalcLoopCentroid(const std::vector<T,Eigen::aligned_allocator<T>> &loop, doubl
     const auto loopSize = loop.size();
     const auto maxIter = closed ? loopSize - 1 : loopSize;
 
-    double sumX = 0, sumY = 0;
+    TInt sumX = 0, sumY = 0;
     for (unsigned int ii=0;ii<maxIter;ii++)
     {
         const auto &p0 = loop[ii];
         const auto &p1 = loop[(ii+1)%loopSize];
-        const double b = (p0.x()*p1.y()-p1.x()*p0.y());
-        sumX += (p0.x()+p1.x())*b;
-        sumY += (p0.y()+p1.y())*b;
+        const auto b = ((TInt)p0.x())*((TInt)p1.y()) - ((TInt)p1.x())*((TInt)p0.y());
+        sumX += ((TInt)p0.x() + (TInt)p1.x()) * b;
+        sumY += ((TInt)p0.y() + (TInt)p1.y()) * b;
     }
 
     return {static_cast<typename T::Scalar>(sumX/(3*loopArea)),
@@ -86,20 +100,20 @@ T CalcLoopCentroid(const std::vector<T,Eigen::aligned_allocator<T>> &loop, doubl
 }
 
 // Calculate the centroid of an arbitrary loop
-template <typename T>
+template <typename T, typename TInt>
 T CalcLoopCentroid(const std::vector<T,Eigen::aligned_allocator<T>> &loop)
 {
-    return CalcLoopCentroid(loop, CalcLoopArea(loop));
+    return CalcLoopCentroid<T,TInt>(loop, CalcLoopArea<T,double,TInt>(loop));
 }
 
-template <typename T>
+template <typename T, typename TInt>
 T CalcCenterOfMass(const std::vector<T,Eigen::aligned_allocator<T>> &loop)
 {
     if (loop.empty()) {
         return {0,0};
     }
 
-    double cx = 0, cy = 0;
+    TInt cx = 0, cy = 0;
     for (const auto &pt : loop) {
         cx += pt.x();
         cy += pt.y();
@@ -110,62 +124,73 @@ T CalcCenterOfMass(const std::vector<T,Eigen::aligned_allocator<T>> &loop)
 }
 
 // Export specific instantiations of the templates above.
-template double CalcLoopArea<Point2f>(const VectorRing&);
-template double CalcLoopArea<Point2d>(const Point2dVector&);
-template Point2f CalcLoopCentroid(const VectorRing&);
-template Point2d CalcLoopCentroid(const Point2dVector&);
-template Point2f CalcLoopCentroid(const VectorRing&, double);
-template Point2d CalcLoopCentroid(const Point2dVector&, double);
-template Point2f CalcCenterOfMass(const VectorRing&);
-template Point2d CalcCenterOfMass(const Point2dVector&);
+template double CalcLoopArea<Point2f,double,TDefInt>(const VectorRing&);
+#endif //!MAPLY_MINIMAL
+template double CalcLoopArea<Point2d,double,TDefInt>(const Point2dVector&);
+#if !MAPLY_MINIMAL
+template Point2f CalcLoopCentroid<typename VectorRing::value_type,TDefInt>(const VectorRing&);
+template Point2f CalcLoopCentroid<typename VectorRing::value_type,TDefInt>(const VectorRing&, double);
+template Point2d CalcLoopCentroid<typename Point2dVector::value_type,TDefInt>(const Point2dVector&);
+template Point2d CalcLoopCentroid<typename Point2dVector::value_type,TDefInt>(const Point2dVector&, double);
+template Point2f CalcCenterOfMass<typename VectorRing::value_type,TDefInt>(const VectorRing&);
+template Point2d CalcCenterOfMass<typename Point2dVector::value_type,TDefInt>(const Point2dVector&);
 
 // Break any edge longer than the given length
 void SubdivideEdges(const VectorRing &inPts,VectorRing &outPts,bool closed,float maxLen)
 {
-    const float maxLen2 = maxLen*maxLen;
+    const double maxLen2 = (double)maxLen * maxLen;
 
-    outPts.reserve(inPts.size());
-    
+    if (outPts.empty())
+    {
+        outPts.reserve(2 * inPts.size());
+    }
+
     for (int ii=0;ii<(closed ? inPts.size() : inPts.size()-1);ii++)
     {
         const Point2f &p0 = inPts[ii];
         const Point2f &p1 = inPts[(ii+1)%inPts.size()];
         outPts.push_back(p0);
-        Point2f dir = p1-p0;
-        const float dist2 = dir.squaredNorm();
+        Point2d dir = p1.cast<double>() - p0.cast<double>();
+        const double dist2 = dir.squaredNorm();
         if (dist2 > maxLen2)
         {
-            const float dist = sqrtf(dist2);
+            const double dist = std::sqrt(dist2);
             dir /= dist;
-            for (float pos=maxLen;pos<dist;pos+=maxLen)
+            for (double pos=maxLen;pos<dist;pos+=maxLen)
             {
-                outPts.emplace_back(p0+dir*pos);
+                outPts.emplace_back((p0.cast<double>()+dir*pos).cast<float>());
             }
         }
     }
     if (!closed)
+    {
         outPts.push_back(inPts.back());
+    }
 }
 
 void SubdivideEdges(const VectorRing3d &inPts,VectorRing3d &outPts,bool closed,float maxLen)
 {
-    float maxLen2 = maxLen*maxLen;
-    
+    const double maxLen2 = (double)maxLen * maxLen;
+
+    if (outPts.empty())
+    {
+        outPts.reserve(2 * inPts.size());
+    }
+
     for (int ii=0;ii<(closed ? inPts.size() : inPts.size()-1);ii++)
     {
         const Point3d &p0 = inPts[ii];
         const Point3d &p1 = inPts[(ii+1)%inPts.size()];
         outPts.push_back(p0);
         Point3d dir = p1-p0;
-        float dist2 = dir.squaredNorm();
+        const double dist2 = dir.squaredNorm();
         if (dist2 > maxLen2)
         {
-            float dist = sqrtf(dist2);
+            const double dist = std::sqrt(dist2);
             dir /= dist;
-            for (float pos=maxLen;pos<dist;pos+=maxLen)
+            for (double pos=maxLen;pos<dist;pos+=maxLen)
             {
-                Point3d divPt = p0+dir*pos;
-                outPts.push_back(divPt);
+                outPts.push_back(p0+dir*pos);
             }
         }
     }
@@ -173,144 +198,156 @@ void SubdivideEdges(const VectorRing3d &inPts,VectorRing3d &outPts,bool closed,f
         outPts.push_back(inPts.back());
 }
 
-void subdivideToSurfaceRecurse(const Point2f &p0,const Point2f &p1,VectorRing &outPts,CoordSystemDisplayAdapter *adapter,float eps)
+void subdivideToSurfaceRecurse(const Point2f &p0,const Point2f &p1,VectorRing &outPts,
+                               const CoordSystemDisplayAdapter *adapter,double eps2,
+                               double prevDist2 = std::numeric_limits<double>::max())
 {
     // If the difference is greater than 180, then this is probably crossing the date line
     //  in which case we'll just leave it alone.
     if (std::abs(p0.x() - p1.x()) > M_PI)
         return;
-    
-    Point3f dp0 = adapter->localToDisplay(adapter->getCoordSystem()->geographicToLocal(GeoCoord(p0.x(),p0.y())));
-    Point3f dp1 = adapter->localToDisplay(adapter->getCoordSystem()->geographicToLocal(GeoCoord(p1.x(),p1.y())));
-    Point2f midPt = (p0+p1)/2.0;
-    Point3f dMidPt = adapter->localToDisplay(adapter->getCoordSystem()->geographicToLocal(GeoCoord(midPt.x(),midPt.y())));
-    Point3f halfPt = (dp0+dp1)/2.0;
-    float dist2 = (halfPt-dMidPt).squaredNorm();
-    if (dist2 > eps*eps)
+
+    const auto coordSys = adapter->getCoordSystem();
+    const Point3f dp0 = adapter->localToDisplay(coordSys->geographicToLocal(GeoCoord(p0.x(),p0.y())));
+    const Point3f dp1 = adapter->localToDisplay(coordSys->geographicToLocal(GeoCoord(p1.x(),p1.y())));
+    const Point2f midPt = (p0+p1)/2.0;
+    const Point3f dMidPt = adapter->localToDisplay(coordSys->geographicToLocal(GeoCoord(midPt.x(),midPt.y())));
+    const Point3f halfPt = (dp0+dp1)/2.0;
+    const auto dist2 = (halfPt-dMidPt).squaredNorm();
+    // Recurse until the distance threshold is met, or until the distance stops decreasing
+    if (dist2 > eps2 && dist2 < prevDist2)
     {
-        subdivideToSurfaceRecurse(p0, midPt, outPts, adapter, eps);
-        subdivideToSurfaceRecurse(midPt, p1, outPts, adapter, eps);
+        subdivideToSurfaceRecurse(p0, midPt, outPts, adapter, eps2, dist2);
+        subdivideToSurfaceRecurse(midPt, p1, outPts, adapter, eps2, dist2);
     }
     if (outPts.empty() || outPts.back() != p1)
          outPts.push_back(p1);
 }
 
-void subdivideToSurfaceRecurse(const Point3d &p0,const Point3d &p1,VectorRing3d &outPts,CoordSystemDisplayAdapter *adapter,float eps)
+void subdivideToSurfaceRecurse(const Point3d &p0,const Point3d &p1,VectorRing3d &outPts,
+                               const CoordSystemDisplayAdapter *adapter,double eps2,
+                               double prevDist2 = std::numeric_limits<double>::max())
 {
     // If the difference is greater than 180, then this is probably crossing the date line
     //  in which case we'll just leave it alone.
     if (std::abs(p0.x() - p1.x()) > M_PI)
         return;
-    
-    Point3d dp0 = adapter->localToDisplay(adapter->getCoordSystem()->geographicToLocal3d(GeoCoord(p0.x(),p0.y())));
-    Point3d dp1 = adapter->localToDisplay(adapter->getCoordSystem()->geographicToLocal3d(GeoCoord(p1.x(),p1.y())));
-    Point3d midPt = (p0+p1)/2.0;
-    Point3d dMidPt = adapter->localToDisplay(adapter->getCoordSystem()->geographicToLocal3d(GeoCoord(midPt.x(),midPt.y())));
-    Point3d halfPt = (dp0+dp1)/2.0;
-    float dist2 = (halfPt-dMidPt).squaredNorm();
-    if (dist2 > eps*eps)
+
+    const auto coordSys = adapter->getCoordSystem();
+    const Point3d dp0 = adapter->localToDisplay(coordSys->geographicToLocal3d(GeoCoord(p0.x(),p0.y())));
+    const Point3d dp1 = adapter->localToDisplay(coordSys->geographicToLocal3d(GeoCoord(p1.x(),p1.y())));
+    const Point3d midPt = (p0+p1)/2.0;
+    const Point3d dMidPt = adapter->localToDisplay(coordSys->geographicToLocal3d(GeoCoord(midPt.x(),midPt.y())));
+    const Point3d halfPt = (dp0+dp1)/2.0;
+    const auto dist2 = (halfPt-dMidPt).squaredNorm();
+    // Recurse until the distance threshold is met, or until the distance stops decreasing
+    if (dist2 > eps2 && dist2 < prevDist2)
     {
-        subdivideToSurfaceRecurse(p0, midPt, outPts, adapter, eps);
-        subdivideToSurfaceRecurse(midPt, p1, outPts, adapter, eps);
+        subdivideToSurfaceRecurse(p0, midPt, outPts, adapter, eps2, dist2);
+        subdivideToSurfaceRecurse(midPt, p1, outPts, adapter, eps2, dist2);
     }
     outPts.push_back(p1);
-}    
-            
-void SubdivideEdgesToSurface(const VectorRing &inPts,VectorRing &outPts,bool closed,CoordSystemDisplayAdapter *adapter,float eps)
+}
+
+void SubdivideEdgesToSurface(const VectorRing &inPts,VectorRing &outPts,bool closed,
+        const CoordSystemDisplayAdapter *adapter,float eps)
 {
+    const auto eps2 = (double)eps * eps;
     for (int ii=0;ii<(closed ? inPts.size() : inPts.size()-1);ii++)
     {
         const Point2f &p0 = inPts[ii];
         const Point2f &p1 = inPts[(ii+1)%inPts.size()];
         if (outPts.empty() || outPts.back() != p0)
             outPts.push_back(p0);
-        subdivideToSurfaceRecurse(p0,p1,outPts,adapter,eps);
+        subdivideToSurfaceRecurse(p0,p1,outPts,adapter,eps2);
     }
 }
 
-void SubdivideEdgesToSurface(const VectorRing3d &inPts,VectorRing3d &outPts,bool closed,CoordSystemDisplayAdapter *adapter,float eps)
+void SubdivideEdgesToSurface(const VectorRing3d &inPts,VectorRing3d &outPts,bool closed,
+                             const CoordSystemDisplayAdapter *adapter,float eps)
 {
+    const auto eps2 = (double)eps * eps;
     for (int ii=0;ii<(closed ? inPts.size() : inPts.size()-1);ii++)
     {
         const Point3d &p0 = inPts[ii];
         const Point3d &p1 = inPts[(ii+1)%inPts.size()];
         outPts.push_back(p0);
-        subdivideToSurfaceRecurse(p0,p1,outPts,adapter,eps);
+        subdivideToSurfaceRecurse(p0,p1,outPts,adapter,eps2);
     }
 }
-            
+
 // Great circle version
-void subdivideToSurfaceRecurseGC(const Point3d &p0,const Point3d &p1,Point3dVector &outPts,CoordSystemDisplayAdapter *adapter,float eps,float surfOffset,int minPts)
+void subdivideToSurfaceRecurseGC(const Point3d &p0,const Point3d &p1,Point3dVector &outPts,
+        const CoordSystemDisplayAdapter *adapter,double eps2,float surfOffset,int minPts,
+        double prevDist2 = std::numeric_limits<double>::max())
 {
-    Point3d midP = (p0+p1)/2.0;
-    Point3d midOnSphere = midP;
-    if (adapter && !adapter->isFlat())
-        midOnSphere = midP.normalized() * (1.0 + surfOffset);
-    float dist2 = (midOnSphere - midP).squaredNorm();
-    if (dist2 > eps*eps || minPts > 0)
+    const Point3d midP = (p0+p1)/2.0;
+    const Point3d midOnSphere = (adapter && !adapter->isFlat()) ? (midP.normalized() * (1.0 + surfOffset)) : midP;
+    const auto dist2 = (midOnSphere - midP).squaredNorm();
+    if ((dist2 > eps2 || minPts > 0) && dist2 < prevDist2)
     {
-        subdivideToSurfaceRecurseGC(p0, midOnSphere, outPts, adapter, eps, surfOffset,minPts/2);
-        subdivideToSurfaceRecurseGC(midOnSphere, p1, outPts, adapter, eps, surfOffset,minPts/2);
+        subdivideToSurfaceRecurseGC(p0, midOnSphere, outPts, adapter, eps2, surfOffset,minPts/2,dist2);
+        subdivideToSurfaceRecurseGC(midOnSphere, p1, outPts, adapter, eps2, surfOffset,minPts/2,dist2);
     }
     if (outPts.empty() || outPts.back() != p1)
         outPts.push_back(p1);
 }
 
-void SubdivideEdgesToSurfaceGC(const VectorRing &inPts,Point3dVector &outPts,bool closed,CoordSystemDisplayAdapter *adapter,float eps,float surfOffset,int minPts)
+void SubdivideEdgesToSurfaceGC(const VectorRing &inPts,Point3dVector &outPts,bool closed,
+        const CoordSystemDisplayAdapter *adapter,float eps,float surfOffset,int minPts)
 {
     if (!adapter || inPts.empty())
         return;
+    const auto coordSys = adapter->getCoordSystem();
     if (inPts.size() < 2)
     {
         const Point2f &p0 = inPts[0];
-        Point3d dp0 = adapter->localToDisplay(adapter->getCoordSystem()->geographicToLocal3d(GeoCoord(p0.x(),p0.y())));
-        outPts.push_back(dp0);        
+        const Point3d dp0 = adapter->localToDisplay(coordSys->geographicToLocal3d(GeoCoord(p0.x(),p0.y())));
+        outPts.push_back(dp0);
         return;
     }
-    
+
+    const auto eps2 = (double)eps * eps;
     for (int ii=0;ii<(closed ? inPts.size() : inPts.size()-1);ii++)
     {
         const Point2f &p0 = inPts[ii];
         const Point2f &p1 = inPts[(ii+1)%inPts.size()];
-        Point3d dp0 = adapter->localToDisplay(adapter->getCoordSystem()->geographicToLocal3d(GeoCoord(p0.x(),p0.y())));
-        if (adapter && !adapter->isFlat())
+        Point3d dp0 = adapter->localToDisplay(coordSys->geographicToLocal3d(GeoCoord(p0.x(),p0.y())));
+        if (!adapter->isFlat())
            dp0 = dp0.normalized() * (1.0 + surfOffset);
-        Point3d dp1 = adapter->localToDisplay(adapter->getCoordSystem()->geographicToLocal3d(GeoCoord(p1.x(),p1.y())));
-        if (adapter && !adapter->isFlat())
+        Point3d dp1 = adapter->localToDisplay(coordSys->geographicToLocal3d(GeoCoord(p1.x(),p1.y())));
+        if (!adapter->isFlat())
            dp1 = dp1.normalized() * (1.0 + surfOffset);
         outPts.push_back(dp0);
-        subdivideToSurfaceRecurseGC(dp0,dp1,outPts,adapter,eps,surfOffset,minPts);
-    }    
+        subdivideToSurfaceRecurseGC(dp0,dp1,outPts,adapter,eps2,surfOffset,minPts);
+    }
 }
+#endif //!MAPLY_MINIMAL
 
-    
 VectorShape::VectorShape()
 {
+#if !MAPLY_MINIMAL
     attrDict = MutableDictionaryMake();
+#endif //!MAPLY_MINIMAL
 }
    
-VectorShape::~VectorShape()
-{
-}
+VectorShape::~VectorShape() = default;
     
 void VectorShape::setAttrDict(MutableDictionaryRef newDict)
 {
-    attrDict = newDict;
+    attrDict = std::move(newDict);
 }
     
-MutableDictionaryRef VectorShape::getAttrDict()
+MutableDictionaryRef VectorShape::getAttrDict() const
 {
     return attrDict;
 }
-    
-VectorTriangles::VectorTriangles()
+
+const MutableDictionaryRef &VectorShape::getAttrDictRef() const
 {
+    return attrDict;
 }
-    
-VectorTriangles::~VectorTriangles()
-{
-}
-    
+
 VectorTrianglesRef VectorTriangles::createTriangles()
 {
     return VectorTrianglesRef(new VectorTriangles());
@@ -323,43 +360,54 @@ GeoMbr VectorTriangles::calcGeoMbr()
     return geoMbr;
 }
     
-bool VectorTriangles::pointInside(GeoCoord coord)
+bool VectorTriangles::pointInside(const GeoCoord &coord) const
 {
     if (geoMbr.inside(coord))
     {
-        for (unsigned int ti=0;ti<tris.size();ti++)
+        VectorRing ring;
+        for (int ti=0;ti<tris.size();ti++)
         {
-            VectorRing ring;
+            ring.clear();
             getTriangle(ti, ring);
             if (PointInPolygon(coord, ring))
+            {
                 return true;
+            }
         }
     }
     
     return false;
 }
 
-void VectorTriangles::getTriangle(int which,VectorRing &ring)
+bool VectorTriangles::getTriangle(int which, Point2f points[3]) const
+{
+    if (0 <= which && which < tris.size())
+    {
+        const auto t = tris[which].pts;
+        points[0] = Slice(pts[t[0]]);
+        points[1] = Slice(pts[t[1]]);
+        points[2] = Slice(pts[t[2]]);
+        return true;
+    }
+    return false;
+}
+
+bool VectorTriangles::getTriangle(int which,VectorRing &ring) const
 {
     if (which < 0 || which >= tris.size())
-        return;
+        return false;
 
-    ring.reserve(3);
-    Triangle &tri = tris[which];
-    for (unsigned int ii=0;ii<3;ii++)
-    {
-        Point3f pt = pts[tri.pts[ii]];
-        ring.push_back(Point2f(pt.x(),pt.y()));
-    }
+    ring.resize(3);
+    return getTriangle(which, &ring[0]);
 }
-    
+
 void VectorTriangles::initGeoMbr()
 {
-    for (unsigned int ii=0;ii<pts.size();ii++)
-        geoMbr.addGeoCoord(GeoCoord(pts[ii].x(),pts[ii].y()));
+    geoMbr.addGeoCoords(pts);
 }
-    
-bool VectorTrianglesRayIntersect(const Point3d &org,const Point3d &dir,const VectorTriangles &mesh,double *outT,Point3d *iPt)
+
+bool VectorTrianglesRayIntersect(const Point3d &org,const Point3d &dir,const VectorTriangles &mesh,
+                                 double *outT,Point3d *iPt)
 {
     double tMin = std::numeric_limits<double>::max();
     Point3d minPt {0,0,0};
@@ -397,14 +445,12 @@ bool VectorTrianglesRayIntersect(const Point3d &org,const Point3d &dir,const Vec
     
     return false;
 }
+
+#if !MAPLY_MINIMAL
+
+VectorAreal::VectorAreal() = default;
     
-VectorAreal::VectorAreal()
-{
-}
-    
-VectorAreal::~VectorAreal()
-{
-}
+VectorAreal::~VectorAreal() = default;
     
 VectorArealRef VectorAreal::createAreal()
 {
@@ -418,8 +464,8 @@ bool VectorAreal::pointInside(GeoCoord coord)
 {
     if (geoMbr.inside(coord))
     {
-        for (unsigned int ii=0;ii<loops.size();ii++)
-            if (PointInPolygon(coord,loops[ii]))
+        for (auto & loop : loops)
+            if (PointInPolygon(coord,loop))
                 return true;
     }
     
@@ -435,28 +481,24 @@ GeoMbr VectorAreal::calcGeoMbr()
     
 void VectorAreal::initGeoMbr()
 {
-    for (unsigned int ii=0;ii<loops.size();ii++)
-        geoMbr.addGeoCoords(loops[ii]);
+    for (auto & loop : loops)
+        geoMbr.addGeoCoords(loop);
 }
     
 void VectorAreal::subdivide(float maxLen)
 {
-    for (unsigned int ii=0;ii<loops.size();ii++)
+    for (auto & loop : loops)
     {
         VectorRing newPts;
-        SubdivideEdges(loops[ii], newPts, true, maxLen);
-        loops[ii] = newPts;
+        SubdivideEdges(loop, newPts, true, maxLen);
+        loop = newPts;
     }
 }
 
-VectorLinear::VectorLinear()
-{
-}
+VectorLinear::VectorLinear() = default;
 
-VectorLinear::~VectorLinear()
-{
-}
-    
+VectorLinear::~VectorLinear() = default;
+
 VectorLinearRef VectorLinear::createLinear()
 {
     return VectorLinearRef(new VectorLinear());
@@ -481,13 +523,9 @@ void VectorLinear::subdivide(float maxLen)
     pts = newPts;
 }
     
-VectorLinear3d::VectorLinear3d()
-{
-}
+VectorLinear3d::VectorLinear3d() = default;
 
-VectorLinear3d::~VectorLinear3d()
-{
-}
+VectorLinear3d::~VectorLinear3d() = default;
 
 VectorLinear3dRef VectorLinear3d::createLinear()
 {
@@ -506,13 +544,9 @@ void VectorLinear3d::initGeoMbr()
     geoMbr.addGeoCoords(pts);
 }
 
-VectorPoints::VectorPoints()
-{
-}
+VectorPoints::VectorPoints() = default;
     
-VectorPoints::~VectorPoints()
-{
-}
+VectorPoints::~VectorPoints() = default;
     
 VectorPointsRef VectorPoints::createPoints()
 {
@@ -531,258 +565,11 @@ void VectorPoints::initGeoMbr()
 {
     geoMbr.addGeoCoords(pts);
 }
- 
-#if 0
-typedef enum {FileVecPoints=20,FileVecLinear,FileVecAreal,FileVecMesh} VectorIdentType;
-
-bool VectorWriteFile(const std::string &fileName,ShapeSet &shapes)
-{
-    FILE *fp = fopen(fileName.c_str(),"w");
-    if (!fp)
-        return false;
-    
-    try {
-        int numFeatures = (int)shapes.size();
-        if (fwrite(&numFeatures,sizeof(int),1, fp) != 1)
-            throw 1;
-        
-        for (ShapeSet::iterator it = shapes.begin(); it != shapes.end(); ++it)
-        {
-            VectorShapeRef shape = *it;
-            
-            // They all have a dictionary
-            MutableDictionaryRef dict = shape->getAttrDict();
-            MutableRawData dictData;
-            dict->asRawData(&dictData);
-            int dataLen = (int)dictData.getLen();
-            if (fwrite(&dataLen,sizeof(int),1,fp) != 1)
-                throw 1;
-            if (dataLen > 0)
-                if (fwrite(dictData.getRawData(),dataLen,1,fp) != 1)
-                    throw 1;
-            
-            VectorPointsRef pts = std::dynamic_pointer_cast<VectorPoints>(shape);
-            VectorLinearRef lin = std::dynamic_pointer_cast<VectorLinear>(shape);
-            VectorArealRef ar = std::dynamic_pointer_cast<VectorAreal>(shape);
-            VectorTrianglesRef mesh = std::dynamic_pointer_cast<VectorTriangles>(shape);
-            if (pts.get())
-            {
-                unsigned short dataType = FileVecPoints;
-                if (fwrite(&dataType,sizeof(short),1,fp) != 1)
-                    throw 1;
-                
-                unsigned int numPts = (int)pts->pts.size();
-                if (fwrite(&numPts,sizeof(unsigned int),1,fp) != 1)
-                    throw 1;
-                if (fwrite(&pts->pts[0],2*sizeof(float),numPts,fp) != numPts)
-                    throw 1;
-            } else if (lin.get())
-            {
-                unsigned short dataType = FileVecLinear;
-                if (fwrite(&dataType,sizeof(short),1,fp) != 1)
-                    throw 1;
-                
-                unsigned int numPts = (unsigned int)lin->pts.size();
-                if (fwrite(&numPts,sizeof(unsigned int),1,fp) != 1)
-                    throw 1;
-                if (fwrite(&lin->pts[0],2*sizeof(float),numPts,fp) != numPts)
-                    throw 1;
-                
-            } else if (ar.get())
-            {
-                unsigned short dataType = FileVecAreal;
-                if (fwrite(&dataType,sizeof(short),1,fp) != 1)
-                    throw 1;
-                
-                unsigned int numLoops = (unsigned int)ar->loops.size();
-                if (fwrite(&numLoops,sizeof(int),1,fp) != 1)
-                    throw 1;
-                for (unsigned int ii=0;ii<numLoops;ii++)
-                {
-                    VectorRing &ring = ar->loops[ii];
-                    unsigned int numPts = (unsigned int)ring.size();
-                    if (fwrite(&numPts,sizeof(unsigned int),1,fp) != 1)
-                        throw 1;
-                    if (fwrite(&ring[0],2*sizeof(float),numPts,fp) != numPts)
-                        throw 1;
-                }
-                
-            } else if (mesh.get())
-            {
-                unsigned short dataType = FileVecMesh;
-                if (fwrite(&dataType,sizeof(short),1,fp) != 1)
-                    throw 1;
-                
-                unsigned int numPts = (unsigned int)mesh->pts.size();
-                if (fwrite(&numPts,sizeof(unsigned int),1,fp) != 1)
-                    throw 1;
-                if (fwrite(&mesh->pts[0],3*sizeof(float),numPts,fp) != numPts)
-                    throw 1;
-                
-                unsigned int numTri = (unsigned int)mesh->tris.size();
-                if (fwrite(&numTri,sizeof(unsigned int),1,fp) != 1)
-                    throw 1;
-                if (fwrite(&mesh->tris[0],3*sizeof(unsigned int),numTri,fp) != numTri)
-                    throw 1;
-            } else {
-                //                NSLog(@"Tried to write unknown object in VectorWriteFile");
-                throw 1;
-            }
-        }
-    }
-    catch (...)
-    {
-        fclose(fp);
-        return false;
-    }
-    
-    fclose(fp);
-    return true;
-}
-
-bool VectorReadFile(const std::string &fileName,ShapeSet &shapes)
-{
-    FILE *fp = fopen(fileName.c_str(),"r");
-    if (!fp)
-        return false;
-    
-    try {
-        int numFeatures;
-        if (fread(&numFeatures, sizeof(int), 1, fp) != 1)
-            throw 1;
-        
-        for (unsigned int ii=0;ii<numFeatures;ii++)
-        {
-            // Dictionary first
-            int dataLen;
-            if (fread(&dataLen, sizeof(int), 1, fp) != 1)
-                throw 1;
-            Dictionary *dict = NULL;
-            if (dataLen > 0)
-            {
-                RawDataWrapper *rawData = RawDataFromFile(fp, dataLen);
-                if (!rawData)
-                    throw 1;
-                dict = new Dictionary(rawData);
-                delete rawData;
-            }
-            
-            // Now for the type
-            unsigned short dataType;
-            if (fread(&dataType,sizeof(unsigned short),1,fp) != 1)
-                throw 1;
-            
-            switch (dataType)
-            {
-                case FileVecPoints:
-                {
-                    VectorPointsRef pts(VectorPoints::createPoints());
-                    if (dict)
-                        pts->setAttrDict(*dict);
-                    
-                    unsigned int numPts;
-                    if (fread(&numPts,sizeof(unsigned int),1,fp) != 1)
-                        throw 1;
-                    pts->pts.resize(numPts);
-                    if (fread(&pts->pts[0],2*sizeof(float),numPts,fp) != numPts)
-                        throw 1;
-                    
-                    pts->initGeoMbr();
-                    shapes.insert(pts);
-                }
-                    break;
-                case FileVecLinear:
-                {
-                    VectorLinearRef lin(VectorLinear::createLinear());
-                    if (dict)
-                        lin->setAttrDict(*dict);
-                    
-                    unsigned int numPts;
-                    if (fread(&numPts,sizeof(unsigned int),1,fp) != 1)
-                        throw 1;
-                    lin->pts.resize(numPts);
-                    if (fread(&lin->pts[0],2*sizeof(float),numPts,fp) != numPts)
-                        throw 1;
-                    
-                    lin->initGeoMbr();
-                    shapes.insert(lin);
-                }
-                    break;
-                case FileVecAreal:
-                {
-                    VectorArealRef ar(VectorAreal::createAreal());
-                    if (dict)
-                        ar->setAttrDict(*dict);
-                    
-                    unsigned int numLoops;
-                    if (fread(&numLoops,sizeof(unsigned int),1,fp) != 1)
-                        throw 1;
-                    ar->loops.resize(numLoops);
-                    
-                    for (unsigned int ii=0;ii<numLoops;ii++)
-                    {
-                        VectorRing &ring = ar->loops[ii];
-                        unsigned int numPts;
-                        if (fread(&numPts,sizeof(unsigned int),1,fp) != 1)
-                            throw 1;
-                        ring.resize(numPts);
-                        if (fread(&ring[0],2*sizeof(float),numPts,fp) != numPts)
-                            throw 1;
-                    }
-                    
-                    ar->initGeoMbr();
-                    shapes.insert(ar);
-                }
-                    break;
-                case FileVecMesh:
-                {
-                    VectorTrianglesRef mesh(VectorTriangles::createTriangles());
-                    if (dict)
-                        mesh->setAttrDict(*dict);
-                    
-                    unsigned int numPts;
-                    if (fread(&numPts,sizeof(unsigned int),1,fp) != 1)
-                        throw 1;
-                    mesh->pts.resize(numPts);
-                    if (fread(&mesh->pts[0],3*sizeof(float),numPts,fp) != numPts)
-                        throw 1;
-                    
-                    unsigned int numTri;
-                    if (fread(&numTri,sizeof(unsigned int),1,fp) != 1)
-                        throw 1;
-                    mesh->tris.resize(numTri);
-                    if (fread(&mesh->tris[0],3*sizeof(unsigned int),numTri,fp) != numTri)
-                        throw 1;
-                    
-                    mesh->initGeoMbr();
-                    shapes.insert(mesh);
-                }
-                    break;
-                default:
-                    //                    NSLog(@"Unknown data type in VectorReadFile()");
-                    throw 1;
-                    break;
-            }
-            
-            if (dict)
-                delete dict;
-        }
-    }
-    catch (...)
-    {
-        fclose(fp);
-        return false;
-    }
-    
-    fclose(fp);
-    return true;
-}
-#endif
 
 using namespace libjson;
-    
+
 // Parse properties out of a node
-bool VectorParseProperties(JSONNode node,MutableDictionaryRef dict)
+static bool VectorParseProperties(JSONNode node,const MutableDictionaryRef &dict)
 {
     for (JSONNode::const_iterator it = node.begin();
          it != node.end(); ++it)
@@ -836,8 +623,8 @@ bool VectorParseCoordinates(JSONNode node,VectorRing &pts, bool subCall=false)
             if (node.size() < 2)
                 return false;
             
-            float lon = it->as_float();  ++it;
-            float lat = it->as_float();
+            const auto lon = (float)it->as_float();  ++it;
+            const auto lat = (float)it->as_float();
             pts.push_back(GeoCoord::CoordFromDegrees(lon,lat));
             
             // There might be a Z value or even other junk.  We just want the first two coordinates
@@ -1026,8 +813,8 @@ bool VectorParseFeature(JSONNode node,ShapeSet &shapes)
         MutableDictionaryRef properties = MutableDictionaryMake();
         VectorParseProperties(*propIt, properties);
         // Apply the properties to the geometry
-        for (ShapeSet::iterator sit = newShapes.begin(); sit != newShapes.end(); ++sit)
-            (*sit)->setAttrDict(properties);
+        for (const auto & newShape : newShapes)
+            newShape->setAttrDict(properties);
     }
     
     shapes.insert(newShapes.begin(), newShapes.end());
@@ -1177,4 +964,44 @@ bool VectorParseGeoJSONAssembly(const std::string &str,std::map<std::string,Shap
     return true;
 }
 
+#endif //!MAPLY_MINIMAL
+
+//#define LOW_LEVEL_UNIT_TESTS
+#if defined(LOW_LEVEL_UNIT_TESTS)
+static struct UnitTests {
+    UnitTests() {
+        testArea<Point2fVector>("float", 1e-5);
+        testArea<Point2dVector>("double", 1e-8);
+        // todo: centroid, center-mass, subdivide, ...
+        wkLogLevel(Info, "VectorData unit tests passed");
+    }
+    template <typename TVec>
+    void testArea(const char* name, double threshold) {
+        wkLogLevel(Verbose,"Starting area tests for %s", name);
+
+        const TVec pts {
+            {-93.42748312189,48.62219265172},
+            {-93.42762783548,48.61944238743},
+            {-93.4210071888, 48.6193706394},
+            {-93.42748312189,48.62219265172}    // closed
+        };
+        const TVec rpts(pts.rbegin(), pts.rend());
+
+        const auto aClosed = CalcLoopArea(pts);
+        const auto aOpen = CalcLoopArea(pts, pts.size() - 1);
+        const auto aRevClosed = CalcLoopArea(rpts);
+        const auto aRevOpen = CalcLoopArea(rpts, rpts.size() - 1);
+
+        // Should do exactly the same operations for open and closed polygons
+        assert(aClosed == aOpen);
+        assert(aRevClosed == aRevOpen);
+
+        // Reversed polygons might get slightly different answers
+        const auto diff = (aClosed - (-aRevClosed)) / aClosed;
+        assert(diff <= threshold);
+    }
+} tests;
+#endif
+
 }
+

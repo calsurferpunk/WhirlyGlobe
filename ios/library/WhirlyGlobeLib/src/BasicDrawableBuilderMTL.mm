@@ -1,9 +1,8 @@
-/*
- *  BasicDrawableBuilderMTL.mm
+/*  BasicDrawableBuilderMTL.mm
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/16/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2023 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,13 +14,13 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import <MetalKit/MetalKit.h>
 #import "BasicDrawableBuilderMTL.h"
 #import "DefaultShadersMTL.h"
 #import "RawData_NSData.h"
+#import "WhirlyKitLog.h"
 
 using namespace Eigen;
 
@@ -57,8 +56,12 @@ void BasicDrawableBuilderMTL::setupStandardAttributes(int numReserve)
     
 BasicDrawableBuilderMTL::~BasicDrawableBuilderMTL()
 {
-    if (!drawableGotten && basicDraw)
-        basicDraw.reset();
+    try
+    {
+        if (!drawableGotten && basicDraw)
+            basicDraw.reset();
+    }
+    WK_STD_DTOR_CATCH()
 }
     
 int BasicDrawableBuilderMTL::addAttribute(BDAttributeDataType dataType,StringIdentity nameID,int slot,int numThings)
@@ -81,7 +84,7 @@ void BasicDrawableBuilderMTL::setupTexCoordEntry(int which,int numReserve)
     {
         BasicDrawable::TexInfo newInfo;
         char attributeName[40];
-        sprintf(attributeName,"a_texCoord%d",ii);
+        snprintf(attributeName,sizeof(attributeName),"a_texCoord%d",ii);
         newInfo.texCoordEntry = addAttribute(BDFloat2Type,StringIndexer::getStringID(attributeName));
         VertexAttributeMTL *vertAttrMTL = (VertexAttributeMTL *)basicDraw->vertexAttributes[newInfo.texCoordEntry];
         vertAttrMTL->setDefaultVector2f(Vector2f(0.0,0.0));
@@ -103,7 +106,7 @@ BasicDrawableRef BasicDrawableBuilderMTL::getDrawable()
         VertexAttributeMTL *ptsAttr = (VertexAttributeMTL *)basicDraw->vertexAttributes[ptsIndex];
         ptsAttr->slot = WhirlyKitShader::WKSVertexPositionAttribute;
         ptsAttr->reserve(points.size());
-        for (auto pt : points)
+        for (const auto &pt : points)
             ptsAttr->addVector3f(pt);
         draw->tris = tris;
         
@@ -117,7 +120,7 @@ BasicDrawableRef BasicDrawableBuilderMTL::getDrawable()
                 FloatExpressionToMtl(opacityExp, vecExp.opacityExp);
             
             BasicDrawable::UniformBlock uniBlock;
-            uniBlock.blockData = RawDataRef(new RawNSDataReader([[NSData alloc] initWithBytes:&vecExp length:sizeof(vecExp)]));
+            uniBlock.blockData = std::make_shared<RawNSDataReader>([[NSData alloc] initWithBytes:&vecExp length:sizeof(vecExp)]);
             uniBlock.bufferID = WhirlyKitShader::WKSUniformVecEntryExp;
             basicDraw->setUniBlock(uniBlock);
         }

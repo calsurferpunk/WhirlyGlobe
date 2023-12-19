@@ -1,9 +1,8 @@
-/*
- *  MaplyBaseInteractionLayer.mm
+/*  MaplyBaseInteractionLayer.mm
  *  MaplyComponent
  *
  *  Created by Steve Gifford on 12/14/12.
- *  Copyright 2012-2021 mousebird consulting
+ *  Copyright 2012-2023 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,40 +14,48 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
+// `CarbonCore/AIFF.h` in the OSX SDK (used under MacCatalyst) defines a `Marker` that conflicts
+// with the one we import via `using namespace WhirlyKit`.  We will never need those APIs, and
+// that header is deprecated anyway, so just exclude it completely via its preprocessor guard.
+#define __AIFF__
+
 #import "MaplyBaseInteractionLayer_private.h"
-#import "visual_objects/MaplyScreenMarker.h"
-#import "visual_objects/MaplyMarker.h"
-#import "visual_objects/MaplyScreenLabel.h"
-#import "visual_objects/MaplyLabel.h"
-#import "MaplyVectorObject_private.h"
-#import "visual_objects/MaplyShape.h"
-#import "visual_objects/MaplySticker.h"
-#import "visual_objects/MaplyBillboard.h"
 #import "math/MaplyCoordinate.h"
 #import "ImageTexture_private.h"
 #import "MaplySharedAttributes.h"
 #import "MaplyCoordinateSystem_private.h"
 #import "MaplyTexture_private.h"
 #import "MaplyMatrix_private.h"
-#import "MaplyGeomModel_private.h"
-#import "MaplyScreenObject_private.h"
 #import "MaplyVertexAttribute_private.h"
-#import "MaplyParticleSystem_private.h"
 #import "MaplyShape_private.h"
-#import "MaplyPoints_private.h"
 #import "MaplyRenderTarget_private.h"
 #import "Dictionary_NSDictionary.h"
-#import "SingleLabel_iOS.h"
-#import "FontTextureManager_iOS.h"
-#import "ComponentManager_iOS.h"
-#import "SphericalEarthChunkManager.h"
 #import "UIColor+Stuff.h"
 #import "NSDictionary+Stuff.h"
 #import "MaplyBaseViewController_private.h"
 #import "WorkRegion_private.h"
+#import "ComponentManager_iOS.h"
+#import "MaplyComponentObject_private.h"
+
+#if !MAPLY_MINIMAL
+# import "visual_objects/MaplyScreenMarker.h"
+# import "visual_objects/MaplyMarker.h"
+# import "visual_objects/MaplyScreenLabel.h"
+# import "visual_objects/MaplyLabel.h"
+# import "visual_objects/MaplyShape.h"
+# import "visual_objects/MaplySticker.h"
+# import "visual_objects/MaplyBillboard.h"
+# import "MaplyPoints_private.h"
+# import "MaplyGeomModel_private.h"
+# import "MaplyScreenObject_private.h"
+# import "MaplyVectorObject_private.h"
+# import "MaplyParticleSystem_private.h"
+# import "SingleLabel_iOS.h"
+# import "FontTextureManager_iOS.h"
+# import "SphericalEarthChunkManager.h"
+#endif //!MAPLY_MINIMAL
 
 #import <unordered_set>
 
@@ -79,15 +86,16 @@ typedef std::map<int,NSObject <MaplyClusterGenerator> *> ClusterGenMap;
 
 @interface MaplyBaseInteractionLayer()
 - (void) startLayoutObjects;
-- (void) makeLayoutObject:(int)clusterID layoutObjects:(const std::vector<LayoutObjectEntry *> &)layoutObjects retObj:(LayoutObject &)retObj;
+- (void) makeLayoutObject:(int)clusterID layoutObjects:(const std::vector<LayoutObjectEntryRef> &)layoutObjects retObj:(LayoutObject &)retObj;
 - (void) endLayoutObjects;
 - (void) clusterID:(SimpleIdentity)clusterID params:(ClusterGenerator::ClusterClassParams &)params;
 @end
 
 // Interface between the layout manager and the cluster generators
-class OurClusterGenerator : public ClusterGenerator
+struct OurClusterGenerator : public ClusterGenerator
 {
-public:
+    OurClusterGenerator(MaplyBaseInteractionLayer *layer) : layer(layer) { }
+
     MaplyBaseInteractionLayer * __weak layer;
     
     // Called right before we start generating layout objects
@@ -98,7 +106,7 @@ public:
 
     // Figure out
     virtual void makeLayoutObject(PlatformThreadInfo *,int clusterID,
-                                  const std::vector<LayoutObjectEntry *> &layoutObjects,
+                                  const std::vector<LayoutObjectEntryRef> &layoutObjects,
                                   LayoutObject &retObj) override
     {
         [layer makeLayoutObject:clusterID layoutObjects:layoutObjects retObj:retObj];
@@ -124,10 +132,12 @@ public:
     std::mutex workLock;
     std::condition_variable workWait;
     int numActiveWorkers;
+#if !MAPLY_MINIMAL
     ClusterGenMap clusterGens;
-    OurClusterGenerator ourClusterGen;
+    std::shared_ptr<OurClusterGenerator> ourClusterGen;
     // Last frame (layout frame, not screen frame)
     std::vector<MaplyTexture *> currentClusterTex,oldClusterTex;
+#endif //!MAPLY_MINIMAL
     bool offlineMode;
         
     // Pre-fetched IDs for the various programs
@@ -182,15 +192,17 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
 
     compManager = scene->getManager<ComponentManager_iOS>(kWKComponentManager);
 
+#if !MAPLY_MINIMAL
     atlasGroup = [[MaplyTextureAtlasGroup alloc] initWithScene:scene sceneRender:sceneRender];
 
     if (inLayerThread)
     {
         setupInfo = inLayerThread.renderer->getRenderSetupInfo();
-        ourClusterGen.layer = self;
-        compManager->layoutManager->addClusterGenerator(nullptr,&ourClusterGen);
+        ourClusterGen = std::make_shared<OurClusterGenerator>(self);
+        compManager->layoutManager->addClusterGenerator(nullptr, ourClusterGen);
     }
-    
+#endif //!MAPLY_MINIMAL
+
     // We locked these in hopes of slowing down anyone trying to race us.  Unlock 'em.
     imageLock.unlock();
     changeLock.unlock();
@@ -202,10 +214,22 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
     layerThread = nil;
     scene = NULL;
     imageTextures.clear();
-    atlasGroup = nil;
     layerThreads = nil;
-    ourClusterGen.layer = nil;
+    
+#if !MAPLY_MINIMAL
+    atlasGroup = nil;
+
+    if (ourClusterGen)
+    {
+        if (auto layout = compManager ? compManager->layoutManager : nullptr)
+        {
+            layout->addClusterGenerator(nullptr, nullptr);
+        }
+        ourClusterGen->layer = nil;
+    }
     clusterGens.clear();
+#endif //!MAPLY_MINIMAL
+
     compManager->clear();
     
     for (MaplyShader *shader in shaders)
@@ -213,12 +237,12 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
 
     [NSObject cancelPreviousPerformRequestsWithTarget:self];
     
-    for (ThreadChangeSet::iterator it = perThreadChanges.begin();
-         it != perThreadChanges.end();++it)
+    for (const ThreadChanges &threadChanges : perThreadChanges)
     {
-        ThreadChanges threadChanges = *it;
         for (unsigned int ii=0;ii<threadChanges.changes.size();ii++)
+        {
             delete threadChanges.changes[ii];
+        }
     }
     perThreadChanges.clear();
 }
@@ -283,14 +307,17 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
     const bool wrapY = [desc boolForKey:kMaplyTexWrapY default:false];
     const int magFilter = [desc enumForKey:kMaplyTexMagFilter values:@[kMaplyMinFilterNearest,kMaplyMinFilterLinear] default:0];
     const bool mipmap = [desc boolForKey:kMaplyTexMipmap default:false];
-    
+    const NSString *name = [desc stringForKey:kMaplyDrawableName default:nil];
+    const std::string cname = name.UTF8String ? name.UTF8String : "MaplyBaseInteraction";
+
     int imgWidth,imgHeight;
     if (image)
     {
         imgWidth = image.size.width * image.scale;
         imgHeight = image.size.height * image.scale;
-        imgWidth = NextPowOf2(imgWidth);
-        imgHeight = NextPowOf2(imgHeight);
+        // No longer necessary
+        //imgWidth = NextPowOf2(imgWidth);
+        //imgHeight = NextPowOf2(imgHeight);
     } else {
         imgWidth = [desc intForKey:kMaplyTexSizeX default:0];
         imgHeight = [desc intForKey:kMaplyTexSizeY default:0];
@@ -301,9 +328,9 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
     Texture *tex;
     // Metal
     if (image)
-        tex = new TextureMTL("MaplyBaseInteraction",image,imgWidth,imgHeight);
+        tex = new TextureMTL(cname,image,imgWidth,imgHeight);
     else {
-        tex = new TextureMTL("MaplyBaseInteraction");
+        tex = new TextureMTL(cname);
         tex->setWidth(imgWidth);
         tex->setHeight(imgHeight);
         tex->setIsEmptyTexture(true);
@@ -368,8 +395,14 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
         case MaplyImageInt16:
             tex->setFormat(TexTypeSingleInt16);
             break;
+        case MaplyImageUInt16:
+            tex->setFormat(TexTypeSingleUInt16);
+            break;
         case MaplyImageUInt32:
             tex->setFormat(TexTypeSingleUInt32);
+            break;
+        case MaplyImageDoubleUInt16:
+            tex->setFormat(TexTypeDoubleUInt16);
             break;
         case MaplyImageDoubleUInt32:
             tex->setFormat(TexTypeDoubleUInt32);
@@ -412,12 +445,14 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
             imageTextures.erase(rem);
     }
 
+#if !MAPLY_MINIMAL
     // Takes the altas path instead
     if (!maplyTex && image && [desc boolForKey:kMaplyTexAtlas default:false])
     {
         return [self addTextureToAtlas:image desc:desc mode:threadMode];
     }
-    
+#endif //!MAPLY_MINIMAL
+
     if (!maplyTex)
     {
         std::lock_guard<std::mutex> guardLock(imageLock);
@@ -440,6 +475,7 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
     return maplyTex;
 }
 
+#if !MAPLY_MINIMAL
 - (MaplyTexture *)addTextureToAtlas:(UIImage *)image desc:(NSDictionary *)desc mode:(MaplyThreadMode)threadMode
 {
     threadMode = [self resolveThreadMode:threadMode];
@@ -522,6 +558,7 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
 
     return newTex;
 }
+#endif //!MAPLY_MINIMAL
 
 - (void)removeTextures:(NSArray *)textures mode:(MaplyThreadMode)threadMode
 {
@@ -541,11 +578,13 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
 
     if (tex.isSubTex)
     {
+#if !MAPLY_MINIMAL
         if (atlasGroup)
         {
             [atlasGroup removeTexture:tex.texID changes:changes when:when];
             scene->removeSubTexture(tex.texID);
         }
+#endif //!MAPLY_MINIMAL
     } else {
         if (scene)
             changes.push_back(new RemTextureReq(tex.texID));
@@ -762,14 +801,17 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
     }
 }
 
+#if !MAPLY_MINIMAL
+
 // Remap the mask strings to IDs
 - (void)resolveMaskIDs:(NSMutableDictionary *)desc compObj:(MaplyComponentObject *)compObj
 {
     for (unsigned int ii=0;ii<MaxMaskSlots;ii++) {
         NSString *attrName = [NSString stringWithFormat:@"maskID%d",ii];
         id obj = desc[attrName];
-        if ([obj isKindOfClass:[NSString class]]) {
-            SimpleIdentity maskID = compManager->retainMaskByName([obj cStringUsingEncoding:NSUTF8StringEncoding]);
+        if ([obj isKindOfClass:[NSString class]])
+        if (auto cstr = [obj cStringUsingEncoding:NSUTF8StringEncoding]) {
+            SimpleIdentity maskID = compManager->retainMaskByName(cstr);
             desc[attrName] = @(maskID);
             compObj->contents->maskIDs.insert(maskID);
         }
@@ -833,6 +875,7 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
             }
         } else if (marker.images)
         {
+            texs.reserve(marker.images.count);
             for (id image in marker.images)
             {
                 if ([image isKindOfClass:[UIImage class]])
@@ -869,6 +912,23 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
             wgMarker->orderBy = marker.orderBy;
         }
         wgMarker->layoutImportance = marker.layoutImportance;
+        
+        // Assemble the geometry to lay out a marker along
+        if (marker.layoutVec && !marker.layoutVec->vObj->shapes.empty()) {
+            for (auto shape: marker.layoutVec->vObj->shapes) {
+                auto shapeLin = std::dynamic_pointer_cast<VectorLinear>(shape);
+                if (shapeLin) {
+                    wgMarker->layoutShape = shapeLin->pts;
+                    break;
+                } else {
+                    auto shapeAr = std::dynamic_pointer_cast<VectorAreal>(shape);
+                    if (shapeAr && !shapeAr->loops.empty()) {
+                        wgMarker->layoutShape = shapeAr->loops[0];
+                        break;
+                    }
+                }
+            }
+        }
 
         if (marker.vertexAttributes)
             [self resolveVertexAttrs:wgMarker->vertexAttrs from:marker.vertexAttributes];
@@ -888,8 +948,9 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
         }
         wgMarker->offset = Point2d(marker.offset.x,marker.offset.y);
         
-        if (marker.maskID) {
-            wgMarker->maskID = compManager->retainMaskByName([marker.maskID cStringUsingEncoding:NSUTF8StringEncoding]);
+        if (marker.maskID)
+        if (auto cstr = [marker.maskID cStringUsingEncoding:NSUTF8StringEncoding]) {
+            wgMarker->maskID = compManager->retainMaskByName(cstr);
             compObj->contents->maskIDs.insert(wgMarker->maskID);
             wgMarker->maskRenderTargetID = maskRenderTargetID;
         }
@@ -974,7 +1035,9 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
     }
 }
 
-- (void) makeLayoutObject:(int)clusterID layoutObjects:(const std::vector<LayoutObjectEntry *> &)layoutObjects retObj:(LayoutObject &)retObj
+- (void) makeLayoutObject:(int)clusterID
+            layoutObjects:(const std::vector<LayoutObjectEntryRef> &)layoutObjects
+                   retObj:(LayoutObject &)retObj
 {
     // Find the right cluster generator
     NSObject <MaplyClusterGenerator> *clusterGen = nil;
@@ -995,9 +1058,10 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
     }
 }
 
-- (void)setupLayoutObject:(LayoutObject &)retObj asBestOfLayoutObjects:(const std::vector<LayoutObjectEntry *> &)layoutObjects
+- (void)setupLayoutObject:(LayoutObject &)retObj
+    asBestOfLayoutObjects:(const std::vector<LayoutObjectEntryRef> &)layoutObjects
 {
-    LayoutObjectEntry *topObject = nullptr;
+    LayoutObjectEntryRef topObject;
     LayoutEntrySorter sorter;
     
     for (auto obj : layoutObjects)
@@ -1024,7 +1088,8 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
         retObj.addGeometry(geometry);
 }
 
-- (void)setupLayoutObject:(LayoutObject &)retObj asAverageOfLayoutObjects:(const std::vector<LayoutObjectEntry *> &)layoutObjects withClusterGenerator:(NSObject<MaplyClusterGenerator> *)clusterGen
+- (void)setupLayoutObject:(LayoutObject &)retObj
+ asAverageOfLayoutObjects:(const std::vector<LayoutObjectEntryRef> &)layoutObjects withClusterGenerator:(NSObject<MaplyClusterGenerator> *)clusterGen
 {
     // Pick a representive screen object
     int drawPriority = -1;
@@ -1088,9 +1153,11 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
     currentClusterTex.push_back(maplyTex);
     if (maplyTex.isSubTex)
     {
+#if !MAPLY_MINIMAL
         SubTexture subTex = scene->getSubTexture(maplyTex.texID);
         subTex.processTexCoords(smGeom.texCoords);
         smGeom.texIDs.push_back(subTex.texId);
+#endif //!MAPLY_MINIMAL
     } else
         smGeom.texIDs.push_back(maplyTex.texID);
 
@@ -1116,20 +1183,27 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
             [it->second endClusterGroup];
     }
 }
+#endif //!MAPLY_MINIMAL
 
 - (SimpleIdentity) getProgramID:(NSString *)name
+{
+    return [[self getProgramByName:name] getShaderID];
+}
+
+- (MaplyShader *__nullable)getProgramByName:(const NSString *__nonnull)name
 {
     @synchronized (shaders) {
         for (int ii=[shaders count]-1;ii>=0;ii--) {
             MaplyShader *shader = [shaders objectAtIndex:ii];
-            if ([shader.name isEqualToString:name])
-                return [shader getShaderID];
+            if (![name compare:shader.name]) {
+                return shader;
+            }
         }
     }
-    
-    return EmptyIdentity;
+    return nil;
 }
 
+#if !MAPLY_MINIMAL
 - (void) clusterID:(SimpleIdentity)clusterID params:(ClusterGenerator::ClusterClassParams &)params
 {
     NSObject <MaplyClusterGenerator> *clusterGen = nil;
@@ -1370,8 +1444,9 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
             wgLabel->selectID = Identifiable::genId();
         }
         
-        if (label.maskID) {
-            wgLabel->maskID = compManager->retainMaskByName([label.maskID cStringUsingEncoding:NSUTF8StringEncoding]);
+        if (label.maskID)
+        if (auto cstr = [label.maskID cStringUsingEncoding:NSUTF8StringEncoding]) {
+            wgLabel->maskID = compManager->retainMaskByName(cstr);
             compObj->contents->maskIDs.insert(wgLabel->maskID);
             wgLabel->maskRenderTargetID = maskRenderTargetID;
         }
@@ -1418,7 +1493,7 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
     if (auto labelManager = scene->getManager<LabelManager>(kWKLabelManager))
     {
         // Set up a description and create the markers in the marker layer
-        SimpleIdentity labelID = labelManager->addLabels(NULL, wgLabels, labelInfo, changes);
+        SimpleIdentity labelID = labelManager->addLabels(nullptr, wgLabels, labelInfo, changes);
         if (labelID != EmptyIdentity)
         {
             compObj->contents->labelIDs.insert(labelID);
@@ -1634,22 +1709,23 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
         if (vectorInfo.subdivEps != 0.0)
         {
             const float eps = vectorInfo.subdivEps;
-            NSString *subdivType = inDesc[kMaplySubdivType];
-            const bool greatCircle = ![subdivType compare:kMaplySubdivGreatCircle];
-            const bool grid = ![subdivType compare:kMaplySubdivGrid];
-            const bool staticSubdiv = ![subdivType compare:kMaplySubdivStatic];
+            const NSString *subdivType = inDesc[kMaplySubdivType];
             MaplyVectorObject *newVecObj = [vecObj deepCopy2];
             // Note: This logic needs to be moved down a level
             //       Along with the subdivision routines above
-            if (greatCircle)
+            if (![subdivType compare:kMaplySubdivGreatCirclePrecise])
+            {
+                [newVecObj subdivideToGlobeGreatCirclePrecise:eps];
+            }
+            else if (![subdivType compare:kMaplySubdivGreatCircle])
             {
                 [newVecObj subdivideToGlobeGreatCircle:eps];
             }
-            else if (grid)
+            else if (![subdivType compare:kMaplySubdivGrid])
             {
                 // The manager has to handle this one
             }
-            else if (staticSubdiv)
+            else if (![subdivType compare:kMaplySubdivStatic])
             {
                 // Note: Fill this in
             }
@@ -1755,9 +1831,12 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
     std::vector<VectorShapeRef> shapes;
     for (const MaplyVectorObject *vecObj in vectors)
     {
-        for (auto shape: vecObj->vObj->shapes) {
-            auto dict = std::dynamic_pointer_cast<iosMutableDictionary>(shape->getAttrDict());
-            [self resolveMaskIDs:dict->dict compObj:compObj];
+        for (const auto &shape: vecObj->vObj->shapes)
+        {
+            if (auto dict = dynamic_cast<const iosMutableDictionary*>(shape->getAttrDictRef().get()))
+            {
+                [self resolveMaskIDs:dict->dict compObj:compObj];
+            }
         }
 
         // Maybe need to make a copy if we're going to sample
@@ -1765,21 +1844,22 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
         {
             const float eps = vectorInfo.subdivEps;
             const NSString *subdivType = inDesc[kMaplySubdivType];
-            const bool greatCircle = ![subdivType compare:kMaplySubdivGreatCircle];
-            const bool grid = ![subdivType compare:kMaplySubdivGrid];
-            const bool staticSubdiv = ![subdivType compare:kMaplySubdivStatic];
             MaplyVectorObject *newVecObj = [vecObj deepCopy2];
             // Note: This logic needs to be moved down a level
             //       Along with the subdivision routines above
-            if (greatCircle)
+            if (![subdivType compare:kMaplySubdivGreatCirclePrecise])
+            {
+                [newVecObj subdivideToGlobeGreatCirclePrecise:eps];
+            }
+            else if (![subdivType compare:kMaplySubdivGreatCircle])
             {
                 [newVecObj subdivideToGlobeGreatCircle:eps];
             }
-            else if (grid)
+            else if (![subdivType compare:kMaplySubdivGrid])
             {
                 // The manager has to handle this one
             }
-            else if (staticSubdiv)
+            else if (![subdivType compare:kMaplySubdivStatic])
             {
                 // Note: Fill this in
             }
@@ -2022,6 +2102,82 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
             break;
     }
 }
+#endif //!MAPLY_MINIMAL
+
+// Add shapes
+- (MaplyComponentObject *)addShapes:(NSArray *)shapes desc:(NSDictionary *)desc mode:(MaplyThreadMode)threadMode
+{
+    threadMode = [self resolveThreadMode:threadMode];
+
+    MaplyComponentObject *compObj = [[MaplyComponentObject alloc] initWithDesc:desc];
+    compObj->contents->underConstruction = true;
+
+    NSArray *argArray = @[shapes, compObj, [NSDictionary dictionaryWithDictionary:desc], [NSValue valueWithPointer:nullptr], @NO, @(threadMode)];
+    switch (threadMode)
+    {
+        case MaplyThreadCurrent:
+            [self addShapesRun:argArray];
+            break;
+        case MaplyThreadAny:
+            [self performSelector:@selector(addShapesRun:) onThread:layerThread withObject:argArray waitUntilDone:NO];
+            break;
+    }
+    
+    return compObj;
+}
+
+- (MaplyComponentObject *)addShapes:(NSArray *)shapes
+                               info:(ShapeInfo &)shapeInfo
+                               desc:(NSDictionary * __nullable)inDesc
+                               mode:(MaplyThreadMode)threadMode
+{
+    threadMode = [self resolveThreadMode:threadMode];
+
+    MaplyComponentObject *compObj = [[MaplyComponentObject alloc] init];
+    compObj->contents->underConstruction = true;
+
+    if (shapeInfo.programID == EmptyIdentity)
+    {
+        shapeInfo.programID = [self getProgramID:kMaplyDefaultTriangleShader];
+    }
+    if (shapeInfo.drawPriority == 0)
+    {
+        shapeInfo.drawPriority = kMaplyShapeDrawPriorityDefault;
+    }
+
+    switch (threadMode)
+    {
+        case MaplyThreadCurrent:
+            [self addShapesRun:@[shapes, compObj, [NSNull null],
+                                 [NSValue valueWithPointer:&shapeInfo],
+                                 [NSValue valueWithPointer:nullptr],
+                                 @(threadMode)]];
+            break;
+        case MaplyThreadAny:
+        {
+            // Need to make a copy to pass across threads.
+            // Note that this will leak memory if the target thread is terminated
+            // before the message is processed so... don't do that.
+            NSValue *info = [NSValue valueWithPointer:new ShapeInfo(shapeInfo)];
+            NSArray *argArray = @[shapes, compObj, [NSNull null], info, info, @(threadMode)];
+            [self performSelector:@selector(addShapesRun:) onThread:layerThread withObject:argArray waitUntilDone:NO];
+            break;
+        }
+    }
+    
+    return compObj;
+}
+
+static id maybe(id obj)
+{
+    return ([obj isKindOfClass:[NSNull class]]) ? nil : obj;
+}
+
+template <typename T>
+static T* rawPtrFrom(id value)
+{
+    return (T*)((NSValue*)maybe(value)).pointerValue;
+}
 
 // Called in the layer thread
 - (void)addShapesRun:(NSArray *)argArray
@@ -2029,17 +2185,26 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
     if (isShuttingDown || (!layerThread && !offlineMode))
         return;
 
-    CoordSystemDisplayAdapter *coordAdapter = scene->getCoordAdapter();
+    const auto coordAdapter = scene->getCoordAdapter();
     NSArray *shapes = [argArray objectAtIndex:0];
     MaplyComponentObject *compObj = [argArray objectAtIndex:1];
-    NSDictionary *inDesc = [argArray objectAtIndex:2];
-    const auto threadMode = (MaplyThreadMode)[[argArray objectAtIndex:3] intValue];
+    NSDictionary *inDesc = maybe([argArray objectAtIndex:2]);
+    ShapeInfo* inInfo = (ShapeInfo*)((NSValue*)maybe([argArray objectAtIndex:3])).pointerValue;
+    std::unique_ptr<ShapeInfo> cleanupInfo(rawPtrFrom<ShapeInfo>([argArray objectAtIndex:4]));
+    const auto threadMode = (MaplyThreadMode)[[argArray objectAtIndex:5] intValue];
 
+#if !MAPLY_MINIMAL
     iosDictionary dictWrap(inDesc);
-    ShapeInfo shapeInfo(dictWrap);
-    shapeInfo.insideOut = false;
-    [self resolveInfoDefaults:inDesc info:&shapeInfo defaultShader:kMaplyDefaultTriangleShader];
-    [self resolveDrawPriority:inDesc info:&shapeInfo drawPriority:kMaplyShapeDrawPriorityDefault offset:0];
+    ShapeInfo descInfo(dictWrap);
+    if (inDesc)
+    {
+        [self resolveInfoDefaults:inDesc info:&descInfo defaultShader:kMaplyDefaultTriangleShader];
+        [self resolveDrawPriority:inDesc info:&descInfo drawPriority:kMaplyShapeDrawPriorityDefault offset:0];
+    }
+#else
+    ShapeInfo descInfo;
+#endif //!MAPLY_MINIMAL
+    ShapeInfo &shapeInfo = inInfo ? *inInfo : descInfo;
 
     // Need to convert shapes to the form the API is expecting
     std::vector<Shape *> ourShapes;
@@ -2048,10 +2213,12 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
 
     // automatic cleanup
     std::vector<std::unique_ptr<Shape>> shapeOwner;
+    shapeOwner.reserve(shapes.count);
     
     for (MaplyShape *shape in shapes)
     {
         Shape *baseShape = NULL;
+#if !MAPLY_MINIMAL
         if ([shape isKindOfClass:[MaplyShapeCircle class]])
         {
             auto circle = (MaplyShapeCircle *)shape;
@@ -2095,9 +2262,13 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
             
             const bool isStatic = [inDesc[kMaplySubdivType] isEqualToString:kMaplySubdivStatic];
             if (isStatic)
-                SampleGreatCircleStatic(Point2d(gc.startPt.x,gc.startPt.y),Point2d(gc.endPt.x,gc.endPt.y),gc.height,lin->pts,visualView->coordAdapter,eps);
+                SampleGreatCircleStatic(Point2d(gc.startPt.x,gc.startPt.y),
+                                        Point2d(gc.endPt.x,gc.endPt.y),
+                                        gc.height,lin->pts,coordAdapter,eps);
             else
-                SampleGreatCircle(Point2d(gc.startPt.x,gc.startPt.y),Point2d(gc.endPt.x,gc.endPt.y),gc.height,lin->pts,visualView->coordAdapter,eps);
+                SampleGreatCircle(Point2d(gc.startPt.x,gc.startPt.y),
+                                  Point2d(gc.endPt.x,gc.endPt.y),
+                                  gc.height,lin->pts,coordAdapter,eps);
 
             lin->lineWidth = gc.lineWidth;
             if (gc.color)
@@ -2110,7 +2281,9 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
             specialShapes.push_back(lin.get());
             shapeOwner.push_back(std::move(lin));
         }
-        else if ([shape isKindOfClass:[MaplyShapeRectangle class]])
+        else
+#endif //!MAPLY_MINIMAL
+        if ([shape isKindOfClass:[MaplyShapeRectangle class]])
         {
             const auto rc = (MaplyShapeRectangle *)shape;
             auto rect = (Rectangle *)[rc asWKShape:inDesc];
@@ -2130,6 +2303,7 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
             // Note: Selectability
             ourShapes.push_back(rect);
         }
+#if !MAPLY_MINIMAL
         else if ([shape isKindOfClass:[MaplyShapeLinear class]])
         {
             auto lin = (MaplyShapeLinear *)shape;
@@ -2158,6 +2332,7 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
             compManager->addSelectObject(baseShape->selectID,shape);
             compObj->contents->selectIDs.insert(baseShape->selectID);
         }
+#endif //!MAPLY_MINIMAL
     }
 
     compObj->contents->texs = textures;
@@ -2193,27 +2368,7 @@ static inline bool dictBool(const NSDictionary *dict, const NSString *key, bool 
     [self flushChanges:changes mode:threadMode];
 }
 
-// Add shapes
-- (MaplyComponentObject *)addShapes:(NSArray *)shapes desc:(NSDictionary *)desc mode:(MaplyThreadMode)threadMode
-{
-    threadMode = [self resolveThreadMode:threadMode];
-
-    MaplyComponentObject *compObj = [[MaplyComponentObject alloc] initWithDesc:desc];
-    compObj->contents->underConstruction = true;
-
-    NSArray *argArray = @[shapes, compObj, [NSDictionary dictionaryWithDictionary:desc], @(threadMode)];
-    switch (threadMode)
-    {
-        case MaplyThreadCurrent:
-            [self addShapesRun:argArray];
-            break;
-        case MaplyThreadAny:
-            [self performSelector:@selector(addShapesRun:) onThread:layerThread withObject:argArray waitUntilDone:NO];
-            break;
-    }
-    
-    return compObj;
-}
+#if !MAPLY_MINIMAL
 
 // Used to put geometry models with instances so we can group them
 class GeomModelInstances
@@ -2242,7 +2397,7 @@ typedef std::set<GeomModelInstances *,struct GeomModelInstancesCmp> GeomModelIns
 - (void)addModelInstancesRun:(NSArray *)argArray
 {
     CoordSystemDisplayAdapter *coordAdapter = scene->getCoordAdapter();
-    CoordSystem *coordSys = coordAdapter->getCoordSystem();
+    const CoordSystem *coordSys = coordAdapter->getCoordSystem();
     NSArray *modelInstances = argArray[0];
     MaplyComponentObject *compObj = argArray[1];
     NSDictionary *inDesc = argArray[2];
@@ -2291,13 +2446,16 @@ typedef std::set<GeomModelInstances *,struct GeomModelInstancesCmp> GeomModelIns
     if (geomManager)
     {
         // Regular geometry instances
-        for (auto it : instSort)
+        for (const auto &it : instSort)
         {
             // Set up the textures and convert the geometry
-            MaplyGeomModel *model = it->model;
+            const MaplyGeomModel *model = it->model;
             
             // Return an existing base model or make a new one
-            SimpleIdentity baseModelID = [model getBaseModel:self fontTexManager:fontTexManager compObj:compObj mode:threadMode];
+            const SimpleIdentity baseModelID = [model getBaseModel:self
+                                                    fontTexManager:fontTexManager
+                                                           compObj:compObj
+                                                              mode:threadMode];
             
             // Reference count the textures for this comp obj
             compObj->contents->texs.insert(model->maplyTextures.begin(),model->maplyTextures.end());
@@ -2306,19 +2464,18 @@ typedef std::set<GeomModelInstances *,struct GeomModelInstancesCmp> GeomModelIns
             {
                 // Convert the instances
                 std::vector<GeometryInstance> matInst;
+                matInst.reserve(it->instances.size());
                 for (unsigned int ii=0;ii<it->instances.size();ii++)
                 {
                     MaplyGeomModelInstance *modelInst = it->instances[ii];
-                    Matrix4d localMat = localMat.Identity();
 
                     // Local transformation, before the placement
-                    if (modelInst.transform)
-                        localMat = modelInst.transform.mat;
+                    Matrix4d localMat = modelInst.transform ? modelInst.transform.mat : localMat.Identity();
                     
                     // Add in the placement
-                    Point3d localPt = coordSys->geographicToLocal(Point2d(modelInst.center.x,modelInst.center.y));
-                    Point3d dispLoc = coordAdapter->localToDisplay(Point3d(localPt.x(),localPt.y(),modelInst.center.z));
-                    Point3d norm = coordAdapter->normalForLocal(localPt);
+                    const Point3d localPt = coordSys->geographicToLocal(Point2d(modelInst.center.x,modelInst.center.y));
+                    const Point3d dispLoc = coordAdapter->localToDisplay(Point3d(localPt.x(),localPt.y(),modelInst.center.z));
+                    const Point3d norm = coordAdapter->normalForLocal(localPt);
                                         
                     // Construct a set of axes to build the shape around
                     Point3d xAxis,yAxis;
@@ -2795,8 +2952,8 @@ typedef std::set<GeomModelInstances *,struct GeomModelInstancesCmp> GeomModelIns
     NSDictionary *inDesc = argArray[2];
     const auto threadMode = (MaplyThreadMode)[[argArray objectAtIndex:3] intValue];
     
-    CoordSystemDisplayAdapter *coordAdapter = visualView->coordAdapter;
-    CoordSystem *coordSys = coordAdapter->getCoordSystem();
+    const auto coordAdapter = visualView->getCoordAdapter();
+    const CoordSystem *coordSys = coordAdapter->getCoordSystem();
     
     iosDictionary dictWrap(inDesc);
     BillboardInfo billInfo(dictWrap);
@@ -2813,14 +2970,16 @@ typedef std::set<GeomModelInstances *,struct GeomModelInstancesCmp> GeomModelIns
         std::vector<Billboard *> wkBills;
         for (MaplyBillboard *bill in bills)
         {
-            Billboard *wkBill = new Billboard();
-            Point3d localPt = coordSys->geographicToLocal3d(GeoCoord(bill.center.x,bill.center.y));
-            Point3d dispPt = coordAdapter->localToDisplay(Point3d(localPt.x(),localPt.y(),bill.center.z));
+            auto wkBill = std::make_unique<Billboard>();
+            const Point3d localPt = coordSys->geographicToLocal3d(GeoCoord(bill.center.x,bill.center.y));
+            const Point3d dispPt = coordAdapter->localToDisplay(Point3d(localPt.x(),localPt.y(),bill.center.z));
             wkBill->center = dispPt;
             wkBill->isSelectable = bill.selectable;
             if (wkBill->isSelectable)
+            {
                 wkBill->selectID = Identifiable::genId();
-            
+            }
+
             if (bill.selectable)
             {
                 compManager->addSelectObject(wkBill->selectID,bill);
@@ -2828,31 +2987,38 @@ typedef std::set<GeomModelInstances *,struct GeomModelInstancesCmp> GeomModelIns
             }
 
             MaplyScreenObject *screenObj = bill.screenObj;
-            if (!screenObj) {
-                delete wkBill;
+            if (!screenObj)
+            {
                 continue;
             }
-            MaplyBoundingBox size = [screenObj getSize];
-            Point2d size2d = Point2d(size.ur.x-size.ll.x,size.ur.y-size.ll.y);
+            const MaplyBoundingBox size = [screenObj getSize];
+            const Point2d size2d = Point2d(size.ur.x-size.ll.x,size.ur.y-size.ll.y);
             wkBill->size = size2d;
 
             // Work through the individual polygons in a billboard
-            for (SimplePolyRef thePoly : screenObj->screenObj.polys)
+            for (const SimplePolyRef &thePoly : screenObj->screenObj.polys)
             {
-                SimplePoly_iOSRef poly = std::dynamic_pointer_cast<SimplePoly_iOS>(thePoly);
-                SingleBillboardPoly billPoly;
+                auto poly = dynamic_cast<SimplePoly_iOS*>(thePoly.get());
+
+                wkBill->polys.emplace_back();
+                auto &billPoly = wkBill->polys.back();
+
                 billPoly.pts = poly->pts;
                 billPoly.texCoords = poly->texCoords;
                 billPoly.color = poly->color;
+
                 if (bill.vertexAttributes)
+                {
                     [self resolveVertexAttrs:billPoly.vertexAttrs from:bill.vertexAttributes];
+                }
                 if (poly->texture)
                 {
                     MaplyTexture *tex = nil;
                     if ([poly->texture isKindOfClass:[UIImage class]])
                     {
                         tex = [self addImage:poly->texture imageFormat:MaplyImageIntRGBA mode:threadMode];
-                    } else if ([poly->texture isKindOfClass:[MaplyTexture class]])
+                    }
+                    else if ([poly->texture isKindOfClass:[MaplyTexture class]])
                     {
                         tex = (MaplyTexture *)poly->texture;
                     }
@@ -2862,18 +3028,28 @@ typedef std::set<GeomModelInstances *,struct GeomModelInstancesCmp> GeomModelIns
                         billPoly.texId = tex.texID;
                     }
                 }
-                wkBill->polys.push_back(billPoly);
             }
             
             // Now for the strings
             for (auto theStrWrap : screenObj->screenObj.strings)
             {
-                StringWrapper_iOSRef strWrap = std::dynamic_pointer_cast<StringWrapper_iOS>(theStrWrap);
+                auto strWrap = dynamic_cast<StringWrapper_iOS*>(theStrWrap.get());
+                if (!strWrap)
+                {
+                    continue;
+                }
+
                 // Convert the string to polygons
-                DrawableString *drawStr = fontTexManager->addString(NULL, strWrap->str,changes);
+                auto drawStr = fontTexManager->addString(nullptr, strWrap->str,changes);
+                if (!drawStr)
+                {
+                    continue;
+                }
+
                 for (const DrawableString::Rect &rect : drawStr->glyphPolys)
                 {
-                    SingleBillboardPoly billPoly;
+                    wkBill->polys.emplace_back();
+                    auto &billPoly = wkBill->polys.back();
                     billPoly.pts.resize(4);
                     billPoly.texCoords.resize(4);
                     billPoly.texId = rect.subTex.texId;
@@ -2885,25 +3061,22 @@ typedef std::set<GeomModelInstances *,struct GeomModelInstancesCmp> GeomModelIns
                     billPoly.pts[1] = Point2d(rect.pts[1].x(),rect.pts[0].y());
                     billPoly.pts[2] = Point2d(rect.pts[1].x(),rect.pts[1].y());
                     billPoly.pts[3] = Point2d(rect.pts[0].x(),rect.pts[1].y());
+
                     for (unsigned int ip=0;ip<4;ip++)
                     {
-                        const Point2d &oldPt = billPoly.pts[ip];
-                        Point3d newPt = strWrap->mat * Point3d(oldPt.x(),oldPt.y(),1.0);
-                        billPoly.pts[ip] = Point2d(newPt.x(),newPt.y());
+                        billPoly.pts[ip] = Slice((strWrap->mat * Pad(billPoly.pts[ip], 1.0)).eval());
                     }
-                    
+
                     wkBill->polys.push_back(billPoly);
                 }
                 
                 compObj->contents->drawStringIDs.insert(drawStr->getId());
-                delete drawStr;
             }
             
-            wkBills.push_back(wkBill);
+            wkBills.push_back(wkBill.release());
         }
-        
-        SimpleIdentity billId = billManager->addBillboards(wkBills, billInfo, changes);
-        if (billId)
+
+        if (SimpleIdentity billId = billManager->addBillboards(wkBills, billInfo, changes))
         {
             compObj->contents->billIDs.insert(billId);
         }
@@ -2971,18 +3144,20 @@ typedef std::set<GeomModelInstances *,struct GeomModelInstancesCmp> GeomModelIns
         wkPartSys.enable = dictBool(inDesc, kMaplyEnable);
         wkPartSys.drawPriority = [inDesc[kMaplyDrawPriority] intValue];
         wkPartSys.pointSize = [inDesc[kMaplyPointSize] floatValue];
-        wkPartSys.name = [partSys.name cStringUsingEncoding:NSASCIIStringEncoding];
+        wkPartSys.name = [partSys.name cStringUsingEncoding:NSASCIIStringEncoding withDefault:"invalid"];
         wkPartSys.renderShaderID = partSysShaderID;
         wkPartSys.calcShaderID = calcShaderID;
         wkPartSys.lifetime = partSys.lifetime;
         wkPartSys.batchSize = partSys.batchSize;
         wkPartSys.totalParticles = partSys.totalParticles;
+        wkPartSys.trianglesPerParticle = partSys.trianglesPerParticle;
         wkPartSys.vertexSize = partSys.vertexSize;
         wkPartSys.baseTime = partSys.baseTime;
         wkPartSys.continuousUpdate = partSys.continuousUpdate;
         wkPartSys.zBufferRead = dictBool(inDesc, kMaplyZBufferRead);
         wkPartSys.zBufferWrite = dictBool(inDesc, kMaplyZBufferWrite);
         wkPartSys.renderTargetID = partSys.renderTargetID;
+        wkPartSys.blendPremultipliedAlpha = partSys.blendPremultipliedAlpha;
         // Type
         switch (partSys.type)
         {
@@ -3039,6 +3214,11 @@ typedef std::set<GeomModelInstances *,struct GeomModelInstancesCmp> GeomModelIns
             wkPartSys.texIDs.push_back(maplyTex.texID);
             compObj->contents->texs.insert(maplyTex);
         }
+        // For Metal we just pass in a few data arrays and let the calculation shader
+        //  do the rest
+        wkPartSys.totalParticles = partSys.numDataEntries;
+        for (NSData *partData in partSys.dataArrays)
+            wkPartSys.partData.push_back(std::make_shared<RawNSDataReader>(partData));
         
         SimpleIdentity partSysID = partSysManager->addParticleSystem(wkPartSys, changes);
         partSys.ident = partSysID;
@@ -3185,6 +3365,7 @@ typedef std::set<GeomModelInstances *,struct GeomModelInstancesCmp> GeomModelIns
     
     return compObj;
 }
+#endif //!MAPLY_MINIMAL
 
 // Add a render target to the renderer
 - (void)addRenderTarget:(MaplyRenderTarget *)renderTarget
@@ -3580,13 +3761,9 @@ typedef std::set<GeomModelInstances *,struct GeomModelInstancesCmp> GeomModelIns
 }
 
 
+#if !MAPLY_MINIMAL
 // Search for a point inside any of our vector objects
 // Runs in layer thread
-- (NSArray *)findVectorsInPoint:(Point2f)pt
-{
-    return [self findVectorsInPoint:pt inView:nil multi:true];
-}
-
 - (NSArray *)findVectorsInPoint:(Point2f)pt inView:(MaplyBaseViewController *)vc multi:(bool)multi
 {
     if (!layerThread || !vc || !vc->renderControl)
@@ -3615,15 +3792,66 @@ typedef std::set<GeomModelInstances *,struct GeomModelInstancesCmp> GeomModelIns
 
 - (NSObject*)selectLabelsAndMarkerForScreenPoint:(CGPoint)screenPoint
 {
-    return nil;
+    return [[self selectMultipleLabelsAndMarkersForScreenPoint:screenPoint] firstObject];
 }
+
+- (NSMutableArray*)selectMultipleLabelsAndMarkersForScreenPoint:(CGPoint)screenPoint
+{
+    NSMutableArray *retSelectArr = [NSMutableArray array];
+    return retSelectArr;
+}
+
+- (NSMutableArray*__nullable)convertSelectedObjects:(const std::vector<WhirlyKit::SelectionManager::SelectedObject> &)selectedObjs
+{
+    NSMutableArray *retSelectArr = [NSMutableArray array];
+    // Work through the objects the manager found, creating entries for each
+    for (unsigned int ii = 0; ii < selectedObjs.size(); ii++)
+    {
+        const SelectionManager::SelectedObject &theSelObj = selectedObjs[ii];
+
+        for (auto selectID : theSelObj.selectIDs)
+        {
+            MaplySelectedObject *selObj = [[MaplySelectedObject alloc] init];
+            selObj.selectedObj = compManager->getSelectObject(selectID);
+
+            selObj.screenDist = theSelObj.screenDist;
+            selObj.cluster = theSelObj.isCluster;
+            selObj.zDist = theSelObj.distIn3D;
+
+            if (selObj.selectedObj)
+                [retSelectArr addObject:selObj];
+        }
+    }
+
+    return retSelectArr;
+}
+
+- (NSMutableArray*)convertSelectedVecObjects:(NSArray<MaplyVectorObject *>*)vecObjs
+{
+    NSMutableArray *retSelectArr = [NSMutableArray array];
+
+    for (MaplyVectorObject *vecObj in vecObjs)
+    {
+        MaplySelectedObject *selObj = [[MaplySelectedObject alloc] init];
+        selObj.selectedObj = vecObj;
+        selObj.screenDist = 0.0;
+        // Note: Not quite right
+        selObj.zDist = 0.0;
+        [retSelectArr addObject:selObj];
+    }
+    
+    return retSelectArr;
+}
+#endif //!MAPLY_MINIMAL
 
 - (void)dumpStats
 {
     if (compManager)
         compManager->dumpStats();
     
+#if !MAPLY_MINIMAL
     [atlasGroup dumpStats];
+#endif //!MAPLY_MINIMAL
 }
 
 @end

@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/14/19.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -48,7 +48,10 @@ public:
             WideVecImplType implType,
             bool globeMode,
             const WideVectorInfo *vecInfo) override;
-    
+
+    /// Used when we're changing values on geometry already generated
+    virtual void generateChanges(const SimpleIDSet &drawID,ChangeSet &changes) override;
+
     virtual int addAttribute(BDAttributeDataType dataType,StringIdentity nameID,int slot = -1,int numThings = -1) override;
 
     // Return the basic drawable for the simple and complex cases

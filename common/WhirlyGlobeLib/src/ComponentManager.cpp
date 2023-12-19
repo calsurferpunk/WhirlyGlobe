@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 2/15/19.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@
 #import "WhirlyKitLog.h"
 #import "SharedAttributes.h"
 
+//#define LOG_REPRESENTATIONS
+
 namespace WhirlyKit
 {
 
@@ -28,9 +30,7 @@ static constexpr size_t TypicalUUIDComps = 1000;
 
 ComponentObject::ComponentObject(bool enable, bool selectable) :
     enable(enable),
-    isSelectable(selectable),
-    underConstruction(false),
-    vectorOffset(0.0,0.0)
+    isSelectable(selectable)
 {
 }
 
@@ -43,10 +43,6 @@ ComponentObject::ComponentObject(bool enable, bool selectable, const Dictionary 
         this->uuid = desc.getString(MaplyUUIDDesc);
         this->representation = desc.getString(MaplyRepresentationDesc);
     }
-}
-
-ComponentObject::~ComponentObject()
-{
 }
 
 void ComponentObject::clear()
@@ -65,30 +61,23 @@ void ComponentObject::clear()
     drawStringIDs.clear();
 }
 
-ComponentManager::ComponentManager()
-: lastMaskID(0)
-{
-}
-
-ComponentManager::~ComponentManager()
-{
-    //std::lock_guard<std::mutex> guardLock(lock);
-}
-
 void ComponentManager::setScene(Scene *scene)
 {
-    layoutManager = scene->getManagerNoLock<LayoutManager>(kWKLayoutManager);
-    markerManager = scene->getManagerNoLock<MarkerManager>(kWKMarkerManager);
-    labelManager = scene->getManagerNoLock<LabelManager>(kWKLabelManager);
-    vectorManager = scene->getManagerNoLock<VectorManager>(kWKVectorManager);
-    wideVectorManager = scene->getManagerNoLock<WideVectorManager>(kWKWideVectorManager);
-    shapeManager = scene->getManagerNoLock<ShapeManager>(kWKShapeManager);
-    chunkManager = scene->getManagerNoLock<SphericalChunkManager>(kWKSphericalChunkManager);
-    loftManager = scene->getManagerNoLock<LoftManager>(kWKLoftedPolyManager);
-    billManager = scene->getManagerNoLock<BillboardManager>(kWKBillboardManager);
-    geomManager = scene->getManagerNoLock<GeometryManager>(kWKGeometryManager);
-    fontTexManager = scene->getFontTextureManager();
-    partSysManager = scene->getManagerNoLock<ParticleSystemManager>(kWKParticleSystemManager);
+    SceneManager::setScene(scene);
+
+    shapeManager      = scene ? scene->getManager<ShapeManager>(kWKShapeManager) : nullptr;
+#if !MAPLY_MINIMAL
+    layoutManager     = scene ? scene->getManager<LayoutManager>(kWKLayoutManager) : nullptr;
+    markerManager     = scene ? scene->getManager<MarkerManager>(kWKMarkerManager) : nullptr;
+    labelManager      = scene ? scene->getManager<LabelManager>(kWKLabelManager) : nullptr;
+    vectorManager     = scene ? scene->getManager<VectorManager>(kWKVectorManager) : nullptr;
+    wideVectorManager = scene ? scene->getManager<WideVectorManager>(kWKWideVectorManager) : nullptr;
+    chunkManager      = scene ? scene->getManager<SphericalChunkManager>(kWKSphericalChunkManager) : nullptr;
+    loftManager       = scene ? scene->getManager<LoftManager>(kWKLoftedPolyManager) : nullptr;
+    billManager       = scene ? scene->getManager<BillboardManager>(kWKBillboardManager) : nullptr;
+    geomManager       = scene ? scene->getManager<GeometryManager>(kWKGeometryManager) : nullptr;
+    partSysManager    = scene ? scene->getManager<ParticleSystemManager>(kWKParticleSystemManager) : nullptr;
+#endif //!MAPLY_MINIMAL
 }
 
 void ComponentManager::addComponentObject(const ComponentObjectRef &compObj, ChangeSet &changes)
@@ -116,6 +105,14 @@ void ComponentManager::addComponentObject(const ComponentObjectRef &compObj, Cha
         // If no representation is set, show this item if its representation is blank.
         const bool enable = (hit != representations.end()) ? (compObj->representation == hit->second) : compObj->representation.empty();
 
+#ifdef LOG_REPRESENTATIONS
+        if (enable)
+        wkLogLevel(Verbose, "CO id=%lld uuid=%s rep=%s active=%s result=%s",
+                   compObj->getId(), compObj->uuid.c_str(), compObj->representation.c_str(),
+                   (hit != representations.end())?hit->second.c_str():"(none)",
+                   enable ? "enabled" : "disabled");
+#endif
+
         enableComponentObject(compObj, enable, changes);
     }
 }
@@ -128,24 +125,33 @@ bool ComponentManager::hasComponentObject(SimpleIdentity compID)
     return it != compObjsById.end();
 }
 
-void ComponentManager::removeComponentObject(PlatformThreadInfo *threadInfo,SimpleIdentity compID, ChangeSet &changes)
+// NOLINTNEXTLINE(google-default-arguments)
+void ComponentManager::removeComponentObject(PlatformThreadInfo *threadInfo,
+                                             SimpleIdentity compID,
+                                             ChangeSet &changes,
+                                             bool disposeAfterRemoval)
 {
     SimpleIDSet compIDs { compID };
-    removeComponentObjects(threadInfo,compIDs, changes);
+    removeComponentObjects(threadInfo,compIDs, changes, disposeAfterRemoval);
 }
 
-void ComponentManager::removeComponentObjects(PlatformThreadInfo *threadInfo,const std::vector<ComponentObjectRef> &compObjs,ChangeSet &changes)
+// NOLINTNEXTLINE(google-default-arguments)
+void ComponentManager::removeComponentObjects(PlatformThreadInfo *threadInfo,
+                                              const std::vector<ComponentObjectRef> &compObjs,
+                                              ChangeSet &changes,
+                                              bool disposeAfterRemoval)
 {
     SimpleIDSet compIDs;
 
-    for (auto compObj: compObjs) {
+    for (const auto &compObj: compObjs)
+    {
         compIDs.insert(compObj->getId());
     }
 
-    removeComponentObjects(threadInfo,compIDs, changes);
+    removeComponentObjects(threadInfo,compIDs, changes, disposeAfterRemoval);
 }
 
-void ComponentManager::removeComponentObjects_NoLock(PlatformThreadInfo *threadInfo,
+void ComponentManager::removeComponentObjects_NoLock(PlatformThreadInfo *,
                                                      const SimpleIDSet &compIDs,
                                                      std::vector<ComponentObjectRef> &objs)
 {
@@ -189,9 +195,13 @@ void ComponentManager::removeComponentObjects_NoLock(PlatformThreadInfo *threadI
     }
 }
 
-void ComponentManager::removeComponentObjects(PlatformThreadInfo *threadInfo,const SimpleIDSet &compIDs,ChangeSet &changes)
+// NOLINTNEXTLINE(google-default-arguments)
+void ComponentManager::removeComponentObjects(PlatformThreadInfo *threadInfo,
+                                              const SimpleIDSet &compIDs,
+                                              ChangeSet &changes,
+                                              __unused bool disposeAfterRemoval)    // used by platform override
 {
-    if (compIDs.empty())
+    if (compIDs.empty() || !scene)
         return;
     
     std::vector<ComponentObjectRef> compRefs;
@@ -206,6 +216,7 @@ void ComponentManager::removeComponentObjects(PlatformThreadInfo *threadInfo,con
     for (const ComponentObjectRef &compObj : compRefs)
     {
         // Get rid of the various layer objects
+#if !MAPLY_MINIMAL
         if (!compObj->markerIDs.empty())
             markerManager->removeMarkers(compObj->markerIDs, changes);
         if (!compObj->labelIDs.empty())
@@ -214,8 +225,10 @@ void ComponentManager::removeComponentObjects(PlatformThreadInfo *threadInfo,con
             vectorManager->removeVectors(compObj->vectorIDs, changes);
         if (!compObj->wideVectorIDs.empty())
             wideVectorManager->removeVectors(compObj->wideVectorIDs, changes);
+#endif //!MAPLY_MINIMAL
         if (!compObj->shapeIDs.empty())
             shapeManager->removeShapes(compObj->shapeIDs, changes);
+#if !MAPLY_MINIMAL
         if (!compObj->loftIDs.empty())
             loftManager->removeLoftedPolys(compObj->loftIDs, changes);
         if (!compObj->chunkIDs.empty())
@@ -226,13 +239,16 @@ void ComponentManager::removeComponentObjects(PlatformThreadInfo *threadInfo,con
             geomManager->removeGeometry(compObj->geomIDs, changes);
         if (!compObj->drawStringIDs.empty())
         {
-            // Giving the fonts 2s to stick around
-            //       This avoids problems with texture being paged out.
-            //       Without this we lose the textures before we're done with them
-            const TimeInterval when = scene->getCurrentTime() + 2.0;
-            for (SimpleIdentity dStrID : compObj->drawStringIDs)
+            if (const auto ftm = scene ? scene->getFontTextureManager() : nullptr)
             {
-                fontTexManager->removeString(threadInfo, dStrID, changes, when);
+                // Giving the fonts 2s to stick around
+                //       This avoids problems with texture being paged out.
+                //       Without this we lose the textures before we're done with them
+                const TimeInterval when = scene->getCurrentTime() + 2.0;
+                for (SimpleIdentity dStrID : compObj->drawStringIDs)
+                {
+                    ftm->removeString(threadInfo, dStrID, changes, when);
+                }
             }
         }
         for (const auto partSysID : compObj->partSysIDs)
@@ -241,11 +257,13 @@ void ComponentManager::removeComponentObjects(PlatformThreadInfo *threadInfo,con
         }
         if (!compObj->maskIDs.empty())
             maskIDs.insert(compObj->maskIDs.begin(),compObj->maskIDs.end());
+#endif //!MAPLY_MINIMAL
     }
 
     releaseMaskIDs(maskIDs);
 }
 
+// NOLINTNEXTLINE(google-default-arguments)
 void ComponentManager::enableComponentObject(SimpleIdentity compID, bool enable, ChangeSet &changes, bool resolveReps)
 {
     ComponentObjectRef compRef;
@@ -273,6 +291,7 @@ void ComponentManager::enableComponentObject(SimpleIdentity compID, bool enable,
 }
 
 
+// NOLINTNEXTLINE(google-default-arguments)
 void ComponentManager::enableComponentObjects(const SimpleIDSet &compIDs,bool enable,ChangeSet &changes, bool resolveReps)
 {
     std::vector<ComponentObjectRef> compRefs;
@@ -311,13 +330,9 @@ static bool ResolveRepresentationState(const ComponentObjectRef &thisObj, const 
     assert(thisObj->uuid == thatObj->uuid && !thisObj->uuid.empty());
 
     bool const enable = thisObj->enable;
-    if (thisObj.get() == thatObj.get())
+    if (thisObj.get() == thatObj.get() || thatObj->representation == thisObj->representation)
     {
-        return enable;
-    }
-    else if (thatObj->representation == thisObj->representation)
-    {
-        // Another instance of the same representation.
+        // The references refer to the same object, or instances of the same representation.
         // For example, there may be two versions while transitioning between
         // levels, or the same object may appear in multiple tiles of a dataset.
         // Apply the same state to it.
@@ -344,12 +359,14 @@ static bool ResolveRepresentationState(const ComponentObjectRef &thisObj, const 
     return thatObj->enable;
 }
 
+// NOLINTNEXTLINE(google-default-arguments)
 void ComponentManager::enableComponentObject(const ComponentObjectRef &compObj, bool enable, ChangeSet &changes, bool resolveReps)
 {
     // Note: Should lock just around this component object
     //       But I'm not sure I want one std::mutex per object
     compObj->enable = enable;
 
+#if !MAPLY_MINIMAL
     if (!compObj->vectorIDs.empty())
         vectorManager->enableVectors(compObj->vectorIDs, enable, changes);
     if (!compObj->wideVectorIDs.empty())
@@ -358,8 +375,10 @@ void ComponentManager::enableComponentObject(const ComponentObjectRef &compObj, 
         markerManager->enableMarkers(compObj->markerIDs, enable, changes);
     if (!compObj->labelIDs.empty())
         labelManager->enableLabels(compObj->labelIDs, enable, changes);
+#endif //!MAPLY_MINIMAL
     if (!compObj->shapeIDs.empty())
         shapeManager->enableShapes(compObj->shapeIDs, enable, changes);
+#if !MAPLY_MINIMAL
     if (!compObj->billIDs.empty())
         billManager->enableBillboards(compObj->billIDs, enable, changes);
     if (!compObj->loftIDs.empty())
@@ -380,6 +399,7 @@ void ComponentManager::enableComponentObject(const ComponentObjectRef &compObj, 
             partSysManager->enableParticleSystem(it, enable, changes);
         }
     }
+#endif //!MAPLY_MINIMAL
 
     // Handle the other representations of the same thing?
     if (resolveReps && !compObj->uuid.empty())
@@ -397,18 +417,18 @@ void ComponentManager::enableComponentObject(const ComponentObjectRef &compObj, 
     }
 }
 
-static const std::less<std::string> DefStringLess;
 static inline bool HasUUID(const ComponentObjectRef &obj)
 {
     return !obj->uuid.empty();
 }
 static inline bool ByUUIDThenRep(const ComponentObjectRef &l, const ComponentObjectRef &r)
 {
-    return DefStringLess(l->uuid, r->uuid) ||       // less
-        (!DefStringLess(r->uuid, l->uuid) &&        // equal
-          DefStringLess(l->representation, r->representation));
+    return std::less<>()(l->uuid, r->uuid) ||       // less
+           (!std::less<>()(r->uuid, l->uuid) &&        // equal
+             std::less<>()(l->representation, r->representation));
 }
 
+// NOLINTNEXTLINE(google-default-arguments)
 void ComponentManager::enableComponentObjects(const std::vector<ComponentObjectRef> &compRefs, bool enable,
                                               ChangeSet &changes, bool resolveReps)
 {
@@ -457,6 +477,11 @@ void ComponentManager::setRepresentation(const std::string &repName,
                                          ChangeSet &changes)
 {
     std::vector<ComponentObjectRef> enableObjs, disableObjs;
+
+#ifdef LOG_REPRESENTATIONS
+    std::stringstream idsStr, enStr, disStr;
+    for (auto i = beg; i != end; ++i) idsStr << ((i==beg)?"":",") << i->c_str();
+#endif
 
     std::unique_lock<std::mutex> guardLock(lock);
 
@@ -507,13 +532,20 @@ void ComponentManager::setRepresentation(const std::string &repName,
                 {
                     // Move the item from the disable to enable list
                     enableObjs.push_back(obj);
-                    disableObjs.erase(std::next(disableObjs.begin(), i));
+                    disableObjs.erase(std::next(disableObjs.begin(), (int)i));
                 }
             }
         }
     }
 
     guardLock.unlock();
+
+#ifdef LOG_REPRESENTATIONS
+    for (const auto &x : enableObjs) enStr << x->getId() << ",";
+    for (const auto &x : disableObjs) disStr << x->getId() << ",";
+    wkLogLevel(Verbose, "Set representation %s for %s : enable %s disable %s",
+               repName.c_str(), idsStr.str().c_str(), enStr.str().c_str(), disStr.str().c_str());
+#endif
 
     if (!enableObjs.empty()) enableComponentObjects(enableObjs, true, changes);
     if (!disableObjs.empty()) enableComponentObjects(disableObjs, false, changes);
@@ -562,6 +594,7 @@ void ComponentManager::setUniformBlock(const SimpleIDSet &compIDs,const RawDataR
         if (shapeManager && !compObj->shapeIDs.empty()) {
             shapeManager->setUniformBlock(compObj->shapeIDs,uniBlock,bufferID,changes);
         }
+#if !MAPLY_MINIMAL
         if (partSysManager && !compObj->partSysIDs.empty()) {
             partSysManager->setUniformBlock(compObj->partSysIDs,uniBlock,bufferID,changes);
         }
@@ -569,6 +602,7 @@ void ComponentManager::setUniformBlock(const SimpleIDSet &compIDs,const RawDataR
             geomManager->setUniformBlock(compObj->geomIDs,uniBlock,bufferID,changes);
         }
         // TODO: Fill this in for the other object types
+#endif //!MAPLY_MINIMAL
     }
 }
 
@@ -615,16 +649,21 @@ void ComponentManager::releaseMaskIDs(const SimpleIDSet &maskIDs)
         }
     }
 }
-    
-std::vector<std::pair<ComponentObjectRef,VectorObjectRef> > ComponentManager::findVectors(const Point2d &pt,double maxDist,ViewStateRef viewState,const Point2f &frameSize,bool multi)
+
+#if !MAPLY_MINIMAL
+
+std::vector<std::pair<ComponentObjectRef,VectorObjectRef>> ComponentManager::findVectors(
+        const Point2d &pt,double maxDist,const ViewStateRef &viewState,
+        const Point2f &frameSize,int resultLimit)
 {
+    // not locked, we don't care if the size is off, we just want
+    // to typically do the allocations outside the locked region.
     std::vector<ComponentObjectRef> compRefs;
-    std::vector<std::pair<ComponentObjectRef,VectorObjectRef> > rets;
+    compRefs.reserve(compObjsById.size());
 
     // Copy out the vectors that might be candidates
     {
         std::lock_guard<std::mutex> guardLock(lock);
-        
         for (const auto &kvp: compObjsById)
         {
             const auto &compObj = kvp.second;
@@ -634,36 +673,33 @@ std::vector<std::pair<ComponentObjectRef,VectorObjectRef> > ComponentManager::fi
             }
         }
     }
-    
+
+    std::vector<std::pair<ComponentObjectRef,VectorObjectRef> > rets;
+    rets.reserve((resultLimit > 0) ? resultLimit : compRefs.size());
+
     // Work through the vector objects
     for (const auto &compObj: compRefs)
     {
-        const auto &center = compObj->vectorOffset;
-        const Point2d coord = { pt.x()-center.x(), pt.y()-center.y() };
+        const Point2d coord = pt - compObj->vectorOffset;
 
-        for (auto vecObj: compObj->vecObjs)
+        for (const auto &vecObj: compObj->vecObjs)
         {
-            if (vecObj->pointInside(pt))
+            if (vecObj->pointInside(pt) ||
+                vecObj->pointNearLinear(coord, (float)maxDist, viewState, frameSize))
             {
-                rets.push_back(std::make_pair(compObj, vecObj));
-                
-                if (!multi)
-                    break;
-                continue;
-            }
-            if (vecObj->pointNearLinear(coord, maxDist, viewState, frameSize))
-            {
-                rets.push_back(std::make_pair(compObj, vecObj));
-                if (!multi)
-                    break;
+                rets.emplace_back(compObj, vecObj);
             }
         }
         
-        if (!multi && !rets.empty())
+        if (resultLimit > 0 && rets.size() >= resultLimit)
+        {
             break;
+        }
     }
     
     return rets;
 }
+
+#endif //!MAPLY_MINIMAL
 
 }

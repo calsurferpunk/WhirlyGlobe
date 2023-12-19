@@ -30,6 +30,7 @@ import java.util.*
 import kotlin.math.ceil
 import kotlin.math.min
 
+@Suppress("MemberVisibilityCanBePrivate", "unused")
 class SimpleStyleManager(context: Context, vc: RenderControllerInterface, assetManager: AssetManager? = null) {
     
     var smallSize = Point2d(16.0, 16.0)
@@ -49,7 +50,7 @@ class SimpleStyleManager(context: Context, vc: RenderControllerInterface, assetM
     var sharedCacheSize: Int
         get() { return Shared.cacheSize }
         set(value) { Shared.cacheSize = value }
-    
+
     interface StyleObjectLocator {
         fun locate(name: String): Collection<String>
     }
@@ -227,18 +228,26 @@ class SimpleStyleManager(context: Context, vc: RenderControllerInterface, assetM
     }
     
     /**
-     * Call when done with all the generated objects.
+     * Clear out the image texture cache.
+     * Any references to the textures should already be removed.
      */
-    fun shutdown() {
+    fun clearCache() {
         synchronized(textureCache) {
             vc.get()?.removeTextures(textureCache.elements().toList(), threadCurrent)
             textureCache.clear()
         }
     }
+
+    /**
+     * Call when done with all the generated objects.
+     */
+    fun shutdown() {
+        clearCache()
+    }
     
     private fun addFeaturesInternal(obj: VectorObject, optStyle: SimpleStyle? = null, mode: ThreadMode = threadCurrent): Sequence<ComponentObject> {
         val vc = this.vc.get() ?: return sequenceOf()
-        val style = optStyle ?: makeStyle(obj.attributes)
+        val style = optStyle ?: obj.attributes?.let(this::makeStyle) ?: SimpleStyle()
         when (obj.vectorType) {
             VectorObject.MaplyVectorObjectType.MaplyVectorPointType -> {
                 var markerObj: ComponentObject? = null
@@ -354,7 +363,7 @@ class SimpleStyleManager(context: Context, vc: RenderControllerInterface, assetM
             Shared.imageCache[cacheKey]?.let { return it }
         }
 
-        var image = loadImageCached(name) ?: return null
+        val image = loadImageCached(name) ?: return null
     
         val bitmap = Bitmap.createBitmap(size.width, size.height, Bitmap.Config.ARGB_8888)
         bitmap.eraseColor(Color.TRANSPARENT)
@@ -506,30 +515,33 @@ class SimpleStyleManager(context: Context, vc: RenderControllerInterface, assetM
     
     private fun parseBool(s: String?): Boolean? {
         if (s == null || s.isEmpty()) return null
-        return (s == "1" || s.toLowerCase(Locale.ROOT) == "true")
+        return (s == "1" || s.lowercase(Locale.ROOT) == "true")
     }
     
-    @ColorInt private fun parseColor(s: String?, a: Int = 255): Int? {
-        if (s == null || s.isEmpty()) return null
-        try {
-            val c = (if (s[0] == '#') s.substring(1) else s).toInt(16)
-            if (s.length < 5) {
-                // handle short colors
-                val r = c.and(0xF00)
-                val g = c.and(0x0F0)
-                val b = c.and(0x00F)
-                return r.shl(12)   // R__ => R_____
-                    .or(r.shl(8))  // R__ => _R____
-                    .or(g.shl(8))  // _G_ => __G___
-                    .or(g.shl(4))  // _G_ => ___G__
-                    .or(b.shl(4))  // __B => ____B_
-                    .or(b)                  // __B => _____B
-                    .or(a.and(255).shl(24)) // alpha = 1
+    companion object {
+        @ColorInt
+        fun parseColor(s: String?, a: Int = 255): Int? {
+            if (s == null || s.isEmpty()) return null
+            try {
+                val c = (if (s[0] == '#') s.substring(1) else s).toInt(16)
+                if (s.length < 5) {
+                    // handle short colors
+                    val r = c.and(0xF00)
+                    val g = c.and(0x0F0)
+                    val b = c.and(0x00F)
+                    return r.shl(12)   // R__ => R_____
+                            .or(r.shl(8))  // R__ => _R____
+                            .or(g.shl(8))  // _G_ => __G___
+                            .or(g.shl(4))  // _G_ => ___G__
+                            .or(b.shl(4))  // __B => ____B_
+                            .or(b)                  // __B => _____B
+                            .or(a.and(255).shl(24)) // alpha = 1
+                }
+                // regular color, already in the correct order for @ColorInt, add alpha and we're done
+                return c.or(a.and(255).shl(24))
+            } catch (e: java.lang.NumberFormatException) {
+                return null
             }
-            // regular color, already in the correct order for @ColorInt, add alpha and we're done
-            return c.or(a.and(255).shl(24))
-        } catch (e: java.lang.NumberFormatException) {
-            return null
         }
     }
     

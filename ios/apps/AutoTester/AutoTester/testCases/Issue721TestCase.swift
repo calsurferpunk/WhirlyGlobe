@@ -3,22 +3,19 @@
 //  AutoTester
 //
 //  Created by jmnavarro on 24/10/16.
-//  Copyright © 2016-2017 mousebird consulting.
+//  Copyright 2016-2022 mousebird consulting.
 //
 import Foundation
+import WhirlyGlobe
 
 class Issue721TestCase : MaplyTestCase{
 
 	override init() {
-		super.init()
-
-		self.name = "Issue 721: Interaction lost bug"
-		self.implementations = [.globe]
+        super.init(name: "Issue 721: Interaction lost bug", supporting: [.globe])
 	}
 
 	override func setUpWithGlobe(_ globeVC: WhirlyGlobeViewController) {
-		let baseLayer = StamenWatercolorRemote()
-		baseLayer.setUpWithGlobe(globeVC)
+		baseCase.setUpWithGlobe(globeVC)
 
 		DispatchQueue.main.asyncAfter(deadline: .now() + 4.5) {
 			print("Changing frame...")
@@ -31,4 +28,10 @@ class Issue721TestCase : MaplyTestCase{
 			}
 		}
 	}
+
+    override func stop() {
+        baseCase.stop()
+    }
+
+    private let baseCase = StamenWatercolorRemote()
 }

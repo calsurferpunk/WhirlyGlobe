@@ -2,7 +2,7 @@
  *  MaplyQuadLoader.h
  *
  *  Created by Steve Gifford on 2/12/19.
- *  Copyright 2012-2019 Saildrone Inc
+ *  Copyright 2012-2022 Saildrone Inc
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,12 +18,14 @@
  */
 
 #import <Foundation/Foundation.h>
-#import "control/MaplyControllerLayer.h"
-#import "math/MaplyCoordinateSystem.h"
-#import "loading/MaplyTileSourceNew.h"
-#import "control/MaplyRenderController.h"
-#import "loading/MaplyQuadSampler.h"
-#import "loading/MaplyRemoteTileFetcher.h"
+#import <WhirlyGlobe/MaplyControllerLayer.h>
+#import <WhirlyGlobe/MaplyCoordinateSystem.h>
+#import <WhirlyGlobe/MaplyTileSourceNew.h>
+#import <WhirlyGlobe/MaplyRenderController.h>
+#import <WhirlyGlobe/MaplyQuadSampler.h>
+#import <WhirlyGlobe/MaplyRemoteTileFetcher.h>
+
+typedef void (__strong ^InitCompletionBlock)(void);
 
 @class MaplyQuadLoaderBase;
 
@@ -119,9 +121,26 @@
 /// If set, we'll call the interpreter on this queue
 @property (nonatomic,nullable,strong) dispatch_queue_t queue;
 
-/// Number of simulataneous tiles we'll parse
-/// This is really just a limit on the number of tiles we'lll parse concurrently to keep memory use under control
+/// Number of simultaneous tiles we'll parse
+/// This is really just a limit on the number of tiles we'll parse concurrently to keep memory use under control
 @property (nonatomic) unsigned int numSimultaneousTiles;
+
+/// Label for tracking
+@property (nonatomic, assign) NSString * _Nullable label;
+
+/**
+    Each sampling layer allocates a slot to keep track of continuous zoom levels.
+    Those are passed all the way through to the individual shaders.
+    Returns a negative value if the loader, controller, or scene is not set up.
+ */
+@property (nonatomic,readonly) int zoomSlot;
+
+/**
+    The level currently associated with this loader's zoom slot.
+    Returns a negative value if the loader, controller, or scene is not set up.
+ */
+@property (nonatomic,readonly) float zoomLevel;
+
 
 // True if the loader is not currently loading anything
 - (bool)isLoading;
@@ -191,6 +210,9 @@
 /// Set the interpreter for the data coming back.  If you're just getting images, don't set this.
 - (void)setInterpreter:(NSObject<MaplyLoaderInterpreter> * __nonnull)interp;
 
+/// Return the current interpreter
+- (NSObject<MaplyLoaderInterpreter> * __nullable)getInterpreter;
+
 /**
  Change the interpreter and reload all the data.
  <br>
@@ -229,5 +251,11 @@
  This unregisters us with the sampling layer and shuts down the various objects we created.
  */
 - (void)shutdown;
+
+/**
+    Blocks to be called after the view is set up, or immediately if it is already set up.
+    Similar to `addPostSurfaceRunnable` on Android.
+*/
+- (void)addPostInitBlock:(_Nonnull InitCompletionBlock)block;
 
 @end

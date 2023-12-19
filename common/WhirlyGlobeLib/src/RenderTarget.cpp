@@ -1,9 +1,8 @@
-/*
- *  RenderTarget.cpp
+/*  RenderTarget.cpp
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/8/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "RenderTarget.h"
@@ -28,17 +26,13 @@ RenderTarget::RenderTarget()
 {
     init();
 }
-    
+
 RenderTarget::RenderTarget(SimpleIdentity newID)
 : Identifiable(newID)
 {
     init();
 }
-    
-RenderTarget::~RenderTarget()
-{
-}
-    
+
 void RenderTarget::init()
 {
     width = 0;
@@ -53,20 +47,20 @@ void RenderTarget::init()
     mipmapType = RenderTargetMipmapNone;
 }
 
-int RenderTarget::numLevels()
-{
-    return 0;
-}
-
-AddRenderTargetReq::AddRenderTargetReq(SimpleIdentity renderTargetID,int width,int height,SimpleIdentity texID,bool clearEveryFrame,bool blend,const RGBAColor &clearColor, float clearVal, RenderTargetMipmapType mipmapType, bool calcMinMax)
-: renderTargetID(renderTargetID), width(width), height(height), texID(texID), clearEveryFrame(clearEveryFrame), blend(blend), clearColor(clearColor), clearVal(clearVal), mipmapType(mipmapType), calcMinMax(calcMinMax)
+AddRenderTargetReq::AddRenderTargetReq(SimpleIdentity renderTargetID, int width,int height,
+                                       SimpleIdentity texID, bool clearEveryFrame,bool blend,
+                                       const RGBAColor &clearColor, float clearVal,
+                                       RenderTargetMipmapType mipmapType, bool calcMinMax) :
+    width(width), height(height), renderTargetID(renderTargetID),
+    texID(texID), clearEveryFrame(clearEveryFrame), clearColor(clearColor),
+    clearVal(clearVal), blend(blend), mipmapType(mipmapType), calcMinMax(calcMinMax)
 {
 }
 
 // Set up a render target
 void AddRenderTargetReq::execute(Scene *scene,SceneRenderer *renderer,View *view)
 {
-    RenderTargetRef renderTarget = RenderTargetRef(renderer->makeRenderTarget());
+    auto renderTarget = renderer->makeRenderTarget();
     renderTarget->setId(renderTargetID);
     renderTarget->width = width;
     renderTarget->height = height;
@@ -81,35 +75,38 @@ void AddRenderTargetReq::execute(Scene *scene,SceneRenderer *renderer,View *view
     renderTarget->calcMinMax = calcMinMax;
     renderTarget->init(renderer,scene,texID);
     
-    renderer->addRenderTarget(renderTarget);
+    renderer->addRenderTarget(std::move(renderTarget));
 }
 
-ChangeRenderTargetReq::ChangeRenderTargetReq(SimpleIdentity renderTargetID,SimpleIdentity texID)
-: renderTargetID(renderTargetID), texID(texID)
+ChangeRenderTargetReq::ChangeRenderTargetReq(SimpleIdentity renderTargetID,SimpleIdentity texID) :
+    renderTargetID(renderTargetID),
+    texID(texID)
 {
 }
 
 void ChangeRenderTargetReq::execute(Scene *scene,SceneRenderer *renderer,View *view)
 {
-    for (RenderTargetRef renderTarget : renderer->renderTargets)
+    for (const auto &renderTarget : renderer->getRenderTargets())
     {
-        if (renderTarget->getId() == renderTargetID) {
+        if (renderTarget->getId() == renderTargetID)
+        {
             renderTarget->setTargetTexture(renderer,scene,texID);
             break;
         }
     }
 }
 
-ClearRenderTargetReq::ClearRenderTargetReq(SimpleIdentity targetID)
-: renderTargetID(targetID)
+ClearRenderTargetReq::ClearRenderTargetReq(SimpleIdentity targetID) :
+    renderTargetID(targetID)
 {
 }
 
 void ClearRenderTargetReq::execute(Scene *scene,SceneRenderer *renderer,View *view)
 {
-    for (RenderTargetRef renderTarget : renderer->renderTargets)
+    for (const auto &renderTarget : renderer->getRenderTargets())
     {
-        if (renderTarget->getId() == renderTargetID) {
+        if (renderTarget->getId() == renderTargetID)
+        {
             renderTarget->clearOnce = true;
             break;
         }

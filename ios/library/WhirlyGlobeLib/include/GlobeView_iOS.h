@@ -1,9 +1,8 @@
-/*
- *  GlobeView_iOS.h
+/*  GlobeView_iOS.h
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 1/30/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,10 +14,9 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
-#import "GlobeView.h"
+#import <GlobeView.h>
 
 // Sent when a WhirlyKitView animation starts
 #define kWKViewAnimationStarted @"WKViewAnimationStarted"

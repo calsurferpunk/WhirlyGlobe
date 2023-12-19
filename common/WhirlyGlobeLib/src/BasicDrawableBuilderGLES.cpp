@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/10/19.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ void BasicDrawableTweakerGLES::tweakForFrame(Drawable *inDraw,RendererFrameInfo 
                 const auto a = (uint8_t) (255.0f * opacityExp->evaluate(zoom, 1.0f));
                 c = RGBAColor::FromInt((int)(((uint32_t)c.asInt() & 0x00FFFFFFU) | ((uint32_t)a << 24U)));
             }
+            c.r *= c.a/255.0;  c.g *= c.a/255.0;  c.b *= c.a/255.0;
             draw->setOverrideColor(c);
             return;
         }
@@ -107,6 +108,7 @@ void BasicDrawableBuilderGLES::setupTweaker(const DrawableTweakerRef &inTweaker)
 {
     if (auto tweaker = std::dynamic_pointer_cast<BasicDrawableTweaker>(inTweaker))
     {
+        tweaker->color = basicDraw->color;
         tweaker->colorExp = colorExp;
         tweaker->opacityExp = opacityExp;
     }

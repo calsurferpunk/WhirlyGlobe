@@ -1,9 +1,8 @@
-/*
- *  MaplySun.h
+/*  MaplySun.mm
  *  WhirlyGlobe-MaplyComponent
  *
  *  Created by Steve Gifford on 6/24/15.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import <WhirlyGlobe_iOS.h>
@@ -26,51 +24,77 @@ using namespace WhirlyKit;
 
 @implementation MaplySun
 {
-    Sun *sun;
+    std::unique_ptr<Sun> sun;
 }
 
-- (instancetype)initWithDate:(NSDate *)date
+- (_Nullable instancetype)initWithDate:(NSDate *)date
 {
-    self = [super init];
+    if (!(self = [super init]))
+    {
+        return nil;
+    }
     
     // It all starts with the Julian date
     NSCalendar *calendar = [[NSCalendar alloc] initWithCalendarIdentifier:NSCalendarIdentifierGregorian];
     calendar.timeZone = [NSTimeZone timeZoneForSecondsFromGMT:0];
-    NSDateComponents *components = [calendar components:(NSCalendarUnitYear | NSCalendarUnitMonth | NSCalendarUnitDay | NSCalendarUnitHour | NSCalendarUnitMinute | NSCalendarUnitSecond) fromDate:date];
 
-    sun = new Sun(components.year, components.month, components.day, components.hour, components.minute, components.second);
+    const NSCalendarUnit units = NSCalendarUnitYear |
+                                 NSCalendarUnitMonth |
+                                 NSCalendarUnitDay |
+                                 NSCalendarUnitHour |
+                                 NSCalendarUnitMinute |
+                                 NSCalendarUnitSecond;
+    NSDateComponents *components = [calendar components:units fromDate:date];
+    if (!components)
+    {
+        return nil;
+    }
+
+    sun = std::make_unique<Sun>(components.year, components.month, components.day,
+                                components.hour, components.minute, components.second);
     
     return self;
 }
 
 - (void)dealloc
 {
+    sun.reset();
+}
+
+- (MaplyCoordinate3d)direction
+{
     if (sun)
-        delete sun;
-    sun = NULL;
+    {
+        const Point3d dir = sun->getDirection();
+        return MaplyCoordinate3dMake(dir.x(), dir.y(), dir.z());
+    }
+    return kMaplyNullCoordinate3d;
 }
 
-- (MaplyCoordinate3d)getDirection
+- (MaplyCoordinate3d)position
 {
-    Point3d dir = sun->getDirection();
-    return MaplyCoordinate3dMake(dir.x(), dir.y(), dir.z());
+    if (sun)
+    {
+        const auto height = 149.6 * 1000000 * 1000 / EarthRadius;
+        return MaplyCoordinate3dMake(sun->sunLon,sun->sunLat, height);
+    }
+    return kMaplyNullCoordinate3d;
 }
 
-- (MaplyLight *)makeLight
+- (MaplyLight * _Nullable )makeLight
 {
-    MaplyLight *sunLight = [[MaplyLight alloc] init];
-    MaplyCoordinate3d dir = [self getDirection];
-    sunLight.pos = MaplyCoordinate3dMake(dir.x, dir.z, dir.y);
-    sunLight.ambient = [UIColor colorWithRed:0.1 green:0.1 blue:0.1 alpha:1.0];
-    sunLight.diffuse = [UIColor colorWithRed:0.8 green:0.8 blue:0.8 alpha:1.0];
-    sunLight.viewDependent = true;
-    
-    return sunLight;
+    return [self makeLightWithAmbient:0.1f diffuse:0.8f];
 }
 
-- (MaplyCoordinate)asPosition
+- (MaplyLight * _Nullable)makeLightWithAmbient:(float)ambient diffuse:(float)diffuse
 {
-    return MaplyCoordinateMake(sun->sunLon,sun->sunLat);
+    MaplyLight *light = [[MaplyLight alloc] init];
+    const MaplyCoordinate3d dir = self.direction;
+    light.pos = MaplyCoordinate3dMake(dir.x, dir.z, dir.y);
+    light.ambient = [UIColor colorWithRed:ambient green:ambient blue:ambient alpha:1.0];
+    light.diffuse = [UIColor colorWithRed:diffuse green:diffuse blue:diffuse alpha:1.0];
+    light.viewDependent = true;
+    return light;
 }
 
 @end

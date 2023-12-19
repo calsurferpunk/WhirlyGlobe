@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/29/14.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
     WideVectorDrawableBuilder(std::string name,const SceneRenderer *sceneRenderer,Scene *scene);
-    virtual ~WideVectorDrawableBuilder();
+    virtual ~WideVectorDrawableBuilder() = default;
 
     virtual void Init(unsigned int numVert,
                       unsigned int numTri,
@@ -63,6 +63,12 @@ public:
     
     /// Set the fade in and out
     void setFade(TimeInterval inFadeDown,TimeInterval inFadeUp);
+    
+    /// Set values from the vecInfo
+    void setValues(const WideVectorInfo &vecInfo);
+    
+    /// Used when we're changing values on geometry already generated
+    virtual void generateChanges(const SimpleIDSet &drawID,ChangeSet &changes) = 0;
     
     /// Set the bounding box for the data
     void setLocalMbr(const Mbr &mbr);
@@ -112,21 +118,37 @@ public:
     /// Adds a point for instanced geometry and an ID for tracking it in the shader
     virtual void addInstancePoint(const Point3f &pt,int vertIndex,int polyIndex);
     
-    // We set color globally
+    /// We set color globally
     void setColor(RGBAColor inColor);
     
-    // Line width for vectors is a bit different
+    /// Line width for vectors is a bit different
     virtual void setLineWidth(float inWidth);
     
-    // Line offset for vectors
+    /// Line offset for vectors
     void setLineOffset(float inOffset);
-    
+
+    /// Line join type
+    WideVectorLineJoinType getLineJoin() const { return joinType; }
+    void setLineJoin(WideVectorLineJoinType type) { joinType = type; }
+
+    /// Miter join limit as a multiple of width
+    void setMiterLimit(float limit) { miterLimit = limit; }
+
+    /// Set geometry fallback mode
+    void setFallbackMode(WideVectorFallbackMode mode) { fallbackMode = mode; }
+
+    /// Line cap type
+    void setLineCap(WideVectorLineCapType type) { capType = type; }
+ 
     /// How often the texture repeats
-    void setTexRepeat(float inTexRepeat);
-    
+    void setTexRepeat(float inTexRepeat) { texRepeat = inTexRepeat; }
+
+    /// Starting point for texture coords
+    void setTexOffset(const Point2f &offset) { texOffset = offset; }
+
     /// Number of pixels to interpolate at the edges
-    void setEdgeSize(float inEdgeSize);
-    
+    void setEdgeSize(float inEdgeSize) { edgeSize = inEdgeSize; }
+
     // Apply a dynamic color expression
     void setColorExpression(ColorExpressionInfoRef colorExp);
     
@@ -190,8 +212,9 @@ protected:
     float lineWidth = 1.0f;
     float lineOffset = 0.0f;
     bool lineOffsetSet = false;
-    bool globeMode = true;
+    bool globeMode = false;
     float texRepeat = 1.0f;
+    Point2f texOffset = { 0.0f, 0.0f };
     float edgeSize = 1.0f;
     int p1_index = -1;
     int n0_index = -1;
@@ -199,27 +222,36 @@ protected:
     int c0_index = -1;
     int tex_index = -1;
     int inst_index = -1;
+    WideVectorLineJoinType joinType = WideVecBevelJoin;
+    WideVectorLineCapType capType = WideVecSquareCap;
+    WideVectorFallbackMode fallbackMode = WideVecFallbackNone;
+    float miterLimit = 2.0;
     std::string name;
     Scene *scene;
     const SceneRenderer *renderer;
     
     // Controls whether we're building basic drawables or instances
     // We do instances on Metal
+    WideVecImplType implType = WideVecImplBasic;
     BasicDrawableBuilderRef basicDrawable;
-    WideVecImplType implType;
     BasicDrawableInstanceBuilderRef instDrawable;
 
-    RGBAColor color = RGBAColor::white();
     FloatExpressionInfoRef widthExp;
     FloatExpressionInfoRef offsetExp;
-    FloatExpressionInfoRef opacityExp;
+    
+    // These duplicate fields in the basic drawable builder, but are needed
+    // by the Metal builders because they aren't also in the instance builder.
+    // We need to ensure that changes are propagated to the basic drawable builder.
+    RGBAColor color = RGBAColor::white();
     ColorExpressionInfoRef colorExp;
+    FloatExpressionInfoRef opacityExp;
 
     // Centerline structure (for Metal)
     typedef struct {
         Point3f center;
         Point3f up;
-        float len;
+        float segLen;
+        float totalLen;
         RGBAColor color;
         int prev,next;
         int maskIDs[2];

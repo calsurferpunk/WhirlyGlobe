@@ -3,7 +3,7 @@
  *  WhirlyGlobe-MaplyComponent
  *
  *  Created by Steve Gifford on 4/26/15.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 
 #import <set>
 #import "visual_objects/MaplyParticleSystem.h"
-#import "WhirlyGlobe.h"
+#import "WhirlyGlobeLib.h"
 
 namespace WhirlyKit
 {
@@ -53,6 +53,8 @@ public:
 @property (nonatomic,assign) WhirlyKit::SimpleIdentity ident;
 @property (nonatomic,assign) WhirlyKit::SimpleIdentity renderTargetID;
 @property (nonatomic,assign) std::vector<id> &images;
+@property (nonatomic,assign) int numDataEntries;
+@property (nonatomic) NSMutableArray<NSData *> *dataArrays;
 
 @end
 

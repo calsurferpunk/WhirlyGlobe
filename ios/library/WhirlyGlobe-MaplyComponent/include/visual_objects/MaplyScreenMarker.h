@@ -1,9 +1,8 @@
-/*
- *  WGScreenMarker.h
+/*  MaplyScreenMarker.h
  *  WhirlyGlobeComponent
  *
  *  Created by Steve Gifford on 7/21/12.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,11 +14,12 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import <UIKit/UIKit.h>
-#import "math/MaplyCoordinate.h"
+#import <WhirlyGlobe/MaplyCoordinate.h>
+
+@class MaplyVectorObject;
 
 /** 
     The Screen Marker is a 2D object that displays an image on the screen tracking a given location.
@@ -134,6 +134,12 @@
     If this is present, we'll render an ID into the mask layer to be used by other features to mask against.
  */
 @property (nonatomic,retain,nullable) NSString *maskID;
+
+/**
+    If set, we'll lay out the marker along the given linear or areal feature.
+    Takes the first feature in the vector, if there are multiple.
+ */
+@property (nonatomic,retain,nullable) MaplyVectorObject *layoutVec;
 
 /** 
     User data object for selection

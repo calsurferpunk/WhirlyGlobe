@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 9/28/11.
- *  Copyright 2011-2021 mousebird consulting.
+ *  Copyright 2011-2022 mousebird consulting.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -33,19 +33,12 @@ namespace WhirlyKit
 {
 
 ShapeInfo::ShapeInfo()
-    : color(RGBAColor(255,255,255,255))
-    , lineWidth(1.0)
-    , insideOut(false)
-    , hasCenter(false)
-    , center(0.0,0.0,0.0)
 {
     zBufferRead = true;
 }
 
 ShapeInfo::ShapeInfo(const Dictionary &dict)
     : BaseInfo(dict)
-    , hasCenter(false)
-    , center(0,0,0)
 {
     zBufferRead = dict.getBool(MaplyZBufferRead, true);
     color = dict.getColor(MaplyColor,RGBAColor(255,255,255,255));
@@ -61,17 +54,41 @@ ShapeInfo::ShapeInfo(const Dictionary &dict)
     }
 }
 
-ShapeDrawableBuilder::ShapeDrawableBuilder(CoordSystemDisplayAdapter *coordAdapter, SceneRenderer *sceneRender, const ShapeInfo &shapeInfo, bool linesOrPoints, const Point3d &center)
-    : coordAdapter(coordAdapter), sceneRender(sceneRender), shapeInfo(shapeInfo), drawable(NULL), center(center)
+ShapeInfo::ShapeInfo(const ShapeInfo &info) :
+    BaseInfo(info),
+    color(info.color),
+    lineWidth(info.lineWidth),
+    insideOut(info.insideOut),
+    hasCenter(info.hasCenter),
+    center(info.center)
 {
-    primType = (linesOrPoints ? Lines : Points);
 }
 
-ShapeDrawableBuilder::~ShapeDrawableBuilder()
+ShapeDrawableBuilder::ShapeDrawableBuilder(const CoordSystemDisplayAdapter *coordAdapter,
+                                           SceneRenderer *sceneRender,
+                                           const ShapeInfo &shapeInfo,
+                                           bool linesOrPoints,
+                                           const Point3d &center) :
+    coordAdapter(coordAdapter),
+    sceneRender(sceneRender),
+    shapeInfo(shapeInfo),
+    center(center),
+    primType(linesOrPoints ? Lines : Points)
 {
 }
 
-void ShapeDrawableBuilder::addPoints(Point3dVector &pts,RGBAColor color,Mbr mbr,float lineWidth,bool closed)
+void ShapeDrawableBuilder::setClipCoords(bool newClipCoords)
+{
+    // Can't mix different coordinates in the same drawable
+    if (clipCoords != newClipCoords && drawable)
+    {
+        flush();
+    }
+    clipCoords = newClipCoords;
+}
+
+void ShapeDrawableBuilder::addPoints(const Point3dVector &pts,RGBAColor color,
+                                     const Mbr &mbr,float lineWidth,bool closed)
 {
     // Decide if we'll appending to an existing drawable or
     //  create a new one
@@ -86,6 +103,7 @@ void ShapeDrawableBuilder::addPoints(Point3dVector &pts,RGBAColor color,Mbr mbr,
         shapeInfo.setupBasicDrawable(drawable);
         drawMbr.reset();
         drawable->setType(primType);
+        drawable->setClipCoords(clipCoords);
         // Adjust according to the vector info
         //            drawable->setColor([shapeInfo.color asRGBAColor]);
         drawable->setLineWidth(lineWidth);
@@ -150,23 +168,29 @@ void ShapeDrawableBuilder::flush()
         {
             drawable->setLocalMbr(drawMbr);
 
-            if (shapeInfo.fade > 0.0)
+            if (shapeInfo.fadeIn > 0.0)
             {
-                TimeInterval curTime = time_t();
-                drawable->setFade(curTime,curTime+shapeInfo.fade);
+                // fadeDown < fadeUp : fading in
+                const TimeInterval curTime = sceneRender->getScene()->getCurrentTime();
+                drawable->setFade(curTime,curTime+shapeInfo.fadeIn);
             }
+            else if (shapeInfo.fadeOut > 0.0 && shapeInfo.fadeOutTime > 0.0)
+            {
+                // fadeUp < fadeDown : fading out
+                drawable->setFade(/*down=*/shapeInfo.fadeOutTime+shapeInfo.fadeOut, /*up=*/shapeInfo.fadeOutTime);
+            }
+
             drawables.push_back(drawable);
         }
-        drawable = NULL;
+        drawable = nullptr;
     }
 }
 
-void ShapeDrawableBuilder::getChanges(WhirlyKit::ChangeSet &changes,SimpleIDSet &drawIDs)
+void ShapeDrawableBuilder::getChanges(ChangeSet &changes,SimpleIDSet &drawIDs)
 {
     flush();
-    for (unsigned int ii=0;ii<drawables.size();ii++)
+    for (auto & draw : drawables)
     {
-        BasicDrawableBuilderRef draw = drawables[ii];
         changes.push_back(new AddDrawableReq(draw->getDrawable()));
         drawIDs.insert(draw->getDrawableID());
     }
@@ -174,21 +198,22 @@ void ShapeDrawableBuilder::getChanges(WhirlyKit::ChangeSet &changes,SimpleIDSet 
 }
 
 
-ShapeDrawableBuilderTri::ShapeDrawableBuilderTri(WhirlyKit::CoordSystemDisplayAdapter *coordAdapter, SceneRenderer *sceneRender, const ShapeInfo &shapeInfo, const Point3d &center)
-    : coordAdapter(coordAdapter), sceneRender(sceneRender), shapeInfo(shapeInfo), drawable(NULL), center(center), clipCoords(false)
-{
-}
-
-ShapeDrawableBuilderTri::~ShapeDrawableBuilderTri()
+ShapeDrawableBuilderTri::ShapeDrawableBuilderTri(const CoordSystemDisplayAdapter *coordAdapter,
+                                                 SceneRenderer *sceneRender,
+                                                 const ShapeInfo &shapeInfo,
+                                                 const Point3d &center) :
+    coordAdapter(coordAdapter),
+    sceneRender(sceneRender),
+    shapeInfo(shapeInfo),
+    center(center)
 {
 }
 
 void ShapeDrawableBuilderTri::setupNewDrawable()
 {
-    drawable = sceneRender->makeBasicDrawableBuilder("Shape Layer");
+    drawable = sceneRender->makeBasicDrawableBuilder(drawableName.empty() ? "Shape Layer" : drawableName);
     shapeInfo.setupBasicDrawable(drawable);
-    if (clipCoords)
-        drawable->setClipCoords(true);
+    drawable->setClipCoords(clipCoords);
     drawMbr.reset();
     drawable->setType(Triangles);
     // Adjust according to the vector info
@@ -382,6 +407,8 @@ void ShapeDrawableBuilderTri::addConvexOutline(Point3dVector &pts,std::vector<Te
         addTriangle(pts[0], norm, color, texCoords[0], pts[ii-1], norm, color, texCoords[ii-1], pts[ii], norm, color, texCoords[ii], shapeMbr);
 }
 
+#if !MAPLY_MINIMAL
+
 void ShapeDrawableBuilderTri::addComplexOutline(Point3dVector &pts,Point3d norm,RGBAColor color,Mbr shapeMbr)
 {
     Point3f norm3f(norm.x(),norm.y(),norm.z());
@@ -408,6 +435,8 @@ void ShapeDrawableBuilderTri::addComplexOutline(Point3dVector &pts,Point3d norm,
     }
 }
 
+#endif //!MAPLY_MINIMAL
+
 void ShapeDrawableBuilderTri::flush()
 {
     if (drawable)
@@ -416,14 +445,21 @@ void ShapeDrawableBuilderTri::flush()
         {
             drawable->setLocalMbr(drawMbr);
 
-            if (shapeInfo.fade > 0.0)
+            if (shapeInfo.fadeIn > 0.0)
             {
-                TimeInterval curTime = time_t(NULL);
-                drawable->setFade(curTime,curTime+shapeInfo.fade);
+                // fadeDown < fadeUp : fading in
+                const TimeInterval curTime = sceneRender->getScene()->getCurrentTime();
+                drawable->setFade(curTime,curTime+shapeInfo.fadeIn);
             }
+            else if (shapeInfo.fadeOut > 0.0 && shapeInfo.fadeOutTime > 0.0)
+            {
+                // fadeUp < fadeDown : fading out
+                drawable->setFade(/*down=*/shapeInfo.fadeOutTime+shapeInfo.fadeOut, /*up=*/shapeInfo.fadeOutTime);
+            }
+
             drawables.push_back(drawable);
         }
-        drawable = NULL;
+        drawable.reset();
     }
 }
 

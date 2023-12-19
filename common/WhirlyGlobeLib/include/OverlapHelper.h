@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 9/28/15.
- *  Copyright 2011-2019 mousebird consulting.
+ *  Copyright 2011-2022 mousebird consulting.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -32,40 +32,89 @@
 
 namespace WhirlyKit
 {
-class LayoutObjectEntry;
+struct LayoutObjectEntry;
 class LayoutObject;
-    
-// We use this to avoid overlapping labels
-class OverlapHelper
-{
-public:
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+using LayoutObjectEntryRef = std::shared_ptr<LayoutObjectEntry>;
 
-    OverlapHelper(const Mbr &mbr,int sizeX,int sizeY);
-    
+// We use this to avoid overlapping labels
+struct OverlapHelper
+{
+    OverlapHelper(const Mbr &mbr,int sizeX,int sizeY,size_t totalObjs);
+
     // Try to add an object.  Might fail (kind of the whole point).
-    bool addCheckObject(const Point2dVector &pts);
-    
+    bool addCheckObject(const Point2dVector &pts, const char* mergeID = nullptr);
+    bool addCheckObject(const Point2dVector &pts, const std::string &mergeID);
+
     // See if there's an object in the way
-    bool checkObject(const Point2dVector &pts);
-    
+    bool checkObject(const Point2dVector &pts, const char* mergeID = nullptr);
+    bool checkObject(const Point2dVector &pts, const std::string &mergeID);
+
     // Force an object in no matter what
-    void addObject(const Point2dVector &pts);
+    void addObject(Point2dVector pts, std::string mergeID = std::string());
     
 protected:
-    // Object and its bounds
-    class BoundedObject
+    void calcCells(const Mbr &objMbr, int &sx, int &sy, int &ex, int &ey);
+    bool checkObject(const Point2dVector &pts, const Mbr &objMbr,
+                     int sx, int sy, int ex, int ey,
+                     const char* mergeID);
+    void addObject(Point2dVector pts, std::string mergeID,
+                   int sx, int sy, int ex, int ey);
+
+    struct GridCell
     {
-    public:
-        ~BoundedObject() { }
-        Point2dVector pts;
+        // Indexes into objects vector
+        std::vector<int> objIndexes;
     };
-    
+
+    // Object and its bounds
+    struct BoundedObject
+    {
+        BoundedObject() = default;
+        BoundedObject(const BoundedObject&) = default;
+        BoundedObject& operator=(const BoundedObject&) = default;
+
+        BoundedObject(const Point2dVector& inPts, const char* id) :
+                pts(inPts), mergeID(id ? id : std::string())
+        {
+        }
+
+        BoundedObject(Point2dVector&& inPts, std::string &&id) :
+                pts(std::move(inPts)), mergeID(std::move(id))
+        {
+        }
+
+        BoundedObject(BoundedObject&& that) :
+                pts(std::move(that.pts)), mergeID(std::move(that.mergeID))
+        {
+        }
+        BoundedObject& operator=(BoundedObject&& that)
+        {
+            if (this != &that)
+            {
+                pts = std::move(that.pts);
+                mergeID = std::move(that.mergeID);
+            }
+            return *this;
+        }
+
+        Point2dVector pts;
+        std::string mergeID;
+    };
+
+    GridCell &cellAt(int x, int y) { return grid[y * sizeX + x]; }
+
     Mbr mbr;
-    std::vector<BoundedObject> objects;
-    int sizeX,sizeY;
+    int sizeX;
+    int sizeY;
+    size_t totalObjs;
     Point2f cellSize;
-    std::vector<std::vector<int> > grid;
+    std::vector<BoundedObject> objects;
+    std::vector<GridCell> grid;
+
+    // Estimate the fraction of objects likely to fall in a given cell
+    const double overlapHeuristic = 0.1;
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
 
 // Used to figure out what clusters
@@ -74,48 +123,44 @@ class ClusterHelper
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
-    ClusterHelper(const Mbr &mbr,int sizeX, int sizeY, float resScale, const Point2d &clusterMarkerSize);
+    ClusterHelper(const Mbr &mbr,int sizeX, int sizeY, float resScale, Point2d clusterMarkerSize);
     
     // Add an object, possibly forming a group
-    void addObject(LayoutObjectEntry *objEntry,const Point2dVector &pts);
+    void addObject(LayoutObjectEntryRef objEntry,const Point2dVector &pts);
 
     // Deal with cluster to cluster overlap
-    void resolveClusters();
+    void resolveClusters(volatile bool &cancel);
     
     // Single object with its bounds
-    class ObjectWithBounds
+    struct ObjectWithBounds
     {
-    public:
-        ObjectWithBounds();
         Point2dVector pts;
         Point2d center;
     };
     
     // Simple object we're trying to cluster
-    class SimpleObject : public ObjectWithBounds
+    struct SimpleObject : public ObjectWithBounds
     {
-    public:
-        SimpleObject();
-        LayoutObjectEntry *objEntry;
-        int parentObject;
+        SimpleObject() = default;
+        std::shared_ptr<LayoutObjectEntry> objEntry;
+        int parentObject = -1;
     };
     
     // Object we create when there are overlaps
-    class ClusterObject : public ObjectWithBounds
+    struct ClusterObject : public ObjectWithBounds
     {
-    public:
-        ClusterObject();
         std::vector<int> children;
     };
     
     // List of objects for this cluster
-    void objectsForCluster(ClusterObject &cluster,std::vector<LayoutObjectEntry *> &layoutObjs);
+    void objectsForCluster(const ClusterObject &cluster,
+                           std::vector<LayoutObjectEntryRef> &layoutObjs);
 
     // Add the given index to the cells it covers
-    void addToCells(const Mbr &mbr,int index);
+    void addToCells(const Mbr &objMbr, int index);
     
     // Remove the given index from the cells it covers
-    void removeFromCells(const Mbr &mbr,int index);
+    void removeFromCells(const Mbr &objMbr, int index);
     
     // Return all the objects within the overlap
     void findObjectsWithin(const Mbr &mbr,std::set<int> &objSet);

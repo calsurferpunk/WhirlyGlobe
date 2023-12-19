@@ -1,9 +1,8 @@
-/*
- *  GlobeAnimateHeight.h
+/*  GlobeAnimateHeight.h
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 2/7/14.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "WhirlyTypes.h"
@@ -31,7 +29,7 @@ namespace WhirlyGlobe
 class TiltCalculator
 {
 public:
-    TiltCalculator();
+    TiltCalculator() = default;
 
     /// If this is called, the pan delegate will vary the tilt between the given values for the
     ///  given height range.
@@ -44,15 +42,18 @@ public:
     virtual double tiltFromHeight(double height) = 0;
     
     /// Return the maximum allowable tilt
-    virtual double getMaxTilt() { return maxTilt; }
+    virtual double getMaxTilt() const { return maxTilt; }
 
     /// Called by an actual tilt gesture.  We're setting the tilt as given
     virtual void setTilt(double newTilt) = 0;
     
 protected:
-    bool active;
-    double tilt;
-    double minTilt,maxTilt,minHeight,maxHeight;
+    bool active = false;
+    double tilt = 0.0;
+    double minTilt = 0.0;
+    double maxTilt = 0.0;
+    double minHeight = 0.0;
+    double maxHeight = 0.0;
 };
     
 typedef std::shared_ptr<TiltCalculator> TiltCalculatorRef;
@@ -65,17 +66,17 @@ public:
     StandardTiltDelegate(GlobeView *globeView);
 
     /// Return a calculated tilt
-    virtual double tiltFromHeight(double height);
+    virtual double tiltFromHeight(double height) override;
 
     /// Return the maximum allowable tilt
-    virtual double getMaxTilt();
+    virtual double getMaxTilt() const override;
 
     /// Called by an actual tilt gesture.  We're setting the tilt as given
-    virtual void setTilt(double newTilt);
+    virtual void setTilt(double newTilt) override;
 
 protected:
-    GlobeView *globeView;
-    double outsideTilt;
+    GlobeView *globeView = nullptr;
+    double outsideTilt = 0.0;
 };
     
 typedef std::shared_ptr<StandardTiltDelegate> StandardTiltDelegateRef;
@@ -88,8 +89,10 @@ public:
     AnimateViewHeight(GlobeView *globeView,double toHeight,WhirlyKit::TimeInterval howLong);
     
     /// Update the globe view
-    virtual void updateView(GlobeView *globeView);
-    
+    virtual void updateView(WhirlyKit::View *);
+
+    virtual bool isUserMotion() const { return false; }
+
     /// If set, we're constraining the tilt based on height
     void setTiltDelegate(TiltCalculatorRef newDelegate);
     

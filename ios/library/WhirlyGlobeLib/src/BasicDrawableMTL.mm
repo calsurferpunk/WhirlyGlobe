@@ -1,9 +1,8 @@
-/*
- *  BasicDrawableMTL.mm
+/*  BasicDrawableMTL.mm
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/16/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "BasicDrawableMTL.h"
@@ -25,14 +23,17 @@
 #import "TextureMTL.h"
 #import "SceneMTL.h"
 #import "DefaultShadersMTL.h"
+#import "WhirlyKitLog.h"
 
 using namespace Eigen;
 
 namespace WhirlyKit
 {
 
-BasicDrawableMTL::BasicDrawableMTL(const std::string &name)
-    : BasicDrawable(name), Drawable(name), setupForMTL(false), vertDesc(nil), renderState(nil), numPts(0), numTris(0),vertHasTextures(false),fragHasTextures(false),vertHasLighting(false),fragHasLighting(false)
+BasicDrawableMTL::BasicDrawableMTL(const std::string &name) :
+    BasicDrawable(name), Drawable(name), setupForMTL(false), vertDesc(nil),
+    renderState(nil), numPts(0), numTris(0),vertHasTextures(false),
+    fragHasTextures(false),vertHasLighting(false),fragHasLighting(false)
 {
 }
 
@@ -42,7 +43,7 @@ BasicDrawableMTL::~BasicDrawableMTL()
 
 VertexAttributeMTL *BasicDrawableMTL::findVertexAttribute(int nameID)
 {
-    VertexAttributeMTL *foundVertAttr = NULL;
+    VertexAttributeMTL *foundVertAttr = nullptr;
     for (auto vertAttr : vertexAttributes) {
         VertexAttributeMTL *vertAttrMTL = (VertexAttributeMTL *)vertAttr;
         if (vertAttrMTL->nameID == nameID) {
@@ -79,8 +80,8 @@ void BasicDrawableMTL::setupForRenderer(const RenderSetupInfo *inSetupInfo,Scene
     
     // And put the triangles in their own
     // Note: Could use 1 byte some of the time
-    int bufferSize = 3*2*tris.size();
     numTris = tris.size();
+    const int bufferSize = 3*2*numTris;
     if (bufferSize > 0) {
         buffBuild.addData(&tris[0], bufferSize, &triBuffer);
         tris.clear();
@@ -100,6 +101,15 @@ void BasicDrawableMTL::setupForRenderer(const RenderSetupInfo *inSetupInfo,Scene
     
     // Construct the buffer we've been adding to
     mainBuffer = buffBuild.buildBuffer();
+    
+    // If this is a calculation drawable, we need to build the data buffers
+    // We're not going to merge these into a main buffer, they're meant to be big
+    for (const auto &thisData : calcData) {
+        auto newBuff = setupInfo->heapManage.allocateBuffer(HeapManagerMTL::HeapType::Drawable,
+                                                            thisData->getRawData(),
+                                                            thisData->getLen());
+        calcBuffers.push_back(newBuff);
+    }
     
     setupForMTL = true;
 }
@@ -143,6 +153,11 @@ MTLVertexDescriptor *BasicDrawableMTL::getVertexDescriptor(id<MTLFunction> vertF
     
     vertDesc = [[MTLVertexDescriptor alloc] init];
     defAttrs.clear();
+    
+    // If this is a calculation drawable, just short circuit this
+    if (calcDataEntries > 0)
+        return vertDesc;
+    
     std::set<int> buffersFilled;
     
     // Work through the buffers we know about
@@ -276,7 +291,20 @@ id<MTLRenderPipelineState> BasicDrawableMTL::getRenderPipelineState(SceneRendere
     if (renderState)
         return renderState;
     MTLRenderPipelineDescriptor *renderDesc = sceneRender->defaultRenderPipelineState(sceneRender,program,renderTarget);
+
+    if (getBlendPremultipliedAlpha() && renderDesc.colorAttachments[0].blendingEnabled)
+    {
+        // If this drawable uses pre-multipled alpha components, tweak the blend mode from
+        // the equivalent of `glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)` to
+        // `glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)`.
+        renderDesc.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorOne;
+        renderDesc.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorOne;
+    }
+
     renderDesc.vertexDescriptor = getVertexDescriptor(program->vertFunc,defaultAttrs);
+    // Calculation drawables don't rasterize
+    if (calcDataEntries > 0)
+        renderDesc.rasterizationEnabled = false;
     if (!name.empty())
         renderDesc.label = [NSString stringWithFormat:@"%s",name.c_str()];
 
@@ -332,6 +360,8 @@ namespace {
 void BasicDrawableMTL::setupArgBuffers(id<MTLDevice> mtlDevice,RenderSetupInfoMTL *setupInfo,SceneMTL *scene,BufferBuilderMTL *buffBuild)
 {
     ProgramMTL *prog = (ProgramMTL *)scene->getProgram(programId);
+    if (!prog)
+        prog = (ProgramMTL *)scene->getProgram(calcProgramId);
     if (!prog)  // This happens if we're being used by an instance
         return;
     
@@ -393,15 +423,22 @@ void BasicDrawableMTL::setupArgBuffers(id<MTLDevice> mtlDevice,RenderSetupInfoMT
 // Called before anything starts calculating or drawing to fill in buffers and such
 bool BasicDrawableMTL::preProcess(SceneRendererMTL *sceneRender,id<MTLCommandBuffer> cmdBuff,id<MTLBlitCommandEncoder> bltEncode,SceneMTL *scene)
 {
-    bool ret = false;
-    
-    ProgramMTL *prog = (ProgramMTL *)scene->getProgram(programId);
-    if (!prog) {
-        NSLog(@"Drawable %s missing program.",name.c_str());
-        return false;
+    if (programId == Program::NoProgramID && calcProgramId == Program::NoProgramID) {
+        return true;
     }
 
-    if (texturesChanged || valuesChanged || prog->changed) {
+    // Either regular program or calculation program
+    ProgramMTL *prog = (ProgramMTL *)scene->getProgram(programId);
+    if (!prog) {
+        prog = (ProgramMTL *)scene->getProgram(calcProgramId);
+        if (!prog) {
+            NSLog(@"Drawable %lld (%s) missing program (%lld/%lld)", getId(), name.c_str(), programId, calcProgramId);
+            return false;
+        }
+    }
+
+    bool ret = false;
+    if (texturesChanged || valuesChanged || prog->texturesChanged || prog->valuesChanged) {
         ret = true;
         
         // We need to blit the default values into place because we let those change
@@ -418,7 +455,7 @@ bool BasicDrawableMTL::preProcess(SceneRendererMTL *sceneRender,id<MTLCommandBuf
             [bltEncode copyFromBuffer:srcBuff.buffer sourceOffset:0 toBuffer:baseBuff.buffer destinationOffset:baseBuff.offset size:srcBuff.buffer.length];
         }
 
-        if (texturesChanged && (vertTexInfo || fragTexInfo)) {
+        if ((texturesChanged || prog->texturesChanged) && (vertTexInfo || fragTexInfo)) {
             activeTextures.clear();
             
             int numEntries = texInfo.size();
@@ -482,7 +519,7 @@ bool BasicDrawableMTL::preProcess(SceneRendererMTL *sceneRender,id<MTLCommandBuf
             }
         }
 
-        if (valuesChanged || prog->changed) {
+        if (valuesChanged || prog->valuesChanged) {
             if (vertABInfo)
                 vertABInfo->startEncoding(sceneRender->setupInfo.mtlDevice);
             if (fragABInfo)
@@ -491,7 +528,8 @@ bool BasicDrawableMTL::preProcess(SceneRendererMTL *sceneRender,id<MTLCommandBuf
             // Uniform blocks associated with the program
             for (const UniformBlock &uniBlock : prog->uniBlocks) {
                 vertABInfo->updateEntry(sceneRender->setupInfo.mtlDevice,bltEncode,uniBlock.bufferID, (void *)uniBlock.blockData->getRawData(), uniBlock.blockData->getLen());
-                fragABInfo->updateEntry(sceneRender->setupInfo.mtlDevice,bltEncode,uniBlock.bufferID, (void *)uniBlock.blockData->getRawData(), uniBlock.blockData->getLen());
+                if (fragABInfo)
+                    fragABInfo->updateEntry(sceneRender->setupInfo.mtlDevice,bltEncode,uniBlock.bufferID, (void *)uniBlock.blockData->getRawData(), uniBlock.blockData->getLen());
             }
 
             // And the uniforms passed through the drawable
@@ -547,6 +585,10 @@ bool BasicDrawableMTL::preProcess(SceneRendererMTL *sceneRender,id<MTLCommandBuf
 void BasicDrawableMTL::enumerateBuffers(ResourceRefsMTL &resources)
 {
     resources.addEntry(mainBuffer);
+    
+    for (const auto &calcBuf: calcBuffers)
+        resources.addEntry(calcBuf);
+    
     if (vertABInfo)
         vertABInfo->addResources(resources);
     if (fragABInfo)
@@ -562,7 +604,8 @@ void BasicDrawableMTL::enumerateResources(RendererFrameInfoMTL *frameInfo,Resour
 {
     SceneRendererMTL *sceneRender = (SceneRendererMTL *)frameInfo->sceneRenderer;
 
-    resources.addEntry(sceneRender->setupInfo.uniformBuff);
+    for (unsigned int ii=0;ii<MaxViewWrap;ii++)
+        resources.addEntry(sceneRender->setupInfo.uniformBuff[ii]);
     if (vertHasLighting || fragHasLighting)
         resources.addEntry(sceneRender->setupInfo.lightingBuff);
     enumerateBuffers(resources);
@@ -570,17 +613,66 @@ void BasicDrawableMTL::enumerateResources(RendererFrameInfoMTL *frameInfo,Resour
 
 void BasicDrawableMTL::encodeDirectCalculate(RendererFrameInfoMTL *frameInfo,id<MTLRenderCommandEncoder> cmdEncode,Scene *scene)
 {
-    // TODO: Fill this in
-}
+    if (calcDataEntries <= 0)
+        return;
 
-void BasicDrawableMTL::encodeDirect(RendererFrameInfoMTL *frameInfo,id<MTLRenderCommandEncoder> cmdEncode,Scene *scene)
-{
     SceneRendererMTL *sceneRender = (SceneRendererMTL *)frameInfo->sceneRenderer;
 
     id<MTLRenderPipelineState> renderState = getRenderPipelineState(sceneRender,scene,(ProgramMTL *)frameInfo->program,(RenderTargetMTL *)frameInfo->renderTarget);
-    
+    if (!renderState)
+    {
+        return;
+    }
+
+    [cmdEncode setRenderPipelineState:renderState];
+
+    // Everything takes the uniforms
+    [cmdEncode setVertexBuffer:sceneRender->setupInfo.uniformBuff[0].buffer
+                        offset:sceneRender->setupInfo.uniformBuff[0].offset
+                       atIndex:WhirlyKitShader::WKSVertUniformArgBuffer];
+    [cmdEncode setFragmentBuffer:sceneRender->setupInfo.uniformBuff[0].buffer
+                          offset:sceneRender->setupInfo.uniformBuff[0].offset
+                         atIndex:WhirlyKitShader::WKSFragUniformArgBuffer];
+
+    // More flexible data structures passed in to the shaders
+    if (vertABInfo) {
+        BufferEntryMTL &buff = vertABInfo->getBuffer();
+        [cmdEncode setVertexBuffer:buff.buffer offset:buff.offset atIndex:WhirlyKitShader::WKSVertexArgBuffer];
+    }
+
+    // Textures may or may not be passed in to shaders
+    if (vertTexInfo) {
+        BufferEntryMTL &buff = vertTexInfo->getBuffer();
+        [cmdEncode setVertexBuffer:buff.buffer offset:buff.offset atIndex:WhirlyKitShader::WKSVertTextureArgBuffer];
+    }
+
+    // Wire up the buffers themselves.  One will be input, another output.
+    for (unsigned int ii=0;ii<calcBuffers.size();ii++) {
+        const BufferEntryMTL &calcBuf = calcBuffers[ii];
+        [cmdEncode setVertexBuffer:calcBuf.buffer offset:calcBuf.offset atIndex:WhirlyKitShader::WKSVertCalculationArgBuffer+ii];
+    }
+
+    [cmdEncode drawPrimitives:MTLPrimitiveTypePoint vertexStart:0 vertexCount:calcDataEntries];
+}
+
+void BasicDrawableMTL::encodeDirect(RendererFrameInfoMTL *frameInfo,int oi,id<MTLRenderCommandEncoder> cmdEncode,Scene *scene)
+{
+    if (!setupForMTL)
+    {
+        wkLogLevel(Warn, "Drawable %lld not set up - skipping", getId());
+        return;
+    }
+
+    SceneRendererMTL *sceneRender = (SceneRendererMTL *)frameInfo->sceneRenderer;
+
+    id<MTLRenderPipelineState> renderState = getRenderPipelineState(sceneRender,scene,(ProgramMTL *)frameInfo->program,(RenderTargetMTL *)frameInfo->renderTarget);
+    if (!renderState)
+    {
+        return;
+    }
+
     // Wire up the various inputs that we know about
-    for (auto vertAttr : vertexAttributes) {
+    for (const auto &vertAttr : vertexAttributes) {
         VertexAttributeMTL *vertAttrMTL = (VertexAttributeMTL *)vertAttr;
         if (vertAttrMTL->buffer.buffer && (vertAttrMTL->slot >= 0))
             [cmdEncode setVertexBuffer:vertAttrMTL->buffer.buffer offset:vertAttrMTL->buffer.offset atIndex:vertAttrMTL->slot];
@@ -593,8 +685,12 @@ void BasicDrawableMTL::encodeDirect(RendererFrameInfoMTL *frameInfo,id<MTLRender
     [cmdEncode setRenderPipelineState:renderState];
     
     // Everything takes the uniforms
-    [cmdEncode setVertexBuffer:sceneRender->setupInfo.uniformBuff.buffer offset:sceneRender->setupInfo.uniformBuff.offset atIndex:WhirlyKitShader::WKSVertUniformArgBuffer];
-    [cmdEncode setFragmentBuffer:sceneRender->setupInfo.uniformBuff.buffer offset:sceneRender->setupInfo.uniformBuff.offset atIndex:WhirlyKitShader::WKSFragUniformArgBuffer];
+    [cmdEncode setVertexBuffer:sceneRender->setupInfo.uniformBuff[oi].buffer
+                        offset:sceneRender->setupInfo.uniformBuff[oi].offset
+                       atIndex:WhirlyKitShader::WKSVertUniformArgBuffer];
+    [cmdEncode setFragmentBuffer:sceneRender->setupInfo.uniformBuff[oi].buffer
+                          offset:sceneRender->setupInfo.uniformBuff[oi].offset
+                         atIndex:WhirlyKitShader::WKSFragUniformArgBuffer];
 
     // Some shaders take the lighting
     if (vertHasLighting)
@@ -642,21 +738,92 @@ void BasicDrawableMTL::encodeDirect(RendererFrameInfoMTL *frameInfo,id<MTLRender
 
 void BasicDrawableMTL::encodeIndirectCalculate(id<MTLIndirectRenderCommand> cmdEncode,SceneRendererMTL *sceneRender,Scene *scene,RenderTargetMTL *renderTarget)
 {
-    // TODO: Fill this in
-}
-
-void BasicDrawableMTL::encodeIndirect(id<MTLIndirectRenderCommand> cmdEncode,SceneRendererMTL *sceneRender,Scene *scene,RenderTargetMTL *renderTarget)
-{
-    ProgramMTL *program = (ProgramMTL *)scene->getProgram(programId);
+    if (calcDataEntries <= 0)
+        return;
+    
+    ProgramMTL *program = (ProgramMTL *)scene->getProgram(calcProgramId);
     if (!program) {
         NSLog(@"BasicDrawableMTL: Missing programId for %s",name.c_str());
         return;
     }
-    
+
     id<MTLRenderPipelineState> renderState = getRenderPipelineState(sceneRender,scene,program,renderTarget);
+    if (!renderState)
+    {
+        return;
+    }
+
+    [cmdEncode setRenderPipelineState:renderState];
+
+    // Everything takes the uniforms
+    [cmdEncode setVertexBuffer:sceneRender->setupInfo.uniformBuff[0].buffer
+                        offset:sceneRender->setupInfo.uniformBuff[0].offset
+                       atIndex:WhirlyKitShader::WKSVertUniformArgBuffer];
+    [cmdEncode setFragmentBuffer:sceneRender->setupInfo.uniformBuff[0].buffer
+                          offset:sceneRender->setupInfo.uniformBuff[0].offset
+                         atIndex:WhirlyKitShader::WKSFragUniformArgBuffer];
+
+    // More flexible data structures passed in to the shaders
+    if (vertABInfo) {
+        BufferEntryMTL &buff = vertABInfo->getBuffer();
+        if (!buff.buffer.label)
+        {
+            buff.buffer.label = @"VertexArgs";
+        }
+        [cmdEncode setVertexBuffer:buff.buffer offset:buff.offset atIndex:WhirlyKitShader::WKSVertexArgBuffer];
+    }
+
+    // Textures may or may not be passed in to shaders
+    if (vertTexInfo) {
+        BufferEntryMTL &buff = vertTexInfo->getBuffer();
+        if (!buff.buffer.label)
+        {
+            buff.buffer.label = @"VertexTexArgs";
+        }
+        [cmdEncode setVertexBuffer:buff.buffer offset:buff.offset atIndex:WhirlyKitShader::WKSVertTextureArgBuffer];
+    }
+
+    // Wire up the buffers themselves.  One will be input, another output.
+    for (unsigned int ii=0;ii<calcBuffers.size();ii++) {
+        const BufferEntryMTL &calcBuf = calcBuffers[ii];
+        if (!calcBuf.buffer.label)
+        {
+            calcBuf.buffer.label = [NSString stringWithFormat:@"CalcBuf%d", ii];
+        }
+        [cmdEncode setVertexBuffer:calcBuf.buffer offset:calcBuf.offset atIndex:WhirlyKitShader::WKSVertCalculationArgBuffer+ii];
+    }
+
+    [cmdEncode drawPrimitives:MTLPrimitiveTypePoint vertexStart:0 vertexCount:calcDataEntries instanceCount:1 baseInstance:0];
+}
+
+void BasicDrawableMTL::encodeIndirect(id<MTLIndirectRenderCommand> cmdEncode,int oi,SceneRendererMTL *sceneRender,Scene *scene,RenderTargetMTL *renderTarget)
+{
+    // Ignore calculation drawables
+    if (calcDataEntries > 0 || programId == Program::NoProgramID)
+    {
+        return;
+    }
+
+    ProgramMTL *program = (ProgramMTL *)scene->getProgram(programId);
+    if (!program) {
+        NSLog(@"BasicDrawableMTL: Missing programId for %lld (%s)", getId(), name.c_str());
+        return;
+    }
     
+    if (!setupForMTL)
+    {
+        wkLogLevel(Warn, "Drawable %lld (%s) not set up - skipping", getId(), name.c_str());
+        return;
+    }
+
+    id<MTLRenderPipelineState> renderState = getRenderPipelineState(sceneRender,scene,program,renderTarget);
+    if (!renderState)
+    {
+        return;
+    }
+
     // Wire up the various inputs that we know about
-    for (auto vertAttr : vertexAttributes) {
+    for (const auto &vertAttr : vertexAttributes) {
         VertexAttributeMTL *vertAttrMTL = (VertexAttributeMTL *)vertAttr;
         if (vertAttrMTL->buffer.buffer && (vertAttrMTL->slot >= 0))
             [cmdEncode setVertexBuffer:vertAttrMTL->buffer.buffer offset:vertAttrMTL->buffer.offset atIndex:vertAttrMTL->slot];
@@ -669,32 +836,56 @@ void BasicDrawableMTL::encodeIndirect(id<MTLIndirectRenderCommand> cmdEncode,Sce
     [cmdEncode setRenderPipelineState:renderState];
     
     // Everything takes the uniforms
-    [cmdEncode setVertexBuffer:sceneRender->setupInfo.uniformBuff.buffer offset:sceneRender->setupInfo.uniformBuff.offset atIndex:WhirlyKitShader::WKSVertUniformArgBuffer];
-    [cmdEncode setFragmentBuffer:sceneRender->setupInfo.uniformBuff.buffer offset:sceneRender->setupInfo.uniformBuff.offset atIndex:WhirlyKitShader::WKSFragUniformArgBuffer];
+    [cmdEncode setVertexBuffer:sceneRender->setupInfo.uniformBuff[oi].buffer
+                        offset:sceneRender->setupInfo.uniformBuff[oi].offset
+                       atIndex:WhirlyKitShader::WKSVertUniformArgBuffer];
+    [cmdEncode setFragmentBuffer:sceneRender->setupInfo.uniformBuff[oi].buffer
+                          offset:sceneRender->setupInfo.uniformBuff[oi].offset
+                         atIndex:WhirlyKitShader::WKSFragUniformArgBuffer];
 
     // Some shaders take the lighting
     if (vertHasLighting)
-        [cmdEncode setVertexBuffer:sceneRender->setupInfo.lightingBuff.buffer offset:sceneRender->setupInfo.lightingBuff.offset atIndex:WhirlyKitShader::WKSVertLightingArgBuffer];
+        [cmdEncode setVertexBuffer:sceneRender->setupInfo.lightingBuff.buffer
+                            offset:sceneRender->setupInfo.lightingBuff.offset
+                           atIndex:WhirlyKitShader::WKSVertLightingArgBuffer];
     if (fragHasLighting)
-        [cmdEncode setFragmentBuffer:sceneRender->setupInfo.lightingBuff.buffer offset:sceneRender->setupInfo.lightingBuff.offset atIndex:WhirlyKitShader::WKSFragLightingArgBuffer];
+        [cmdEncode setFragmentBuffer:sceneRender->setupInfo.lightingBuff.buffer
+                              offset:sceneRender->setupInfo.lightingBuff.offset
+                             atIndex:WhirlyKitShader::WKSFragLightingArgBuffer];
 
     // More flexible data structures passed in to the shaders
     if (vertABInfo) {
         BufferEntryMTL &buff = vertABInfo->getBuffer();
+        if (!buff.buffer.label)
+        {
+            buff.buffer.label = @"VertexArgs";
+        }
         [cmdEncode setVertexBuffer:buff.buffer offset:buff.offset atIndex:WhirlyKitShader::WKSVertexArgBuffer];
     }
     if (fragABInfo) {
         BufferEntryMTL &buff = fragABInfo->getBuffer();
+        if (!buff.buffer.label)
+        {
+            buff.buffer.label = @"FragArgs";
+        }
         [cmdEncode setFragmentBuffer:buff.buffer offset:buff.offset atIndex:WhirlyKitShader::WKSFragmentArgBuffer];
     }
 
     // Textures may or may not be passed in to shaders
     if (vertTexInfo) {
         BufferEntryMTL &buff = vertTexInfo->getBuffer();
+        if (!buff.buffer.label)
+        {
+            buff.buffer.label = @"VertexTexArgs";
+        }
         [cmdEncode setVertexBuffer:buff.buffer offset:buff.offset atIndex:WhirlyKitShader::WKSVertTextureArgBuffer];
     }
     if (fragTexInfo) {
         BufferEntryMTL &buff = fragTexInfo->getBuffer();
+        if (!buff.buffer.label)
+        {
+            buff.buffer.label = @"FragTexArgs";
+        }
         [cmdEncode setFragmentBuffer:buff.buffer offset:buff.offset atIndex:WhirlyKitShader::WKSFragTextureArgBuffer];
     }
 

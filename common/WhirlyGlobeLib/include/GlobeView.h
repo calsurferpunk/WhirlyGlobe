@@ -1,9 +1,8 @@
-/*
- *  GlobeView.h
+/*  GlobeView.h
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 1/14/11.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,24 +14,29 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "WhirlyKitView.h"
 #import "GlobeMath.h"
 
+namespace WhirlyKit
+{
+class View;
+class SceneRenderer;
+}
+
 namespace WhirlyGlobe
 {
-    
+
 class GlobeView;
-    
+
 /// Animation callback
-class GlobeViewAnimationDelegate
+struct GlobeViewAnimationDelegate : public WhirlyKit::ViewAnimationDelegate
 {
-public:
-    /// Called every tick to update the globe position
-    virtual void updateView(GlobeView *globeView) = 0;
+    virtual bool isUserMotion() const = 0;
+    virtual void updateView(WhirlyKit::View *) = 0;
 };
+
 typedef std::shared_ptr<GlobeViewAnimationDelegate> GlobeViewAnimationDelegateRef;
 
 /** Parameters associated with viewing the globe.
@@ -48,17 +52,17 @@ public:
     GlobeView(WhirlyKit::CoordSystemDisplayAdapter *coordAdapter);
     /// Copy constructor
     GlobeView(const GlobeView &that);
-    virtual ~GlobeView();
+    virtual ~GlobeView() = default;
     
     /// Return min/max valid heights above globe
-    double minHeightAboveGlobe();
-    double maxHeightAboveGlobe();
+    double minHeightAboveGlobe() const;
+    double maxHeightAboveGlobe() const;
 
     /// Set the height above globe, taking constraints into account
-    void setHeightAboveGlobe(double newH);
+    virtual void setHeightAboveGlobe(double newH);
 
     /// This version allows you to not update the watchers, if you're doing a bunch of updates at once
-    void setHeightAboveGlobe(double newH,bool updateWatchers);
+    virtual void setHeightAboveGlobe(double newH,bool updateWatchers);
 
     /// This version avoids the limit calculations (Kind of a hack)
     void setHeightAboveGlobeNoLimits(double newH,bool updateWatchers);
@@ -67,22 +71,22 @@ public:
     void setCenterOffset(double offX,double offY,bool updateWatchers);
 
     /// Update the quaternion
-    void setRotQuat(Eigen::Quaterniond rotQuat);
+    virtual void setRotQuat(const Eigen::Quaterniond &rotQuat);
 
     /// This version allows you to not update the watchers.
-    void setRotQuat(Eigen::Quaterniond rotQuat,bool updateWatchers);
+    virtual void setRotQuat(const Eigen::Quaterniond &rotQuat,bool updateWatchers);
     
     /// Return the current quaternion
-    Eigen::Quaterniond getRotQuat() { return rotQuat; }
+    Eigen::Quaterniond getRotQuat() const { return rotQuat; }
 
     /// Roll around an axis pointed straight out of the front
     void setRoll(double roll,bool updateWatchers);
     
     /// Roll around an axis pointed straight out of the front
-    double getRoll() { return roll; }
+    double getRoll() const { return roll; }
     
     /// Return the tilt
-    double getTilt() { return tilt; }
+    double getTilt() const { return tilt; }
     
     /// Set the tilt
     void setTilt(double tilt);
@@ -91,19 +95,19 @@ public:
     void setFarClippingPlane(double farClip);
 
     /// Calculate the z offset to make the earth appear where we want it
-    double calcEarthZOffset();
+    double calcEarthZOffset() const;
     
     /// Calculate model matrix
-    virtual Eigen::Matrix4d calcModelMatrix();
+    virtual Eigen::Matrix4d calcModelMatrix() const override;
     
     /// Calculate view matrix
-    virtual Eigen::Matrix4d calcViewMatrix();
+    virtual Eigen::Matrix4d calcViewMatrix() const override;
 
     /// Return where up (0,0,1) is after model rotation
-    virtual Eigen::Vector3d currentUp();
+    virtual Eigen::Vector3d currentUp() const;
 
     /// Calculate where the eye is in model coordinates
-    virtual Eigen::Vector3d eyePos();
+    virtual Eigen::Vector3d eyePos() const override;
 
     /// Given a rotation, where would (0,0,1) wind up
     static Eigen::Vector3d prospectiveUp(Eigen::Quaterniond &prospectiveRot);
@@ -134,36 +138,36 @@ public:
     virtual Eigen::Quaterniond makeRotationToGeoCoord(const WhirlyKit::Point2d &worldCoord,bool northUp);
 
     /// Calculate the Z buffer resolution
-    virtual float calcZbufferRes();
+    virtual float calcZbufferRes() override;
 
     /// Height above the globe
-    virtual double heightAboveSurface();
-    
+    virtual double heightAboveSurface() const override { return heightAboveGlobe; }
+
     /// Make a globe view state from the current globe view
-    virtual WhirlyKit::ViewStateRef makeViewState(WhirlyKit::SceneRenderer *renderer);
+    virtual WhirlyKit::ViewStateRef makeViewState(WhirlyKit::SceneRenderer *renderer) override;
     
     /// Set the change delegate
     virtual void setDelegate(GlobeViewAnimationDelegateRef delegate);
 
     /// Called to cancel a running animation
-    virtual void cancelAnimation();
+    virtual void cancelAnimation() override;
     
     /// Renderer calls this every update.
-    virtual void animate();
+    virtual void animate() override;
 
     // These are all for continuous zoom mode
     double absoluteMinHeight;
     double heightInflection;
-    double defaultNearPlane;
+    float defaultNearPlane;
+    float defaultFarPlane;
     double absoluteMinNearPlane;
-    double defaultFarPlane;
     double absoluteMinFarPlane;
     
     /// Return the current height
-    virtual double getHeightAboveGlobe() { return heightAboveGlobe; }
+    virtual double getHeightAboveGlobe() const { return heightAboveGlobe; }
     
     /// Return the current delegate (use for comparison)
-    GlobeViewAnimationDelegateRef getDelegate() { return delegate; }
+    GlobeViewAnimationDelegateRef getDelegate() const { return delegate; }
     
 protected:
     void privateSetHeightAboveGlobe(double newH,bool updateWatchers);
@@ -173,9 +177,9 @@ protected:
     /// Quaternion used for rotation from origin state
     Eigen::Quaterniond rotQuat;
     /// The view can have a tilt.  0 is straight down.  PI/2 is looking to the horizon.
-    double tilt;
+    double tilt = 0.0;
     /// Roll around an axis pointed straight out of the front
-    double roll;
+    double roll = 0.0;
     WhirlyKit::FakeGeocentricDisplayAdapter fakeGeoC;
     /// Animation delegate
     GlobeViewAnimationDelegateRef delegate;
@@ -192,7 +196,7 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
     
     GlobeViewState(GlobeView *globeView,WhirlyKit::SceneRenderer *renderer);
-    virtual ~GlobeViewState();
+    virtual ~GlobeViewState() = default;
     
     /// Rotation, etc, at this view state
     Eigen::Quaterniond rotQuat;

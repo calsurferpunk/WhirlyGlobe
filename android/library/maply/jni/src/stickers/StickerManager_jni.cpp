@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 11/18/15.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -170,8 +170,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_StickerManager_enableStickers
         if (!chunkManager || !changeSet)
             return;
 
-        JavaLongArray idArray(env,idArrayObj);
-        SimpleIDSet ids;
+        const JavaLongArray idArray(env,idArrayObj,false);
         for (int ii=0;ii<idArray.len;ii++)
         {
             (*chunkManager)->enableChunk(idArray.rawLong[ii],enable,*(changeSet->get()));
@@ -195,12 +194,8 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_StickerManager_removeStickers
         if (!chunkManager || !changeSet)
             return;
         
-        JavaLongArray idArray(env,idArrayObj);
-        SimpleIDSet ids;
-        for (int ii=0;ii<idArray.len;ii++)
-            ids.insert(idArray.rawLong[ii]);
-        
-        (*chunkManager)->removeChunks(ids,*(changeSet->get()));
+        const SimpleIDSet ids = ConvertLongArrayToSet(env, idArrayObj);
+        (*chunkManager)->removeChunks(ids,**changeSet);
     }
     catch (...)
     {

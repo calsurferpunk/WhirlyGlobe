@@ -1,9 +1,8 @@
-/*
- *  QuadImageFrameLoader_iOS.mm
+/*  QuadImageFrameLoader_iOS.mm
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 2/18/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "QuadImageFrameLoader_iOS.h"
@@ -64,9 +62,6 @@ void QIFFrameAsset_ios::clear(PlatformThreadInfo *threadInfo,QuadImageFrameLoade
     QIFBatchOps_ios *batchOps = (QIFBatchOps_ios *)inBatchOps;
     
     QIFFrameAsset::clear(threadInfo,loader,batchOps,changes);
-    
-    if (loadReturnRef)
-        loadReturnRef->cancel = true;
 
     if (request) {
         [batchOps->toCancel addObject:request];
@@ -128,13 +123,18 @@ QIFTileAsset_ios::~QIFTileAsset_ios()
 {
 }
     
-QIFFrameAssetRef QIFTileAsset_ios::makeFrameAsset(PlatformThreadInfo *threadInfo,QuadFrameInfoRef frameInfo,QuadImageFrameLoader *loader)
+QIFFrameAssetRef QIFTileAsset_ios::makeFrameAsset(PlatformThreadInfo *threadInfo,
+                                                  const QuadFrameInfoRef &frameInfo,
+                                                  QuadImageFrameLoader *loader)
 {
-    auto frameAsset = QIFFrameAssetRef(new QIFFrameAsset_ios(frameInfo));
-    return frameAsset;
+    return std::make_shared<QIFFrameAsset_ios>(frameInfo);
 }
-    
-void QIFTileAsset_ios::startFetching(PlatformThreadInfo *threadInfo,QuadImageFrameLoader *inLoader,QuadFrameInfoRef frameToLoad,QIFBatchOps *inBatchOps,ChangeSet &changes)
+
+void QIFTileAsset_ios::startFetching(PlatformThreadInfo *threadInfo,
+                                     QuadImageFrameLoader *inLoader,
+                                     const QuadFrameInfoRef &frameToLoad,
+                                     QIFBatchOps *inBatchOps,
+                                     ChangeSet &changes)
 {
     QuadImageFrameLoader_ios *loader = (QuadImageFrameLoader_ios *)inLoader;
     QIFBatchOps_ios *batchOps = (QIFBatchOps_ios *)inBatchOps;
@@ -142,86 +142,102 @@ void QIFTileAsset_ios::startFetching(PlatformThreadInfo *threadInfo,QuadImageFra
     state = Active;
     
     MaplyTileID tileID;  tileID.level = ident.level;  tileID.x = ident.x;  tileID.y = ident.y;
-    if (loader->frameInfos) {
-        // Normal remote (or local) fetching case
-        int whichFrame = 0;
-        for (NSObject<MaplyTileInfoNew> *frameInfo in loader->frameInfos) {
-            auto frame = loader->getFrameInfo(whichFrame);
-            // If we're not loading all frames, then just load the one we need
-            if (!frameToLoad || frameToLoad->getId() == frame->getId()) {
-                QIFFrameAsset_iosRef frameAsset = std::dynamic_pointer_cast<QIFFrameAsset_ios>(findFrameFor(frame));
+    if (!loader->frameInfos)
+    {
+        // There's no data source, so we always succeed and then the interpreter does the work
+        [loader->layer fetchRequestSuccess:nil tileID:tileID frame:-1 data:nil];
+        return;
+    }
+
+    // Normal remote (or local) fetching case
+    int whichFrame = 0;
+    for (NSObject<MaplyTileInfoNew> *frameInfo in loader->frameInfos) {
+        const auto frame = loader->getFrameInfo(whichFrame);
+        // If we're not loading all frames, then just load the one we need
+        if (frame && loader->frameShouldLoad(whichFrame) &&
+            (!frameToLoad || frameToLoad->getId() == frame->getId()))
+        {
+            if (const auto frameAsset = std::dynamic_pointer_cast<QIFFrameAsset_ios>(findFrameFor(frame))) {
                 id fetchInfo = nil;
                 if (frameInfo.minZoom <= tileID.level && tileID.level <= frameInfo.maxZoom)
                     fetchInfo = [frameInfo fetchInfoForTile:tileID flipY:loader->getFlipY()];
                 if (fetchInfo) {
-                    MaplyTileFetchRequest *request = frameAsset->setupFetch(loader,tileID,fetchInfo,frameInfo,loader->calcLoadPriority(ident,frame->frameIndex),ident.importance);
-                    NSObject<QuadImageFrameLoaderLayer> * __weak layer = loader->layer;
-
-                    // This means there's no data fetch.  Interpreter does all the work.
-                    if ([fetchInfo isKindOfClass:[NSNull class]]) {
-                        [layer fetchRequestSuccess:request tileID:tileID frame:frame->frameIndex data:nil];
+                    if (const auto request = frameAsset->setupFetch(loader,tileID,fetchInfo,frameInfo,
+                                                                    loader->calcLoadPriority(ident,frame->frameIndex),
+                                                                    ident.importance)) {
+                        // This means there's no data fetch.  Interpreter does all the work.
+                        if ([fetchInfo isKindOfClass:[NSNull class]]) {
+                            [loader->layer fetchRequestSuccess:request tileID:tileID frame:frame->frameIndex data:nil];
+                        } else {
+                            NSObject<QuadImageFrameLoaderLayer> * __weak layer = loader->layer;
+                            request.success = ^(MaplyTileFetchRequest *request, id data) {
+                                // TODO: do we need to clean anything up if layer==nil?
+                                [layer fetchRequestSuccess:request tileID:tileID frame:frame->frameIndex data:data];
+                            };
+                            request.failure = ^(MaplyTileFetchRequest *request, NSError *error) {
+                                // TODO: do we need to clean anything up if layer==nil?
+                                [layer fetchRequestFail:request tileID:tileID frame:frame->frameIndex error:error];
+                            };
+                            [batchOps->toStart addObject:request];
+                        }
                     } else {
-                        request.success = ^(MaplyTileFetchRequest *request, id data) {
-                            // TODO: do we need to clean anything up if layer==nil?
-                            [layer fetchRequestSuccess:request tileID:tileID frame:frame->frameIndex data:data];
-                        };
-                        request.failure = ^(MaplyTileFetchRequest *request, NSError *error) {
-                            // TODO: do we need to clean anything up if layer==nil?
-                            [layer fetchRequestFail:request tileID:tileID frame:frame->frameIndex error:error];
-                        };
-                        [batchOps->toStart addObject:request];
+                        NSString *errStr = [NSString stringWithFormat:@"Loader '%s' failed to set up fetch for tile %d:(%d,%d), frame %d",
+                                            loader->getLabel().c_str(), tileID.level, tileID.x, tileID.y, frame->frameIndex];
+                        NSError *error = [[NSError alloc] initWithDomain:@"MaplyQIFLoader" code:0
+                                                                userInfo:@{NSDebugDescriptionErrorKey:errStr}];
+                        [loader->layer fetchRequestFail:request tileID:tileID frame:frame->frameIndex error:error];
+                        frameAsset->loadSkipped();
                     }
-                } else
+                } else {
                     frameAsset->loadSkipped();
+                }
             }
-            whichFrame++;
         }
-    } else {
-        // There's no data source, so we always succeed and then the interpreter does the work
-        [loader->layer fetchRequestSuccess:nil tileID:tileID frame:-1 data:nil];
+        whichFrame++;
     }
 }
-    
-QuadImageFrameLoader_ios::QuadImageFrameLoader_ios(const SamplingParams &params,NSObject<MaplyTileInfoNew> *inTileInfo,Mode mode)
-: QuadImageFrameLoader(params,mode), tileFetcher(nil), layer(nil)
+
+QuadImageFrameLoader_ios::QuadImageFrameLoader_ios(const SamplingParams &params,
+                                                   NSObject<MaplyTileInfoNew> *inTileInfo,
+                                                   Mode mode,
+                                                   FrameLoadMode frameMode) :
+    QuadImageFrameLoader(params,mode,frameMode),
+    frameInfos(inTileInfo ? @[inTileInfo] : nil),
+    tileFetcher(nil),
+    layer(nil)
 {
-    if (inTileInfo)
-        frameInfos = @[inTileInfo];
-    else
-        frameInfos = nil;
-    
     setupFrames();
 }
 
-QuadImageFrameLoader_ios::QuadImageFrameLoader_ios(const SamplingParams &params,NSArray<NSObject<MaplyTileInfoNew> *> *inFrameInfos,Mode mode)
-    : QuadImageFrameLoader(params,mode), tileFetcher(nil), layer(nil)
+QuadImageFrameLoader_ios::QuadImageFrameLoader_ios(const SamplingParams &params,
+                                                   NSArray<NSObject<MaplyTileInfoNew> *> *inFrameInfos,
+                                                   Mode mode,
+                                                   FrameLoadMode frameMode) :
+    QuadImageFrameLoader(params,mode,frameMode),
+    frameInfos(inFrameInfos),
+    tileFetcher(nil),
+    layer(nil)
 {
-    frameInfos = inFrameInfos;
-    
     setupFrames();
 }
 
 void QuadImageFrameLoader_ios::setupFrames()
 {
     for (unsigned int ii=0;ii<[frameInfos count];ii++) {
-        QuadFrameInfoRef frame(new QuadFrameInfo());
+        auto frame = std::make_shared<QuadFrameInfo>();
         frame->frameIndex = ii;
         frames.push_back(frame);
     }
 }
-    
-QuadImageFrameLoader_ios::~QuadImageFrameLoader_ios()
-{
-}
 
 QIFTileAssetRef QuadImageFrameLoader_ios::makeTileAsset(PlatformThreadInfo *threadInfo,const QuadTreeNew::ImportantNode &ident)
 {
-    auto tileAsset = QIFTileAssetRef(new QIFTileAsset_ios(ident));
+    auto tileAsset = std::make_shared<QIFTileAsset_ios>(ident);
     tileAsset->setupFrames(threadInfo,this,[frameInfos count]);
     return tileAsset;
 }
     
-int QuadImageFrameLoader_ios::getNumFrames()
+int QuadImageFrameLoader_ios::getNumFrames() const
 {
     return [frameInfos count];
 }

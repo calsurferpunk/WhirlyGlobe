@@ -1,9 +1,8 @@
-/*
- *  SceneRenderer.h
+/*  SceneRenderer.h
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 1/13/11.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2023 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "WhirlyVector.h"
@@ -36,7 +34,7 @@ class BillboardDrawableBuilder;
 typedef std::shared_ptr<BillboardDrawableBuilder> BillboardDrawableBuilderRef;
 class ParticleSystemDrawableBuilder;
 typedef std::shared_ptr<ParticleSystemDrawableBuilder> ParticleSystemDrawableBuilderRef;
-class ScreenSpaceDrawableBuilder;
+struct ScreenSpaceDrawableBuilder;
 typedef std::shared_ptr<ScreenSpaceDrawableBuilder> ScreenSpaceDrawableBuilderRef;
 class WideVectorDrawableBuilder;
 typedef std::shared_ptr<WideVectorDrawableBuilder> WideVectorDrawableBuilderRef;
@@ -46,18 +44,14 @@ typedef std::shared_ptr<DynamicTexture> DynamicTextureRef;
 /** Renderer Frame Info.
  Data about the current frame, passed around by the renderer.
  */
-class RendererFrameInfo
+struct RendererFrameInfo
 {
-public:
-    RendererFrameInfo();
-    RendererFrameInfo(const RendererFrameInfo &that);
-    
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
     
     /// Renderer itself
-    SceneRenderer *sceneRenderer;
+    SceneRenderer *sceneRenderer = nullptr;
     /// View
-    View *theView;
+    View *theView = nullptr;
     /// Current model matrix from the view
     Eigen::Matrix4f modelTrans,viewTrans;
     Eigen::Matrix4d modelTrans4d,viewTrans4d;
@@ -81,13 +75,13 @@ public:
     Eigen::Matrix4d pvMat4d;
     Eigen::Matrix4f pvMat;
     /// If the visual view supports wrapping, these are the available offset matrices
-    std::vector<Eigen::Matrix4d> offsetMatrices;
+    Matrix4dVector offsetMatrices;
     /// Scene itself.  Don't mess with this
-    Scene *scene;
+    Scene *scene = nullptr;
     /// Expected length of the current frame
-    float frameLen;
+    float frameLen = 0.0f;
     /// Time at the start of frame
-    TimeInterval currentTime;
+    TimeInterval currentTime = 0.0;
     /// Vector pointing up from the globe describing where the view point is
     Eigen::Vector3f eyeVec;
     /// Vector out from the eye point, including tilt
@@ -97,14 +91,15 @@ public:
     /// Location of the middle of the screen in display coordinates
     Eigen::Vector3d dispCenter;
     /// Height above surface, if that makes sense
-    float heightAboveSurface;
+    float heightAboveSurface = 0.0f;
     /// Screen size in display coordinates
     Point2d screenSizeInDisplayCoords;
     /// Lights, if applicable
-    std::vector<DirectionalLight> *lights;
+    std::vector<DirectionalLight> *lights = nullptr;
     /// Program being used for this frame
-    Program *program;
+    Program *program = nullptr;
 };
+using RendererFrameInfoRef = std::shared_ptr<RendererFrameInfo>;
 
 /** We support three different ways of using z buffer.  (1) Regular mode where it's on.
  (2) Completely off, priority sorting only.  (3) Priority sorting, but drawables
@@ -119,7 +114,7 @@ public:
     virtual ~RenderTargetContainer() { }
     
     // Sort by draw priority and zbuffer on or off
-    typedef struct {
+    typedef struct PrioritySorter {
         bool operator () (const DrawableRef &a,const DrawableRef &b) const {
             const auto orderA = a->getDrawOrder();
             const auto orderB = b->getDrawOrder();
@@ -142,7 +137,7 @@ public:
 
     // Drawables sorted by draw priority
     std::set<DrawableRef,PrioritySorter> drawables;
-    bool modified;   // Set when the contents of the container are modified
+    bool modified = true;   // Set when the contents of the container are modified
 
 protected:
     RenderTargetContainer(RenderTargetRef renderTarget);
@@ -189,13 +184,13 @@ class SceneRenderer : public DelayedDeletable
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
     
-    SceneRenderer();
-    virtual ~SceneRenderer();
+    SceneRenderer() = default;
+    virtual ~SceneRenderer() = default;
     
     /// Renderer type.  Back down to one on iOS.
     typedef enum {RenderGLES,RenderMetal} Type;
     virtual Type getType() = 0;
-    
+
     /// Set the render until time.  This is used by things like fade to keep
     ///  the rendering optimization from cutting off animation.
     virtual void setRenderUntil(TimeInterval newTime);
@@ -223,14 +218,20 @@ public:
     virtual void setClearColor(const RGBAColor &color);
     
     /// Return the current clear color
-    RGBAColor getClearColor();
+    RGBAColor getClearColor() const;
     
     /// Get the framebuffer size (in pixels)
-    Point2f getFramebufferSize();
-    
+    Point2f getFramebufferSize() const;
+
+    /// Get the framebuffer size (in pixels) with a margin
+    Mbr getFramebufferBound(float marginFrac) const;
+
     /// Get the framebuffer size (divided by scale)
-    Point2f getFramebufferSizeScaled();
-    
+    Point2f getFramebufferSizeScaled() const;
+
+    /// Get the framebuffer size (divided by scale) with a margin
+    Mbr getFramebufferBoundScaled(float marginFrac) const;
+
     /// Return the attached Scene
     Scene *getScene();
     
@@ -238,11 +239,11 @@ public:
     View *getView();
     
     /// Return the device scale (e.g. retina vs. not)
-    float getScale();
-    
+    float getScale() const;
+
     /// Set the screen scale (can vary)
     void setScale(float newScale);
-    
+
     /// Used by the subclasses to determine if the view changed and needs to be updated
     virtual bool viewDidChange();
     
@@ -272,9 +273,11 @@ public:
     virtual void addDrawable(DrawableRef newDrawable);
     /// Remove the given drawable from
     virtual void removeDrawable(DrawableRef draw,bool teardown,RenderTeardownInfoRef teardownInfo);
-        
+
+    virtual RendererFrameInfoRef getFrameInfo() { return RendererFrameInfoRef(); }
+
     /// Move things around as required by outside updates
-    virtual void updateWorkGroups(RendererFrameInfo *frameInfo);
+    virtual void updateWorkGroups(RendererFrameInfo *frameInfo,int numViewOffsets);
         
     /// Add a render target to start rendering too
     virtual void addRenderTarget(RenderTargetRef newTarget);
@@ -310,7 +313,7 @@ public:
     /// Construct a billboard drawable builder for the current rendering type
     virtual BillboardDrawableBuilderRef makeBillboardDrawableBuilder(const std::string &name) const = 0;
     
-    /// Construct a screnspace drawable builder for the current rendering type
+    /// Construct a screen-space drawable builder for the current rendering type
     virtual ScreenSpaceDrawableBuilderRef makeScreenSpaceDrawableBuilder(const std::string &name) const = 0;
     
     /// Construct a particle system builder of the appropriate rendering type
@@ -328,86 +331,106 @@ public:
     /// Maps name IDs to slots (slots are just used by Metal)
     virtual int getSlotForNameID(SimpleIdentity nameID);
 
-    /// The pixel width of the CAEAGLLayer.
-    int framebufferWidth;
-    /// The pixel height of the CAEAGLLayer.
-    int framebufferHeight;
-    
-    /// Scale, to reflect the device's screen
-    float scale;
+    const std::vector<RenderTargetRef> &getRenderTargets() const { return renderTargets; }
 
-    std::vector<RenderTargetRef> renderTargets;
-    std::vector<WorkGroupRef> workGroups;
-
-    // Drawables that we currently know about, but are off
-    std::set<DrawableRef> offDrawables;
-
-    // Explicitly clear any held structures
-    void shutdown();
-
-public:
     // Called by the subclass
     virtual void init();
-    
+
+    void setLabel(const char* s) { label.clear(); if (s) label = s; }
+    void setLabel(std::string s) { label = std::move(s); }
+    const std::string &getLabel() const { return label; }
+
     // Possible post-target creation init
     virtual void defaultTargetInit(RenderTarget *);
-    
+
+    /// Resize framebuffer
+    virtual bool resize(int sizeX,int sizeY) = 0;
+
+    struct RenderInfo
+    {
+    };
+
+    /// Draw stuff (the whole point!)
+    virtual void render(TimeInterval period, RenderInfo *) = 0;
+
     // Presentation, if required
     virtual void presentRender();
     
     // Update the extra frame rendering count
     virtual void updateExtraFrames();
-    
+
+    const RenderTeardownInfoRef &getTeardownInfo() const { return teardownInfo; }
+
+    int retainZoomSlot(double minZoom, double maxHeight, double maxZoom, double minHeight);
+    void releaseZoomSlot(int slot);
+
+    void updateZoomSlots();
+
+protected:
+    /// Set the framebuffer size
+    /// You probably want resize() instead.
+    void setFramebufferSize(float width, float height);
+    void setFramebufferSize(const Point2f &size) { setFramebufferSize(size.x(), size.y()); }
+
+    // Explicitly clear any held structures
+    void shutdown();
+
+public:
     /// Scene we're drawing.  This is set from outside
-    Scene *scene;
+    Scene *scene = nullptr;
+
+protected:
     /// The view controls how we're looking at the scene
-    View *theView;
+    View *theView = nullptr;
+
     /// Set this mode to modify how Z buffering is used (if at all)
     WhirlyKitSceneRendererZBufferMode zBufferMode;
     
     /// Statistic: Frames per second
-    float framesPerSec;
+    float framesPerSec = 0.0f;
+
     /// Statistic: Number of drawables drawn in last frame
-    unsigned int numDrawables;
+    unsigned int numDrawables = 0;
+
     /// Period over which we measure performance
-    int perfInterval;
+    int perfInterval = 0;
     
     /// Set if we're using the view based change mechanism to tell when to draw.
     /// This works well for figuring out when the model matrix changes, but
     ///  not so well with animation such as fades, particles systems and such.
-    bool useViewChanged;
+    bool useViewChanged = false;
     
     /// Force a draw at the next opportunity
-    bool triggerDraw;
+    bool triggerDraw = false;
     
-    unsigned int frameCount;
-    unsigned int frameCountLastChanged;
-    TimeInterval frameCountStart;
+    unsigned int frameCount = 0;
+    unsigned int frameCountLastChanged = 0;
+    TimeInterval frameCountStart = 0.0;
     PerformanceTimer perfTimer;
     
     /// Last time we rendered
-    TimeInterval lastDraw;
+    TimeInterval lastDraw = 0.0;
     
     /// Something wants to make sure we render until at least this point.
-    TimeInterval renderUntil;
+    TimeInterval renderUntil = 0.0;
     
     /// Extra frames to render after we'd normally stop
-    int extraFrames;
+    int extraFrames = 0;
     std::map<SimpleIdentity,int> extraFramesPerID;
     
     // The drawables that want continuous rendering on
     SimpleIDSet contRenderRequests;
     
-    RGBAColor clearColor;
+    RGBAColor clearColor = RGBAColor::black();
     
     // View state from the last render, for comparison
     Eigen::Matrix4d modelMat,viewMat,projMat;
     
     // If we're an offline renderer, the texture we're rendering into
     TextureRef framebufferTex;
-    
-    TimeInterval lightsLastUpdated;
-    Material defaultMat;    
+
+    TimeInterval lightsLastUpdated = 0.0;
+    Material defaultMat;
     std::vector<DirectionalLight> lights;
 
     // Everything torn down until the next frame
@@ -415,6 +438,33 @@ public:
     
     // Map Name IDs to slots (when using Metal)
     std::map<SimpleIdentity,int> slotMap;
+
+    struct ZoomSlotInfo
+    {
+        double minZoom;
+        double maxZoom;
+        double minHeight;
+        double maxHeight;
+        double zoom(double height) const;
+    };
+    std::unordered_map<int, ZoomSlotInfo> zoomSlotMap;
+
+protected:
+    /// The pixel width of the CAEAGLLayer.
+    int framebufferWidth = 0;
+    /// The pixel height of the CAEAGLLayer.
+    int framebufferHeight = 0;
+    
+    /// Scale, to reflect the device's screen
+    float scale = 0.0f;
+
+    std::vector<RenderTargetRef> renderTargets;
+    std::vector<WorkGroupRef> workGroups;
+
+    // Drawables that we currently know about, but are off
+    std::set<DrawableRef> offDrawables;
+    
+    std::string label;
 };
 
 typedef std::shared_ptr<SceneRenderer> SceneRendererRef;

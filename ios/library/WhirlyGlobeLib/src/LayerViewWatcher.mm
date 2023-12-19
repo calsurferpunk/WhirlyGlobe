@@ -1,9 +1,8 @@
-/*
- *  LayerViewWatcher.mm
+/*  LayerViewWatcher.mm
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 3/28/12.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,12 +14,14 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "LayerViewWatcher.h"
 #import "LayerThread.h"
+#import "LayerThread_private.h"
 #import "SceneRenderer.h"
+#import "MaplyRenderController.h"
+#import "MaplyRenderController_private.h"
 
 using namespace Eigen;
 using namespace WhirlyKit;
@@ -60,16 +61,20 @@ using namespace WhirlyKit;
 namespace WhirlyKit {
 
 // Interface with C++ View
-class ViewWatcherWrapper : public ViewWatcher
+struct ViewWatcherWrapper : public ViewWatcher
 {
-public:
-    WhirlyKitLayerViewWatcher * __weak viewWatcher;
-    
+    ViewWatcherWrapper(WhirlyKitLayerViewWatcher *watcher) : viewWatcher(watcher)
+    {
+    }
+
     // View has been updated so we'll just hand that over to the watcher
-    virtual void viewUpdated(View *view)
+    virtual void viewUpdated(View *view) override
     {
         [viewWatcher viewUpdated:view];
     }
+
+private:
+    WhirlyKitLayerViewWatcher * __weak viewWatcher;
 };
 
 }
@@ -92,7 +97,7 @@ public:
     bool kickoffScheduled;
     bool sweepLaggardsScheduled;
     
-    ViewWatcherWrapper viewWatchWrapper;
+    std::shared_ptr<ViewWatcherWrapper> viewWatchWrapper;
 }
 
 - (id)initWithView:(View *)inView thread:(WhirlyKitLayerThread *)inLayerThread
@@ -104,8 +109,8 @@ public:
         view = inView;
         watchers = [NSMutableArray array];
         lastViewState = inView->makeViewState(inLayerThread.renderer);
-        viewWatchWrapper.viewWatcher = self;
-        inView->addWatcher(&viewWatchWrapper);
+        viewWatchWrapper = std::make_shared<ViewWatcherWrapper>(self);
+        inView->addWatcher(viewWatchWrapper);
     }
     
     return self;
@@ -113,7 +118,7 @@ public:
 
 - (void)stop
 {
-    view->removeWatcher(&viewWatchWrapper);
+    view->removeWatcher(viewWatchWrapper);
 }
 
 - (void)addWatcherTarget:(id)target selector:(SEL)selector minTime:(TimeInterval)minTime minDist:(double)minDist maxLagTime:(TimeInterval)maxLagTime
@@ -132,7 +137,7 @@ public:
     if (!lastViewState)
     {
         const auto __strong thread = layerThread;
-        if (thread.renderer->framebufferWidth != 0)
+        if (thread.renderer->getFramebufferSize().x() != 0)
         {
             lastViewState = view->makeViewState(thread.renderer);
         }
@@ -189,7 +194,7 @@ public:
         return;
     
     // The view has to be valid first
-    if (thread.renderer->framebufferWidth <= 0.0)
+    if (thread.renderer->getFramebufferSize().x() <= 0.0)
     {
         // Let's check back every so often
         [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(viewUpdated:) object:nil];
@@ -197,12 +202,46 @@ public:
         return;
     }
 
-    ViewStateRef viewState = view->makeViewState(thread.renderer);
-    
+    ViewStateRef viewState;
+    try
+    {
+        viewState = view->makeViewState(thread.renderer);
+    }
+    catch (const std::exception &ex)
+    {
+        NSLog(@"Exception in makeViewState: %s", ex.what());
+        if (MaplyRenderController *rc = thread.renderControl)
+        {
+            [rc report:@"LayerViewWatcher-ViewUpdated"
+             exception:[[NSException alloc] initWithName:@"STL Exception"
+                                                  reason:[NSString stringWithUTF8String:ex.what()]
+                                                userInfo:nil]];
+        }
+    }
+    catch (NSException *ex)
+    {
+        NSLog(@"Exception in makeViewState: %@", ex.description);
+        if (MaplyRenderController *rc = thread.renderControl)
+        {
+            [rc report:@"LayerViewWatcher-ViewUpdated" exception:ex];
+        }
+    }
+    catch (...)
+    {
+        NSLog(@"Unknown exception in makeViewState");
+        if (MaplyRenderController *rc = thread.renderControl)
+        {
+            [rc report:@"LayerViewWatcher-ViewUpdated"
+             exception:[[NSException alloc] initWithName:@"C++ Exception"
+                                                  reason:@"Unknown"
+                                                userInfo:nil]];
+        }
+    }
+
     //    lastViewState = viewState;
     @synchronized(self)
     {
-        newViewState = viewState;
+        newViewState = std::move(viewState);
         if (!kickoffScheduled)
         {
             kickoffScheduled = true;
@@ -346,7 +385,22 @@ public:
         sweepLaggardsScheduled = false;
     }
     
-    [self viewUpdateLayerThread:lastViewState];
+    try
+    {
+        [self viewUpdateLayerThread:lastViewState];
+    }
+    catch (const std::exception &ex)
+    {
+        NSLog(@"Exception in viewUpdateLayerThread: %s", ex.what());
+    }
+    catch (NSException *ex)
+    {
+        NSLog(@"Exception in viewUpdateLayerThread: %@", ex.description);
+    }
+    catch (...)
+    {
+        NSLog(@"Exception in viewUpdateLayerThread");
+    }
 }
 
 @end

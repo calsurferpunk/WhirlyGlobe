@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 3/17/15.
- *  Copyright 2011-2015 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -386,9 +386,16 @@ public class GlobeGestureHandler
 		@Override
 		public void onLongPress(MotionEvent e) 
 		{
+			// The touch listener isn't aware of the scale listener, and so sends us long-
+			// press events (with pointerCount==1 for some reason) while pinch-zooming.
+			if (sl != null && sl.isActive) {
+				return;
+			}
+
 //			Log.d("Maply","Long Press");
-			if (e.getPointerCount() == 1)
-				globeControl.processLongPress(new Point2d(e.getX(),e.getY()));
+			if (globeControl != null && e.getPointerCount() == 1) {
+				globeControl.processLongPress(new Point2d(e.getX(), e.getY()));
+			}
 
 			updateTouchedTime();
 		}
@@ -418,8 +425,10 @@ public class GlobeGestureHandler
 		@Override
 		public boolean onSingleTapConfirmed(MotionEvent e) 
 		{
-			globeControl.processTap(new Point2d(e.getX(),e.getY()));
-			updateTouchedTime();
+			if (globeControl != null) {
+				globeControl.processTap(new Point2d(e.getX(), e.getY()));
+				updateTouchedTime();
+			}
 			return true;
 		}
 
@@ -427,34 +436,40 @@ public class GlobeGestureHandler
 		@Override
 		public boolean onDoubleTap(MotionEvent e) 
 		{
-			CoordSystemDisplayAdapter coordAdapter = globeView.getCoordAdapter();
-			Point2d frameSize = globeControl.getViewSize();
+			final GlobeController gc = globeControl;
+			final RendererWrapper wrap = (gc != null) ? gc.renderWrapper : null;
+			final RenderController render = (wrap != null) ? wrap.getMaplyRender() : null;
+			if (render == null) {
+				return false;
+			}
+
+			final CoordSystemDisplayAdapter coordAdapter = globeView.getCoordAdapter();
+			final Point2d frameSize = globeControl.getViewSize();
 
 			// Figure out where they tapped
-			Point2d touch = new Point2d(e.getX(),e.getY());
-			Matrix4d mapTransform = globeView.calcModelViewMatrix();
-			Point3d pt = globeView.pointOnSphereFromScreen(touch, mapTransform, frameSize, false);
+			final Point2d touch = new Point2d(e.getX(),e.getY());
+			final Matrix4d mapTransform = globeView.calcModelViewMatrix();
+			final Point3d pt = globeView.pointOnSphereFromScreen(touch, mapTransform, frameSize, false);
 			if (pt == null)
 				return false;
-			Point3d localPt = coordAdapter.displayToLocal(pt);
+			final Point3d localPt = coordAdapter.displayToLocal(pt);
 			if (localPt == null)
 				return false;
-			Point3d geoCoord = coordAdapter.getCoordSystem().localToGeographic(localPt);
+			final Point3d geoCoord = coordAdapter.getCoordSystem().localToGeographic(localPt);
 
-			if (pt != null || geoCoord != null)
-			{
-				// Zoom in where they tapped
-				double height = globeView.getHeight();
-				double newHeight = height/2.0;
-				newHeight = Math.min(newHeight,zoomLimitMax);
-				newHeight = Math.max(newHeight,zoomLimitMin);
+			// Zoom in where they tapped
+			final double height = globeView.getHeight();
+			double newHeight = height/2.0;
+			newHeight = Math.min(newHeight,zoomLimitMax);
+			newHeight = Math.max(newHeight,zoomLimitMin);
 
-				// Note: This isn't right.  Need the 
-				Quaternion newQuat = globeView.makeRotationToGeoCoord(geoCoord.getX(), geoCoord.getY(), globeView.northUp);
-				
-				// Now kick off the animation
-				globeView.setAnimationDelegate(new GlobeAnimateRotation(globeView, globeControl.renderWrapper.maplyRender.get(), newQuat, newHeight, 0.5));
-			}
+			// Note: This isn't right.  Need the
+			final Quaternion newQuat = globeView.makeRotationToGeoCoord(geoCoord.getX(), geoCoord.getY(), globeView.northUp);
+
+			// Now kick off the animation
+			globeView.setAnimationDelegate(
+					new GlobeAnimateRotation(globeView, render, newQuat, newHeight,
+					                         0.5, gc.getZoomAnimationEasing()));
 
 			updateTouchedTime();
 			isActive = false;
@@ -558,10 +573,17 @@ public class GlobeGestureHandler
 
 	// Where we receive events from the gl view
 	public boolean onTouch(View v, MotionEvent event) {
-		boolean slWasActive = sl.isActive;
-		boolean glWasActive = gl.isActive;
-		boolean rotWasActive = startRot != Double.MAX_VALUE;
-		boolean tiltWasActive = startTilt != Double.MAX_VALUE;
+		final boolean slWasActive = sl.isActive;
+		final boolean glWasActive = gl.isActive;
+		final boolean rotWasActive = startRot != Double.MAX_VALUE;
+		final boolean tiltWasActive = startTilt != Double.MAX_VALUE;
+
+		final GlobeController gc = globeControl;
+		final RendererWrapper wrap = (gc != null) ? gc.renderWrapper : null;
+		final RenderController render = (wrap != null) ? wrap.getMaplyRender() : null;
+		if (render == null) {
+			return false;
+		}
 
 		// If they're using two fingers, cancel any outstanding pan
 		if (event.getPointerCount() >= 2) {
@@ -584,7 +606,9 @@ public class GlobeGestureHandler
 		sgd.onTouchEvent(event);
 
 		if (allowRotate) {
-			if (event.getPointerCount() == 2 && event.getActionMasked() == MotionEvent.ACTION_MOVE || event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN) {
+			if (event.getPointerCount() == 2 &&
+					event.getActionMasked() == MotionEvent.ACTION_MOVE ||
+					event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN) {
 				handleRotation(event);
 			} else {
 				cancelRotation();
@@ -612,7 +636,9 @@ public class GlobeGestureHandler
 			newHeight = Math.max(newHeight,zoomLimitMin);
 
 			// Now kick off the animation
-			globeView.setAnimationDelegate(new GlobeAnimateRotation(globeView, globeControl.renderWrapper.maplyRender.get(), globeView.getRotQuat(), newHeight, 0.5));
+			globeView.setAnimationDelegate(
+					new GlobeAnimateRotation(globeView, render, globeView.getRotQuat(), newHeight,
+					                         0.5, gc.getZoomAnimationEasing()));
 
 			sl.isActive = false;
 			gl.isActive = false;
@@ -652,5 +678,5 @@ public class GlobeGestureHandler
 
 		updateTouchedTime();
 		return true;
-	}      
+	}
 }

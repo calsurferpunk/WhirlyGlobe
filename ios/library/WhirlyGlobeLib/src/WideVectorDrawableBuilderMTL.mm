@@ -1,9 +1,8 @@
-/*
- *  WideVectorDrawableBuilderMTL.mm
+/*  WideVectorDrawableBuilderMTL.mm
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/16/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import <MetalKit/MetalKit.h>
@@ -56,6 +54,13 @@ void WideVectorDrawableBuilderMTL::Init(unsigned int numVert, unsigned int numTr
     }
 }
 
+void WideVectorDrawableBuilderMTL::generateChanges(const SimpleIDSet &drawIDs,ChangeSet &changes)
+{
+    auto uniBlock = wideVecUniBlock();
+    for (auto drawID: drawIDs)
+        changes.push_back(new UniformBlockSetRequest(drawID, uniBlock.blockData, uniBlock.bufferID));
+}
+
 int WideVectorDrawableBuilderMTL::addAttribute(BDAttributeDataType dataType,StringIdentity nameID,int slot,int numThings)
 {
     return basicDrawable->addAttribute(dataType, nameID, slot, numThings);
@@ -72,17 +77,21 @@ BasicDrawable::UniformBlock WideVectorDrawableBuilderMTL::wideVecUniBlock()
     // Uniforms for regular wide vectors
     WhirlyKitShader::UniformWideVec uniWV;
     memset(&uniWV,0,sizeof(uniWV));
-    uniWV.w2 = lineWidth/2.0;
-    uniWV.offset = lineOffset;
-    uniWV.edge = edgeSize;
-    uniWV.texRepeat = texRepeat;
-    uniWV.hasExp = widthExp || offsetExp || colorExp || opacityExp;
-    
-    BasicDrawable::UniformBlock uniBlock;
-    uniBlock.blockData = RawDataRef(new RawNSDataReader([[NSData alloc] initWithBytes:&uniWV length:sizeof(uniWV)]));
-    uniBlock.bufferID = WhirlyKitShader::WKSUniformWideVecEntry;
+    CopyIntoMtlFloat2(uniWV.texOffset, texOffset);
+    uniWV.w2             = lineWidth/2.0f;
+    uniWV.offset         = lineOffset;
+    uniWV.edge           = edgeSize;
+    uniWV.texRepeat      = texRepeat;
+    uniWV.hasExp         = widthExp || offsetExp || colorExp || opacityExp;
+    uniWV.join           = (WhirlyKitShader::WKSVertexLineJoinType)joinType;   // assume enums are numerically equivalent
+    uniWV.cap            = (WhirlyKitShader::WKSVertexLineCapType)capType;
+    uniWV.miterLimit     = miterLimit;
+    uniWV.interClipLimit = (fallbackMode == WideVecFallbackClip) ? 4.0f : 0.0f;
 
-    return uniBlock;
+    return {
+        WhirlyKitShader::WKSUniformWideVecEntry,
+        std::make_shared<RawNSDataReader>([[NSData alloc] initWithBytes:&uniWV length:sizeof(uniWV)]),
+    };
 }
 
 BasicDrawable::UniformBlock WideVectorDrawableBuilderMTL::wideVecExpUniBlock()
@@ -99,12 +108,11 @@ BasicDrawable::UniformBlock WideVectorDrawableBuilderMTL::wideVecExpUniBlock()
         FloatExpressionToMtl(opacityExp,wideVecExp.opacityExp);
     if (colorExp)
         ColorExpressionToMtl(colorExp,wideVecExp.colorExp);
-    
-    BasicDrawable::UniformBlock uniBlock;
-    uniBlock.blockData = RawDataRef(new RawNSDataReader([[NSData alloc] initWithBytes:&wideVecExp length:sizeof(wideVecExp)]));
-    uniBlock.bufferID = WhirlyKitShader::WKSUniformWideVecEntryExp;
-    
-    return uniBlock;
+
+    return {
+        WhirlyKitShader::WKSUniformWideVecEntryExp,
+        std::make_shared<RawNSDataReader>([[NSData alloc] initWithBytes:&wideVecExp length:sizeof(wideVecExp)]),
+    };
 }
 
 BasicDrawableRef WideVectorDrawableBuilderMTL::getBasicDrawable()
@@ -119,7 +127,8 @@ BasicDrawableRef WideVectorDrawableBuilderMTL::getBasicDrawable()
     colorAttr->setDefaultColor(basicDrawable->color);
     
     // Apply uniform blocks that control general function
-    if (implType == WideVecImplBasic) {
+    if (implType == WideVecImplBasic)
+    {
         basicDrawable->basicDraw->setUniBlock(wideVecUniBlock());
         if (widthExp || offsetExp || colorExp || opacityExp)
             basicDrawable->basicDraw->setUniBlock(wideVecExpUniBlock());
@@ -137,7 +146,7 @@ BasicDrawableInstanceRef WideVectorDrawableBuilderMTL::getInstanceDrawable()
 
     if (!instDrawable)
         return nullptr;
-    
+
     instDrawable->getDrawable();
 
     // Apply uniform blocks to control general function
@@ -152,7 +161,8 @@ BasicDrawableInstanceRef WideVectorDrawableBuilderMTL::getInstanceDrawable()
         auto *inPtr = &centerline[ii];
         CopyIntoMtlFloat3(outPtr->center,inPtr->center);
         CopyIntoMtlFloat3(outPtr->up, inPtr->up);
-        outPtr->len = inPtr->len;
+        outPtr->segLen = inPtr->segLen;
+        outPtr->totalLen = inPtr->totalLen;
         float color[4];
         inPtr->color.asUnitFloats(color);
         CopyIntoMtlFloat4(outPtr->color,color);
@@ -170,7 +180,7 @@ BasicDrawableInstanceRef WideVectorDrawableBuilderMTL::getInstanceDrawable()
 int WideVectorDrawableBuilderMTL::maxInstances() const
 {
     // Just figure out big a buffer we'll have.  32MB seems plenty
-    int instSize = std::min(256,(int)sizeof(WhirlyKitShader::VertexTriWideVecInstance));
+    constexpr int instSize = std::min(256,(int)sizeof(WhirlyKitShader::VertexTriWideVecInstance));
     return 32*1024*1024 / instSize;
 }
 

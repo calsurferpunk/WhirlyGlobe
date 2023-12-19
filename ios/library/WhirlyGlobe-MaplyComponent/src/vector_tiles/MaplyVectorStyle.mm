@@ -1,9 +1,8 @@
-/*
- *  MaplyVectorStyle.mm
+/*  MaplyVectorStyle.mm
  *  WhirlyGlobe-MaplyComponent
  *
  *  Created by Steve Gifford on 1/3/14.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2023 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "vector_tiles/MapboxVectorTiles.h"
@@ -23,7 +21,7 @@
 #import "private/MapboxVectorTiles_private.h"
 #import "private/MaplyVectorObject_private.h"
 #import "helpers/MaplyTextureBuilder.h"
-#import "WhirlyGlobe.h"
+#import "WhirlyGlobeLib.h"
 #import "MaplyTexture_private.h"
 #import "Dictionary_NSDictionary.h"
 
@@ -76,6 +74,26 @@ using namespace WhirlyKit;
     return impl->markerScale;
 }
 
+- (void)setSymbolScale:(float)symbolScale
+{
+    impl->symbolScale = symbolScale;
+}
+
+- (float)symbolScale
+{
+    return impl->symbolScale;
+}
+
+- (void)setCircleScale:(float)circleScale
+{
+    impl->circleScale = circleScale;
+}
+
+- (float)circleScale
+{
+    return impl->circleScale;
+}
+
 - (void)setMarkerImportance:(float)markerImportance
 {
     impl->markerImportance = markerImportance;
@@ -119,7 +137,7 @@ using namespace WhirlyKit;
 - (void)setUuidField:(NSString *)uuidField
 {
     if (uuidField)
-        impl->uuidField = [uuidField cStringUsingEncoding:NSASCIIStringEncoding];
+        impl->uuidField = [uuidField cStringUsingEncoding:NSASCIIStringEncoding withDefault:""];
     else
         impl->uuidField.clear();
 }
@@ -181,6 +199,16 @@ using namespace WhirlyKit;
     return impl->useWideVectors;
 }
 
+- (void)setUsePerfWideVectors:(bool)use
+{
+    impl->perfWideVec = use;
+}
+
+- (bool)usePerfWideVectors
+{
+    return impl->perfWideVec;
+}
+
 - (void)setOldVecWidthScale:(float)oldVecWidthScale
 {
     impl->oldVecWidthScale = oldVecWidthScale;
@@ -204,7 +232,7 @@ using namespace WhirlyKit;
 - (void)setArealShaderName:(NSString *)arealShaderName
 {
     if (arealShaderName)
-        impl->arealShaderName = [arealShaderName cStringUsingEncoding:NSASCIIStringEncoding];
+        impl->arealShaderName = [arealShaderName cStringUsingEncoding:NSASCIIStringEncoding withDefault:""];
     else
         impl->arealShaderName.clear();
 }
@@ -226,10 +254,19 @@ using namespace WhirlyKit;
     return impl->selectable;
 }
 
+- (bool)enableOverrideColor
+{
+    return impl->enableOverrideColor;
+}
+- (void)setEnableOverrideColor:(bool)enable
+{
+    impl->enableOverrideColor = enable;
+}
+
 - (void)setIconDirectory:(NSString *)iconDirectory
 {
     if (iconDirectory)
-        impl->iconDirectory = [iconDirectory cStringUsingEncoding:NSASCIIStringEncoding];
+        impl->iconDirectory = [iconDirectory cStringUsingEncoding:NSASCIIStringEncoding withDefault:""];
     else
         impl->iconDirectory.clear();
 }
@@ -244,7 +281,7 @@ using namespace WhirlyKit;
 - (void)setFontName:(NSString *)fontName
 {
     if (fontName)
-        impl->fontName = [fontName cStringUsingEncoding:NSASCIIStringEncoding];
+        impl->fontName = [fontName cStringUsingEncoding:NSASCIIStringEncoding withDefault:""];
     else
         impl->fontName.clear();
 }
@@ -295,12 +332,22 @@ using namespace WhirlyKit;
                viewC:(NSObject<MaplyRenderControllerProtocol> *_Nonnull)viewC
                 desc:(NSDictionary *_Nullable)desc
 {
+    [self buildObjects:vecObjs forTile:tileData viewC:viewC desc:desc cancelFn:nil];
+}
+
+- (void)buildObjects:(NSArray *_Nonnull)vecObjs
+             forTile:(MaplyVectorTileData *_Nonnull)tileData
+               viewC:(NSObject<MaplyRenderControllerProtocol> *_Nonnull)viewC
+                desc:(NSDictionary *_Nullable)desc
+            cancelFn:(bool(^)(void))cancelFn
+{
     std::vector<VectorObjectRef> localVecObjs;
     for (MaplyVectorObject *vecObj in vecObjs)
         localVecObjs.push_back(vecObj->vObj);
 
     auto lDesc = desc ? iosMutableDictionary(desc) : iosMutableDictionary();
-    vectorStyle->buildObjects(nullptr, localVecObjs, tileData->data, &lDesc);
+    vectorStyle->buildObjects(nullptr, localVecObjs, tileData->data, &lDesc,
+                              [=](auto){return cancelFn && cancelFn();});
 }
 
 @end
@@ -400,13 +447,9 @@ namespace WhirlyKit
 {
 
 MapboxVectorStyleSetImpl_iOS::MapboxVectorStyleSetImpl_iOS(Scene *scene,
-                                                           CoordSystem *coordSys,
+                                                           const CoordSystem *coordSys,
                                                            const VectorStyleSettingsImplRef &settings)
     : MapboxVectorStyleSetImpl(scene,coordSys,settings)
-{
-}
-
-MapboxVectorStyleSetImpl_iOS::~MapboxVectorStyleSetImpl_iOS()
 {
 }
 
@@ -427,7 +470,7 @@ SimpleIdentity MapboxVectorStyleSetImpl_iOS::makeCircleTexture(PlatformThreadInf
                                                                Point2f *circleSize)
 {
     // We want the texture a bit bigger than specified
-    const float scale = tileStyleSettings->markerScale * 2;
+    const float scale = tileStyleSettings->markerScale * tileStyleSettings->circleScale * 2;
 
     // Build an image for the circle
     const float buffer = 1.0;
@@ -487,77 +530,123 @@ SimpleIdentity MapboxVectorStyleSetImpl_iOS::makeLineTexture(PlatformThreadInfo 
     return tex.texID;
 }
 
-LabelInfoRef MapboxVectorStyleSetImpl_iOS::makeLabelInfo(PlatformThreadInfo *inst,const std::vector<std::string> &fontNames,float fontSize)
+static UIFont *findFont(const std::string &fontName, float fontSize)
 {
-    UIFont *font = nil;
-    
-    // Work through the font names until we find one
-    for (auto fontName: fontNames) {
-        // Let's try just the name
-        NSString *fontNameStr = [NSString stringWithFormat:@"%s",fontName.c_str()];
-        font = [UIFont fontWithName:fontNameStr size:fontSize];
-        if (!font) {
-            // The font names vary a bit on iOS so we'll try reformatting the name
-            NSArray<NSString *> *components = [fontNameStr componentsSeparatedByString:@" "];
-            NSString *fontNameStr2 = nil;
-            switch ([components count])
-            {
-                // One component should already have worked
-                case 1:
-                    break;
-                // For two, we
-                case 2:
-                    if ([components count] == 2) {
-                        fontNameStr2 = [fontNameStr stringByReplacingOccurrencesOfString:@" " withString:@"-"];
-                        font = [UIFont fontWithName:fontNameStr2 size:fontSize];
-                    }
-                    break;
-                case 3:
-                {
-                    // Try <name><name>-<name>
-                    fontNameStr2 = [NSString stringWithFormat:@"%@%@-%@",[components objectAtIndex:0],[components objectAtIndex:1],[components lastObject]];
-                    font = [UIFont fontWithName:fontNameStr2 size:fontSize];
-                    
-                    // Sometimes a font like "Noto Sans Regular" is just "NotoSans" because I hate everyone involved with fonts
-                    if (!font && [[components lastObject] isEqualToString:@"Regular"]) {
-                        font = [UIFont fontWithName:[NSString stringWithFormat:@"%@%@",[components objectAtIndex:0],[components objectAtIndex:1]] size:fontSize];
-                    }
-                    
-                    // Okay, let's try a slightly different construction
-                    if (!font) {
-                        font = [UIFont fontWithName:[NSString stringWithFormat:@"%@-%@%@",[components objectAtIndex:0],[components objectAtIndex:1],[components objectAtIndex:2]] size:fontSize];
-                    }
-                    
-                    // And try an even stupider construction
-                    if (!font) {
-                        font = [UIFont fontWithName:[NSString stringWithFormat:@"%@-%@_%@-%@",[components objectAtIndex:0],[components objectAtIndex:2],[components objectAtIndex:1],[components objectAtIndex:2]] size:fontSize];
-                    }
-                }
-                    break;
-                default:
-                {
-                    // Try <name><name>-<name>
-                    NSMutableString *str = [[NSMutableString alloc] init];
-                    for (unsigned int ii=0;ii<[components count]-1;ii++)
-                        [str appendString:[components objectAtIndex:ii]];
-                    [str appendFormat:@"-%@",[components lastObject]];
-                    fontNameStr2 = str;
-                    font = [UIFont fontWithName:fontNameStr2 size:fontSize];
-                }
-                    break;
-            }
-            
-        }
-        
-        if (font)
-            break;
-    }
-    if (!font) {
-        font = [UIFont systemFontOfSize:fontSize];
-        NSLog(@"Failed to find font %s",fontNames[0].c_str());
+    // Let's try just the name
+    NSString *fontNameStr = [NSString stringWithUTF8String:fontName.c_str()];
+    if (UIFont* font = [UIFont fontWithName:fontNameStr size:fontSize])
+    {
+        return font;
     }
 
+    // The font names vary a bit on iOS so we'll try reformatting the name
+    NSArray<NSString *> *components = [fontNameStr componentsSeparatedByString:@" "];
+    NSString *fontNameStr2 = nil;
+    switch (components.count)
+    {
+        // One component should already have worked
+        case 1:
+            return nil;
+        // For two, try switching the separator
+        case 2:
+            fontNameStr2 = [fontNameStr stringByReplacingOccurrencesOfString:@" " withString:@"-"];
+            return [UIFont fontWithName:fontNameStr2 size:fontSize];
+        case 3:
+            // Try <name><name>-<name>
+            fontNameStr2 = [NSString stringWithFormat:@"%@%@-%@",[components objectAtIndex:0],[components objectAtIndex:1],[components lastObject]];
+            if (UIFont* font = [UIFont fontWithName:fontNameStr2 size:fontSize])
+            {
+                return font;
+            }
+            
+            // Sometimes a font like "Noto Sans Regular" is just "NotoSans" because I hate everyone involved with fonts
+            if ([[components lastObject] isEqualToString:@"Regular"])
+            {
+                fontNameStr2 = [NSString stringWithFormat:@"%@%@",
+                                [components objectAtIndex:0],
+                                [components objectAtIndex:1]];
+                if (UIFont* font = [UIFont fontWithName:fontNameStr2 size:fontSize])
+                {
+                    return font;
+                }
+            }
+            
+            // Okay, let's try a slightly different construction
+            fontNameStr2 = [NSString stringWithFormat:@"%@-%@%@",
+                            [components objectAtIndex:0],
+                            [components objectAtIndex:1],
+                            [components objectAtIndex:2]];
+            if (UIFont* font = [UIFont fontWithName:fontNameStr2 size:fontSize])
+            {
+                return font;
+            }
+            
+            // And try an even stupider construction
+            fontNameStr2 = [NSString stringWithFormat:@"%@-%@_%@-%@",
+                            [components objectAtIndex:0],
+                            [components objectAtIndex:2],
+                            [components objectAtIndex:1],
+                            [components objectAtIndex:2]];
+            if (UIFont* font = [UIFont fontWithName:fontNameStr2 size:fontSize])
+            {
+                return font;
+            }
+            break;
+        default:
+        {
+            // Try <name><name>-<name>
+            NSMutableString *str = [[NSMutableString alloc] init];
+            for (unsigned int ii=0;ii<[components count]-1;ii++)
+            {
+                [str appendString:[components objectAtIndex:ii]];
+            }
+            [str appendFormat:@"-%@",[components lastObject]];
+            if (UIFont* font = [UIFont fontWithName:str size:fontSize])
+            {
+                return font;
+            }
+        }
+    }
+    return nil;
+}
+
+LabelInfoRef MapboxVectorStyleSetImpl_iOS::makeLabelInfo(PlatformThreadInfo *,
+                                                         const std::vector<std::string> &fontNames,
+                                                         float fontSize, bool mergedSymbol)
+{
+    // Work through the font names until we find one
+    UIFont *font = nil;
+    for (const auto &fontName: fontNames)
+    {
+        font = findFont(fontName, fontSize);
+        if (font)
+        {
+            break;
+        }
+    }
+
+    if (!font)
+    {
+        font = [UIFont systemFontOfSize:fontSize];
+        wkLogLevel(Warn, "Failed to find font '%s' ..., using system font '%s'",
+                   fontNames[0].c_str(), font ? font.fontName.UTF8String : "<none>");
+    }
+
+    // If we want the reqested size to be the cap-height, line-height, ascent+descent, etc., this is how we can adjust it.
+    //if (mergedSymbol)
+    //{
+    //    CGSize withinSize = CGSizeMake(FLT_MAX, FLT_MAX);
+    //    const auto opts = NSStringDrawingUsesDeviceMetrics;
+    //    NSDictionary* attrs = @{NSFontAttributeName: font};
+    //    const CGRect bound = [@"M" boundingRectWithSize:withinSize options:opts attributes:attrs context:nil];
+    //    const auto newSize = fontSize * fontSize / bound.size.height;
+    //    font = [font fontWithSize:newSize];
+    //}
+
     auto labelInfo = std::make_shared<LabelInfo_iOS>(font,/*screenObject=*/true);
+    labelInfo->fontPointSize = fontSize;
+    labelInfo->mergedSymbol = mergedSymbol;
+    labelInfo->labelVAlign = WhirlyKitLabelVCenter;
     labelInfo->programID = screenMarkerProgramID;
 
     return labelInfo;
@@ -697,8 +786,7 @@ long long VectorStyleWrapper::VectorStyleWrapper::getUuid(PlatformThreadInfo *in
 
 std::string VectorStyleWrapper::getCategory(PlatformThreadInfo *inst)
 {
-    NSString *catStr = [style getCategory];
-    return [catStr cStringUsingEncoding:NSUTF8StringEncoding];
+    return [[style getCategory] asStdString];
 }
 
 bool VectorStyleWrapper::geomAdditive(PlatformThreadInfo *inst)
@@ -709,20 +797,26 @@ bool VectorStyleWrapper::geomAdditive(PlatformThreadInfo *inst)
 void VectorStyleWrapper::buildObjects(PlatformThreadInfo *inst,
                                       const std::vector<VectorObjectRef> &vecObjs,
                                       const VectorTileDataRef &tileInfo,
-                                      const Dictionary *desc)
+                                      const Dictionary *desc,
+                                      const CancelFunction &cancelFn)
 {
     if (auto tileData = [[MaplyVectorTileData alloc] init])
     {
         tileData->data = tileInfo;
 
         NSMutableArray *vecArray = [NSMutableArray array];
-        for (VectorObjectRef vecObj: vecObjs)
+        for (auto &vecObj: vecObjs)
         {
             if (auto mVecObj = [[MaplyVectorObject alloc] init])
             {
                 mVecObj->vObj = vecObj;
                 [vecArray addObject:mVecObj];
             }
+        }
+
+        if (cancelFn(inst))
+        {
+            return;
         }
 
         NSDictionary* nsDesc = nil;
@@ -734,7 +828,12 @@ void VectorStyleWrapper::buildObjects(PlatformThreadInfo *inst,
         {
             nsDesc = [NSMutableDictionary fromDictionaryCPointer:desc];
         }
-        [style buildObjects:vecArray forTile:tileData viewC:viewC desc:nsDesc];
+
+        [style buildObjects:vecArray
+                    forTile:tileData
+                      viewC:viewC
+                       desc:nsDesc
+                   cancelFn:^{return cancelFn(nullptr);}];
     }
 }
 

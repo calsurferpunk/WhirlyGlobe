@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 7/16/13.
- *  Copyright 2011-2021 mousebird consulting.
+ *  Copyright 2011-2023 mousebird consulting.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@
 #import "ScreenSpaceBuilder.h"
 #import "SharedAttributes.h"
 #import "CoordSystem.h"
+#import "WhirlyKitLog.h"
+#import "MapboxVectorStyleSetC.h"
 
 using namespace Eigen;
 using namespace WhirlyKit;
@@ -28,39 +30,95 @@ using namespace WhirlyKit;
 namespace WhirlyKit
 {
     
-MarkerInfo::MarkerInfo(bool screenObject)
-    : color(255,255,255), screenObject(screenObject), width(0.0), height(0.0),
-    layoutImportance(MAXFLOAT),clusterGroup(-1)
+MarkerInfo::MarkerInfo(bool screenObject) :
+    color(RGBAColor::white()),
+    screenObject(screenObject),
+    width(screenObject ? 16.0 : 0.001),
+    height(screenObject ? 16.0 : 0.001),
+    layoutImportance(MAXFLOAT),
+    clusterGroup(-1)
 {
-    if (screenObject) {
-        width = 16.0;
-        height = 16.0;
-    } else {
-        width = 0.001;
-        height = 0.001;
-    }
 }
-    
-MarkerInfo::MarkerInfo(const Dictionary &dict,bool screenObject)
-: BaseInfo(dict), screenObject(screenObject)
+
+MarkerInfo::MarkerInfo(const Dictionary &dict,bool screenObject) :
+    BaseInfo(dict),
+    screenObject(screenObject)
 {
-    color = dict.getColor(MaplyColor, RGBAColor(255,255,255,255));
-    width = dict.getDouble(MaplyLabelWidth,(screenObject ? 16.0 : 0.001));
-    height = dict.getDouble(MaplyLabelHeight,(screenObject ? 16.0 : 0.001));
-    layoutImportance = dict.getDouble(MaplyLayoutImportance,MAXFLOAT);
+    color = dict.getColor(MaplyColor, RGBAColor::white());
+    width = (float)dict.getDouble(MaplyLabelWidth,(screenObject ? 16.0 : 0.001));
+    height = (float)dict.getDouble(MaplyLabelHeight,(screenObject ? 16.0 : 0.001));
+    layoutImportance = (float)dict.getDouble(MaplyLayoutImportance,MAXFLOAT);
     clusterGroup = dict.getInt(MaplyClusterGroupID,-1);
+    layoutDebug = dict.getInt(MaplyTextLayoutDebug,false);
+    layoutRepeat = dict.getInt(MaplyTextLayoutRepeat,-1);
+    layoutSpacing = (float)dict.getDouble(MaplyTextLayoutSpacing,24.0);
+    layoutOffset = (float)dict.getDouble(MaplyTextLayoutOffset,0.0);
+
+    if (const auto entry = dict.getEntry(MaplyOpacity))
+    {
+        if (entry->getType() == DictionaryType::DictTypeDictionary)
+        {
+            if (const auto expr = MapboxVectorStyleSetImpl::transDouble(entry, MaplyOpacity, 1.0))
+            {
+                opacityExp = expr->expression();
+            }
+        }
+    }
+
+    if (const auto entry = dict.getEntry(MaplyColor))
+    {
+        if (entry->getType() == DictionaryType::DictTypeDictionary)
+        {
+            if (const auto expr = MapboxVectorStyleSetImpl::transColor(entry, MaplyColor, nullptr))
+            {
+                colorExp = expr->expression();
+            }
+        }
+    }
+
+    if (const auto entry = dict.getEntry(MaplyMarkerScale))
+    {
+        if (entry->getType() == DictionaryType::DictTypeDictionary)
+        {
+            if (const auto expr = MapboxVectorStyleSetImpl::transDouble(entry, MaplyOpacity, 1.0))
+            {
+                scaleExp = expr->expression();
+            }
+        }
+
+        // Since we don't have a simple scale member, allow them to specify
+        // a scale by producing an expression that always produces that value.
+        if (!scaleExp)
+        {
+            const double scale = entry->getDouble();
+            if (scale != 0.0 && scale != 1.0)
+            {
+                scaleExp = std::make_shared<FloatExpressionInfo>();
+                scaleExp->base = 1.0f;
+                scaleExp->type = ExpressionInfoType::ExpressionLinear;
+                scaleExp->stopInputs = { 1.0f, 1.0f };
+                scaleExp->stopOutputs = { (float)scale };
+            }
+        }
+    }
+    
+    hasExp = scaleExp || colorExp || opacityExp;
 }
     
-MarkerSceneRep::MarkerSceneRep()
-    : useLayout(false)
+MarkerSceneRep::MarkerSceneRep() :
+    useLayout(false),
+    fadeOut(0.0f)
 {
 }
     
-void MarkerSceneRep::enableContents(SelectionManagerRef &selectManager,LayoutManagerRef &layoutManager,bool enable,ChangeSet &changes)
+void MarkerSceneRep::enableContents(const SelectionManagerRef &selectManager,
+                                    const LayoutManagerRef &layoutManager,
+                                    bool enable,ChangeSet &changes)
 {
-    for (SimpleIDSet::iterator idIt = drawIDs.begin();
-         idIt != drawIDs.end(); ++idIt)
-        changes.push_back(new OnOffChangeRequest(*idIt,enable));
+    for (const auto id : drawIDs)
+    {
+        changes.push_back(new OnOffChangeRequest(id, enable));
+    }
     
     if (selectManager && !selectIDs.empty())
         selectManager->enableSelectables(selectIDs, enable);
@@ -69,12 +127,15 @@ void MarkerSceneRep::enableContents(SelectionManagerRef &selectManager,LayoutMan
         layoutManager->enableLayoutObjects(screenShapeIDs, enable);
 }
     
-void MarkerSceneRep::clearContents(SelectionManagerRef &selectManager,LayoutManagerRef &layoutManager,ChangeSet &changes,TimeInterval when)
+void MarkerSceneRep::clearContents(const SelectionManagerRef &selectManager,
+                                   const LayoutManagerRef &layoutManager,
+                                   ChangeSet &changes,TimeInterval when)
 {
     // Just delete everything
-    for (SimpleIDSet::iterator idIt = drawIDs.begin();
-         idIt != drawIDs.end(); ++idIt)
-        changes.push_back(new RemDrawableReq(*idIt,when));
+    for (const auto id : drawIDs)
+    {
+        changes.push_back(new RemDrawableReq(id, when));
+    }
     drawIDs.clear();
     
     if (selectManager && !selectIDs.empty())
@@ -86,23 +147,11 @@ void MarkerSceneRep::clearContents(SelectionManagerRef &selectManager,LayoutMana
     screenShapeIDs.clear();
 }
 
-Marker::Marker()
-    : isSelectable(false), selectID(EmptyIdentity),
-    loc(0,0), hasMotion(false), endLoc(0,0),
-    startTime(0), endTime(0),
-    color(255,255,255,255), colorSet(false),
-    lockRotation(false),
-    height(0), width(0),
-    layoutHeight(-1.0), layoutWidth(-1.0),
-    rotation(0), offset(0,0), period(0),
-    timeOffset(0), layoutImportance(MAXFLOAT), orderBy(-1),
-    maskID(EmptyIdentity), maskRenderTargetID(EmptyIdentity)
+Marker::Marker() :
+    loc(0,0),
+    endLoc(0,0),
+    offset(0,0)
 {
-}
-
-Marker::~Marker()
-{
-    
 }
 
 void Marker::addTexID(SimpleIdentity texID)
@@ -110,243 +159,408 @@ void Marker::addTexID(SimpleIdentity texID)
     texIDs.push_back(texID);
 }
 
-MarkerManager::MarkerManager()
-: maskProgID(EmptyIdentity)
+MarkerManager::MarkerManager() :
+    maskProgID(EmptyIdentity)
 {
 }
 
 MarkerManager::~MarkerManager()
 {
-    std::lock_guard<std::mutex> guardLock(lock);
-
-    for (MarkerSceneRepSet::iterator it = markerReps.begin();
-         it != markerReps.end(); ++it)
-        delete *it;
-    markerReps.clear();
+    // destructors must never throw, wrap stuff that might fail
+    try
+    {
+        std::unique_lock<std::mutex> guardLock(lock);
+        auto reps = std::move(markerReps);
+        guardLock.unlock();
+        for (auto markerRep : reps)
+        {
+            delete markerRep;
+        }
+    }
+    WK_STD_DTOR_CATCH()
 }
 
 typedef std::map<SimpleIDSet,BasicDrawableBuilderRef> DrawableMap;
 
+Point3dVector MarkerManager::convertGeoPtsToModelSpace(const VectorRing &inPts)
+{
+    CoordSystemDisplayAdapter *coordAdapt = scene->getCoordAdapter();
+    const CoordSystem *coordSys = coordAdapt->getCoordSystem();
+
+    Point3dVector outPts;
+    outPts.reserve(inPts.size());
+    
+    for (const auto &pt: inPts)
+    {
+        const auto localPt = coordSys->geographicToLocal3d(pt);
+        outPts.push_back(coordAdapt->localToDisplay(localPt));
+    }
+    
+    return outPts;
+}
+
+SimpleIdentity MarkerManager::addMarkers(const std::vector<Marker> &markers,const MarkerInfo &markerInfo,ChangeSet &changes)
+{
+    std::vector<Marker*> pointers;
+    std::transform(markers.begin(), markers.end(), std::back_inserter(pointers),
+                   [](auto &m){ return const_cast<Marker*>(&m); });
+    return addMarkers(pointers, markerInfo, changes);
+}
+
 SimpleIdentity MarkerManager::addMarkers(const std::vector<Marker *> &markers,const MarkerInfo &markerInfo,ChangeSet &changes)
 {
+    if (shutdown || !scene)
+    {
+        return EmptyIdentity;
+    }
+
     auto selectManager = scene->getManager<SelectionManager>(kWKSelectionManager);
     auto layoutManager = scene->getManager<LayoutManager>(kWKLayoutManager);
+    if (!selectManager || !layoutManager)
+    {
+        return EmptyIdentity;
+    }
+
     const TimeInterval curTime = scene->getCurrentTime();
 
-    if (maskProgID == EmptyIdentity) {
-        Program *prog = scene->findProgramByName(MaplyScreenSpaceMaskShader);
-        if (prog)
+    if (maskProgID == EmptyIdentity)
+    {
+        if (const Program *prog = scene->findProgramByName(MaplyScreenSpaceMaskShader))
+        {
             maskProgID = prog->getId();
+        }
     }
     
     CoordSystemDisplayAdapter *coordAdapter = scene->getCoordAdapter();
-    MarkerSceneRep *markerRep = new MarkerSceneRep();
-    markerRep->fadeOut = markerInfo.fadeOut;
+    const CoordSystem *coordSys = coordAdapter ? coordAdapter->getCoordSystem() : nullptr;
+    if (!coordSys)
+    {
+        return EmptyIdentity;
+    }
+
+    auto markerRep = std::make_unique<MarkerSceneRep>();
+    markerRep->fadeOut = (float)markerInfo.fadeOut;
     
     // For static markers, sort by texture
     DrawableMap drawables;
 
     // Screen space markers
-    std::vector<ScreenSpaceObject *> screenShapes;
+    std::vector<ScreenSpaceObjectRef> screenShapes;
+    screenShapes.reserve(markers.size());
     
     // Objects to be controlled by the layout layer
-    std::vector<LayoutObject *> layoutObjects;
-    
-    for (unsigned int ii=0;ii<markers.size();ii++)
+    std::vector<LayoutObjectRef> layoutObjects;
+    layoutObjects.reserve(markers.size());
+
+    bool cancel = false;
+    for (auto &marker : markers)
     {
-        Marker *marker = markers[ii];
+        if (isShuttingDown() || !renderer)
+        {
+            cancel = true;
+            break;
+        }
+
         // Build the rectangle for this one
-        Point3f pts[4];
-        Vector3d norm;
-        float width2 = (marker->width == 0.0 ? markerInfo.width : marker->width)/2.0;
-        float height2 = (marker->height == 0.0 ? markerInfo.height : marker->height)/2.0;
+        const float width2 = (marker->width == 0.0f ? markerInfo.width : marker->width)/2.0f;
+        const float height2 = (marker->height == 0.0f ? markerInfo.height : marker->height)/2.0f;
         
-        Point3d localPt = coordAdapter->getCoordSystem()->geographicToLocal3d(marker->loc);
-        norm = coordAdapter->normalForLocal(localPt);
+        const Point3d localPt = coordAdapter->getCoordSystem()->geographicToLocal3d(marker->loc);
+        const Vector3d norm = coordAdapter->normalForLocal(localPt);
         
         // Look for a texture sub mapping
         std::vector<SubTexture> subTexs;
-        for (unsigned int ii=0; ii<marker->texIDs.size();ii++)
+        subTexs.reserve(marker->texIDs.size());
+        for (unsigned long long texID : marker->texIDs)
         {
-            SimpleIdentity texID = marker->texIDs.at(ii);
-            SubTexture subTex = scene->getSubTexture(texID);
-            subTexs.push_back(subTex);
+            subTexs.push_back(scene->getSubTexture(texID));
         }
         
         // Build one set of texture coordinates
-        std::vector<TexCoord> texCoord;
-        texCoord.resize(4);
-        texCoord[3].u() = 0.0;  texCoord[3].v() = 0.0;
-        texCoord[2].u() = 1.0;  texCoord[2].v() = 0.0;
-        texCoord[1].u() = 1.0;  texCoord[1].v() = 1.0;
-        texCoord[0].u() = 0.0;  texCoord[0].v() = 1.0;
+        std::vector<TexCoord> texCoord =
+        {
+            { 0.0, 1.0 },
+            { 1.0, 1.0 },
+            { 1.0, 0.0 },
+            { 0.0, 0.0 },
+        };
+
         // Note: This assume they all have the same (or no) sub texture mapping
         if (!subTexs.empty())
+        {
             subTexs[0].processTexCoords(texCoord);
-        
+        }
+
         if (markerInfo.screenObject)
         {
-            pts[0] = Point3f(-width2+marker->offset.x(),-height2+marker->offset.y(),0.0);
-            pts[1] = Point3f(width2+marker->offset.x(),-height2+marker->offset.y(),0.0);
-            pts[2] = Point3f(width2+marker->offset.x(),height2+marker->offset.y(),0.0);
-            pts[3] = Point3f(-width2+marker->offset.x(),height2+marker->offset.y(),0.0);
+            const Point3f pts[4] =
+            {
+                { -width2 + marker->offset.x(), -height2 + marker->offset.y(), 0.0 },
+                {  width2 + marker->offset.x(), -height2 + marker->offset.y(), 0.0 },
+                {  width2 + marker->offset.x(),  height2 + marker->offset.y(), 0.0 },
+                { -width2 + marker->offset.x(),  height2 + marker->offset.y(), 0.0 },
+            };
 
-            ScreenSpaceObject *shape = NULL;
-            LayoutObject *layoutObj = NULL;
             float layoutImport = markerInfo.layoutImportance;
             if (layoutManager && marker->layoutImportance < MAXFLOAT)
+            {
                 layoutImport = marker->layoutImportance;
+            }
+
+            std::shared_ptr<LayoutObject> layoutObj;
+            std::shared_ptr<ScreenSpaceObject> shape;   // may or may not alias layoutObj
             if (layoutImport < MAXFLOAT)
             {
                 markerRep->useLayout = true;
-                layoutObj = new LayoutObject();
+                layoutObj = std::make_shared<LayoutObject>();
                 shape = layoutObj;
-            } else
-                shape = new ScreenSpaceObject();
-            
+            }
+            else
+            {
+                shape = std::make_shared<ScreenSpaceObject>();
+            }
+
             if (!marker->uniqueID.empty() && layoutObj)
+            {
                 layoutObj->uniqueID = marker->uniqueID;
+            }
 
             if (marker->orderBy >= 0)
+            {
                 shape->setOrderBy(marker->orderBy);
+            }
 
             shape->setPeriod(marker->period);
             
             ScreenSpaceConvexGeometry smGeom;
-            for (unsigned int ii=0;ii<subTexs.size();ii++)
-                smGeom.texIDs.push_back(subTexs[ii].texId);
+            smGeom.texIDs.reserve(subTexs.size());
+            for (auto &subTex : subTexs)
+            {
+                smGeom.texIDs.push_back(subTex.texId);
+            }
+
             smGeom.progID = markerInfo.programID;
             smGeom.color = markerInfo.color;
             smGeom.vertexAttrs = marker->vertexAttrs;
+
             if (marker->colorSet)
-                smGeom.color = marker->color;
-            for (unsigned int ii=0;ii<4;ii++)
             {
-                smGeom.coords.push_back(Point2d(pts[ii].x(),pts[ii].y()));
-                smGeom.texCoords.push_back(texCoord[ii]);
+                smGeom.color = marker->color;
             }
+
+            for (unsigned int jj=0; jj < 4; jj++)
+            {
+                smGeom.coords.emplace_back(pts[jj].x(), pts[jj].y());
+                smGeom.texCoords.push_back(texCoord[jj]);
+            }
+
             if (marker->isSelectable && marker->selectID != EmptyIdentity)
+            {
                 shape->setId(marker->selectID);
+            }
+
             shape->setWorldLoc(coordAdapter->localToDisplay(localPt));
             if (marker->hasMotion)
-                shape->setMovingLoc(coordAdapter->localToDisplay(coordAdapter->getCoordSystem()->geographicToLocal3d(marker->endLoc)), marker->startTime, marker->endTime);
+            {
+                const Point3d local = coordSys->geographicToLocal3d(marker->endLoc);
+                const Point3d display = coordAdapter->localToDisplay(local);
+                shape->setMovingLoc(display, marker->startTime, marker->endTime);
+            }
+
             if (marker->lockRotation)
+            {
                 shape->setRotation(marker->rotation);
+            }
+
             if (markerInfo.fadeIn > 0.0)
+            {
                 shape->setFade(curTime+markerInfo.fadeIn, curTime);
+            }
             else if (markerInfo.fadeOut > 0.0 && markerInfo.fadeOutTime > 0.0)
-                shape->setFade(markerInfo.fadeOutTime, markerInfo.fadeOutTime+markerInfo.fadeOut);
-            shape->setVisibility(markerInfo.minVis, markerInfo.maxVis);
+            {
+                // up<down=fade out
+                shape->setFade(/*up=*/markerInfo.fadeOutTime, /*down=*/markerInfo.fadeOutTime+markerInfo.fadeOut);
+            }
+
+            shape->setVisibility((float)markerInfo.minVis, (float)markerInfo.maxVis);
             shape->setZoomInfo(markerInfo.zoomSlot, markerInfo.minZoomVis, markerInfo.maxZoomVis);
             shape->setOpacityExp(markerInfo.opacityExp);
             shape->setColorExp(markerInfo.colorExp);
             shape->setScaleExp(markerInfo.scaleExp);
             shape->setDrawOrder(markerInfo.drawOrder);
             shape->setDrawPriority(markerInfo.drawPriority);
+
             shape->setEnable(markerInfo.enable);
             if (markerInfo.startEnable != markerInfo.endEnable)
+            {
                 shape->setEnableTime(markerInfo.startEnable, markerInfo.endEnable);
-            shape->addGeometry(smGeom);
+            }
+
+            shape->addGeometry(std::move(smGeom));
             markerRep->screenShapeIDs.insert(shape->getId());
             
+            // Setup layout points if we have them
+            if (!marker->layoutShape.empty() && layoutObj)
+            {
+                layoutObj->layoutShape = convertGeoPtsToModelSpace(marker->layoutShape);
+                layoutObj->layoutRepeat = markerInfo.layoutRepeat;
+                layoutObj->layoutOffset = markerInfo.layoutOffset;
+                layoutObj->layoutSpacing = markerInfo.layoutSpacing;
+                layoutObj->layoutWidth = 2.0f * height2;
+            }
+            
             // Handle the mask rendering if it's there
-            if (marker->maskID != EmptyIdentity && marker->maskRenderTargetID != EmptyIdentity) {
+            if (marker->maskID != EmptyIdentity && marker->maskRenderTargetID != EmptyIdentity)
+            {
                 // Make a copy of the geometry, but target it to the mask render target
                 const std::vector<ScreenSpaceConvexGeometry> *geom = shape->getGeometry();
-                for (auto entry: *geom) {
-                    entry.vertexAttrs.insert(SingleVertexAttribute(a_maskNameID, renderer->getSlotForNameID(a_maskNameID), (int)marker->maskID));
+                for (ScreenSpaceConvexGeometry entry: *geom)    // N.B.: make a copy
+                {
+                    entry.vertexAttrs.emplace(a_maskNameID, renderer->getSlotForNameID(a_maskNameID), (int)marker->maskID);
                     entry.renderTargetID = marker->maskRenderTargetID;
                     entry.progID = maskProgID;
-                    shape->addGeometry(entry);
+                    shape->addGeometry(std::move(entry));
                 }
             }
             
             // Set up for the layout layer
             if (layoutImport < MAXFLOAT)
             {
+                const Point2d &off = marker->offset;
+
+                layoutObj->selectPts.emplace_back(-width2+off.x(),-height2+off.y());
+                layoutObj->selectPts.emplace_back( width2+off.x(),-height2+off.y());
+                layoutObj->selectPts.emplace_back( width2+off.x(), height2+off.y());
+                layoutObj->selectPts.emplace_back(-width2+off.x(), height2+off.y());
+
                 if (marker->layoutWidth >= 0.0)
                 {
-                    layoutObj->layoutPts.push_back(Point2d(-marker->layoutWidth/2.0+marker->offset.x(),-marker->layoutHeight/2.0+marker->offset.y()));
-                    layoutObj->layoutPts.push_back(Point2d(marker->layoutWidth/2.0+marker->offset.x(),-marker->layoutHeight/2.0+marker->offset.y()));
-                    layoutObj->layoutPts.push_back(Point2d(marker->layoutWidth/2.0+marker->offset.x(),marker->layoutHeight/2.0+marker->offset.y()));
-                    layoutObj->layoutPts.push_back(Point2d(-marker->layoutWidth/2.0+marker->offset.x(),marker->layoutHeight/2.0+marker->offset.y()));
-                    layoutObj->selectPts.push_back(Point2d(-width2+marker->offset.x(),-height2+marker->offset.y()));
-                    layoutObj->selectPts.push_back(Point2d(width2+marker->offset.x(),-height2+marker->offset.y()));
-                    layoutObj->selectPts.push_back(Point2d(width2+marker->offset.x(),height2+marker->offset.y()));
-                    layoutObj->selectPts.push_back(Point2d(-width2+marker->offset.x(),height2+marker->offset.y()));
-                } else {
-                    layoutObj->selectPts.push_back(Point2d(-width2+marker->offset.x(),-height2+marker->offset.y()));
-                    layoutObj->selectPts.push_back(Point2d(width2+marker->offset.x(),-height2+marker->offset.y()));
-                    layoutObj->selectPts.push_back(Point2d(width2+marker->offset.x(),height2+marker->offset.y()));
-                    layoutObj->selectPts.push_back(Point2d(-width2+marker->offset.x(),height2+marker->offset.y()));
+                    const auto w2 = marker->layoutWidth / 2.0f;
+                    const auto h2 = marker->layoutHeight / 2.0f;
+                    layoutObj->layoutPts.emplace_back(-w2+off.x(),-h2+off.y());
+                    layoutObj->layoutPts.emplace_back( w2+off.x(),-h2+off.y());
+                    layoutObj->layoutPts.emplace_back( w2+off.x(), h2+off.y());
+                    layoutObj->layoutPts.emplace_back(-w2+off.x(), h2+off.y());
+                }
+                else
+                {
                     layoutObj->layoutPts = layoutObj->selectPts;
                 }
+
+                layoutObj->layoutDebug = markerInfo.layoutDebug;
                 layoutObj->clusterGroup = markerInfo.clusterGroup;
                 layoutObj->importance = layoutImport;
+
                 // No moving it around
-                layoutObj->acceptablePlacement = 1;
-                
+                layoutObj->acceptablePlacement = marker->layoutPlacement;
+
+                // Potentially lay it out with something else (e.g., a label)
+                layoutObj->mergeID = marker->mergeID;
+
                 // Start out off, let the layout layer handle the rest
                 shape->setEnable(markerInfo.enable);
                 if (markerInfo.startEnable != markerInfo.endEnable)
+                {
                     shape->setEnableTime(markerInfo.startEnable, markerInfo.endEnable);
+                }
                 shape->setOffset(Point2d(MAXFLOAT,MAXFLOAT));
             }
             
             if (layoutObj)
-                layoutObjects.push_back(layoutObj);
-            else if (shape)
+            {
+                layoutObjects.push_back(std::move(layoutObj));
+            }
+            else
             {
                 if (selectManager)
                 {
                     // If the marker doesn't already have an ID, it needs one
                     if (!marker->selectID)
+                    {
                         marker->selectID = Identifiable::genId();
-                    
+                    }
+
                     markerRep->selectIDs.insert(marker->selectID);
-                    Point2f pts2d[4];
+
+                    Point2f pts2f[4];
                     for (unsigned int jj=0;jj<4;jj++)
-                        pts2d[jj] = Point2f(pts[jj].x(),pts[jj].y());
+                    {
+                        pts2f[jj] = Point2f(pts[jj].x(), pts[jj].y());
+                    }
+
                     if (marker->hasMotion)
-                        selectManager->addSelectableMovingScreenRect(marker->selectID, shape->getWorldLoc(), shape->getEndWorldLoc(), shape->getStartTime(), shape->getEndTime(), pts2d,markerInfo.minVis,markerInfo.maxVis,markerInfo.enable);
+                    {
+                        selectManager->addSelectableMovingScreenRect(marker->selectID,
+                                                                     shape->getWorldLoc(),
+                                                                     shape->getEndWorldLoc(),
+                                                                     shape->getStartTime(),
+                                                                     shape->getEndTime(), pts2f,
+                                                                     (float)markerInfo.minVis,
+                                                                     (float)markerInfo.maxVis,
+                                                                     markerInfo.enable);
+                    }
                     else
-                        selectManager->addSelectableScreenRect(marker->selectID,shape->getWorldLoc(),pts2d,markerInfo.minVis,markerInfo.maxVis,markerInfo.enable);
+                        {
+                        selectManager->addSelectableScreenRect(marker->selectID,
+                                                               shape->getWorldLoc(),
+                                                               pts2f,
+                                                               (float)markerInfo.minVis,
+                                                               (float)markerInfo.maxVis,
+                                                               markerInfo.enable);
+                    }
                     if (!markerInfo.enable)
+                    {
                         selectManager->enableSelectable(marker->selectID, false);
+                    }
                 }
 
-                screenShapes.push_back(shape);
+                screenShapes.push_back(std::move(shape));
             }
-        } else {
-            Point3d center = coordAdapter->localToDisplay(localPt);
-            Vector3d up(0,0,1);
+        }
+        else
+        {
+            const Point3d center = coordAdapter->localToDisplay(localPt);
+            const Vector3d up(0,0,1);
             Point3d horiz,vert;
             if (coordAdapter->isFlat())
             {
                 horiz = Point3d(1,0,0);
                 vert = Point3d(0,1,0);
-            } else {
+            }
+            else
+            {
                 horiz = up.cross(norm).normalized();
-                vert = norm.cross(horiz).normalized();;
+                vert = norm.cross(horiz).normalized();
             }
             
-            Point3d ll = center - width2*horiz - height2*vert;
-            pts[0] = Vector3dToVector3f(ll);
-            pts[1] = Vector3dToVector3f(ll + 2 * width2 * horiz);
-            pts[2] = Vector3dToVector3f(ll + 2 * width2 * horiz + 2 * height2 * vert);
-            pts[3] = Vector3dToVector3f(ll + 2 * height2 * vert);
+            const Point3d ll = center - width2*horiz - height2*vert;
+            const Point3f pts[4] =
+            {
+                Vector3dToVector3f(ll),
+                Vector3dToVector3f(ll + 2 * width2 * horiz),
+                Vector3dToVector3f(ll + 2 * width2 * horiz + 2 * height2 * vert),
+                Vector3dToVector3f(ll + 2 * height2 * vert),
+            };
 
             // We're sorting the static drawables by texture, so look for that
             SimpleIDSet texIDs;
             for (const auto &subTex : subTexs)
+            {
                 texIDs.insert(subTex.texId);
+            }
             if (texIDs.empty())
+            {
                 texIDs.insert(EmptyIdentity);
-            DrawableMap::iterator it = drawables.find(texIDs);
+            }
+
             BasicDrawableBuilderRef draw;
+            const auto it = drawables.find(texIDs);
             if (it != drawables.end())
+            {
                 draw = it->second;
-            else {
+            }
+            else
+            {
                 draw = renderer->makeBasicDrawableBuilder("Marker Layer");
                 draw->setType(Triangles);
                 markerInfo.setupBasicDrawable(draw);
@@ -358,25 +572,28 @@ SimpleIdentity MarkerManager::addMarkers(const std::vector<Marker *> &markers,co
                 // If we've got more than one texture ID and a period, we need a tweaker
                 if (texIDs.size() > 1 && marker->period != 0.0)
                 {
-                    TimeInterval now = scene->getCurrentTime();
-                    std::vector<SimpleIdentity> texIDVec;
-                    std::copy(texIDs.begin(), texIDs.end(), std::back_inserter(texIDVec));
-                    auto tweak = std::make_shared<BasicDrawableTexTweaker>(texIDVec,now,marker->period);
+                    std::vector<SimpleIdentity> texIDVec(texIDs.size());
+                    std::copy(texIDs.begin(), texIDs.end(), texIDVec.begin());
+                    auto tweak = std::make_shared<BasicDrawableTexTweaker>(texIDVec,curTime,marker->period);
                     draw->addTweaker(tweak);
                 }
             }
             
             // Toss the geometry into the drawable
-            int vOff = draw->getNumPoints();
-            for (unsigned int ii=0;ii<4;ii++)
+            const unsigned vOff = draw->getNumPoints();
+            for (unsigned int jj=0; jj < 4; jj++)
             {
-                Point3f &pt = pts[ii];
+                const Point3f &pt = pts[jj];
                 draw->addPoint(pt);
-                draw->addNormal(Vector3dToVector3f(norm));
-                for (unsigned int jj=0;jj<texIDs.size();jj++)
-                    draw->addTexCoord(jj,texCoord[ii]);
+                draw->addNormal(norm);
+                for (int kk=0; kk < texIDs.size(); kk++)
+                {
+                    draw->addTexCoord(kk, texCoord[jj]);
+                }
+
+                const Point3f localLoc = coordAdapter->getCoordSystem()->geographicToLocal(marker->loc);
+
                 Mbr localMbr = draw->getLocalMbr();
-                Point3f localLoc = coordAdapter->getCoordSystem()->geographicToLocal(marker->loc);
                 localMbr.addPoint(Point2f(localLoc.x(),localLoc.y()));
                 draw->setLocalMbr(localMbr);
             }
@@ -386,62 +603,75 @@ SimpleIdentity MarkerManager::addMarkers(const std::vector<Marker *> &markers,co
 
             if (selectManager)
             {
-                selectManager->addSelectableRect(marker->selectID,pts,markerInfo.minVis,markerInfo.maxVis,markerInfo.enable);
+                selectManager->addSelectableRect(marker->selectID,pts,
+                                                 (float)markerInfo.minVis,
+                                                 (float)markerInfo.maxVis,
+                                                 markerInfo.enable);
                 markerRep->selectIDs.insert(marker->selectID);
             }
         }
     }
 
     // Flush out any drawables for the static geometry
-    for (auto it = drawables.begin(); it != drawables.end(); ++it)
+    if (!cancel)
     {
-        if (markerInfo.fadeIn > 0.0)
+        for (const auto &drawable : drawables)
         {
-            TimeInterval curTime = scene->getCurrentTime();
-            it->second->setFade(curTime,curTime+markerInfo.fadeIn);
+            if (markerInfo.fadeIn > 0.0)
+            {
+                drawable.second->setFade(curTime,curTime+markerInfo.fadeIn);
+            }
+            changes.push_back(new AddDrawableReq(drawable.second->getDrawable()));
         }
-        changes.push_back(new AddDrawableReq(it->second->getDrawable()));
     }
     drawables.clear();
     
     // Add any simple 2D markers to the scene
     if (!screenShapes.empty())
     {
-        ScreenSpaceBuilder ssBuild(renderer,coordAdapter,renderer->getScale());
-        ssBuild.addScreenObjects(screenShapes);
-        for (unsigned int ii=0;ii<screenShapes.size();ii++)
-            delete screenShapes[ii];
-        ssBuild.flushChanges(changes, markerRep->drawIDs);
+        if (!cancel && renderer)
+        {
+            ScreenSpaceBuilder ssBuild(renderer,coordAdapter,renderer->getScale());
+            ssBuild.addScreenObjects(screenShapes);
+            ssBuild.flushChanges(changes, markerRep->drawIDs);
+        }
     }
     
     // And any layout constraints to the layout engine
-    if (layoutManager && !layoutObjects.empty())
-        layoutManager->addLayoutObjects(layoutObjects);
-    for (unsigned int ii=0;ii<layoutObjects.size();ii++)
-        delete layoutObjects[ii];
-    
-    SimpleIdentity markerID = markerRep->getId();
-    
+    if (layoutManager && !layoutObjects.empty() && !cancel)
     {
-        std::lock_guard<std::mutex> guardLock(lock);
-        markerReps.insert(markerRep);
+        layoutManager->addLayoutObjects(std::move(layoutObjects));
     }
-    
-    return markerID;
+
+    if (!cancel && renderer)
+    {
+        const SimpleIdentity markerID = markerRep->getId();
+
+        std::lock_guard<std::mutex> guardLock(lock);
+        // transfer ownership
+        markerReps.insert(markerRep.release());
+
+        return markerID;
+    }
+    else
+    {
+        return EmptyIdentity;
+    }
 }
 
 void MarkerManager::enableMarkers(SimpleIDSet &markerIDs,bool enable,ChangeSet &changes)
 {
-    SelectionManagerRef selectManager = std::dynamic_pointer_cast<SelectionManager>(scene->getManager(kWKSelectionManager));
-    LayoutManagerRef layoutManager = std::dynamic_pointer_cast<LayoutManager>(scene->getManager(kWKLayoutManager));
+    const auto selectManager = scene->getManager<SelectionManager>(kWKSelectionManager);
+    const auto layoutManager = scene->getManager<LayoutManager>(kWKLayoutManager);
 
     std::lock_guard<std::mutex> guardLock(lock);
 
-    for (SimpleIDSet::iterator mit = markerIDs.begin();mit != markerIDs.end(); ++mit)
+    MarkerSceneRep dummyRep;
+    for (const SimpleIdentity markerID : markerIDs)
     {
-        MarkerSceneRep dummyRep;
-        dummyRep.setId(*mit);
-        MarkerSceneRepSet::iterator it = markerReps.find(&dummyRep);
+        dummyRep.setId(markerID);
+
+        const auto it = markerReps.find(&dummyRep);
         if (it != markerReps.end())
         {
             MarkerSceneRep *markerRep = *it;
@@ -452,38 +682,41 @@ void MarkerManager::enableMarkers(SimpleIDSet &markerIDs,bool enable,ChangeSet &
 
 void MarkerManager::removeMarkers(SimpleIDSet &markerIDs,ChangeSet &changes)
 {
-    SelectionManagerRef selectManager = std::dynamic_pointer_cast<SelectionManager>(scene->getManager(kWKSelectionManager));
-    LayoutManagerRef layoutManager = std::dynamic_pointer_cast<LayoutManager>(scene->getManager(kWKLayoutManager));
+    if (!scene)
+        return;
+    
+    const auto selectManager = scene->getManager<SelectionManager>(kWKSelectionManager);
+    const auto layoutManager = scene->getManager<LayoutManager>(kWKLayoutManager);
 
     std::lock_guard<std::mutex> guardLock(lock);
 
-    TimeInterval curTime = scene->getCurrentTime();
-    for (SimpleIDSet::iterator mit = markerIDs.begin();mit != markerIDs.end(); ++mit)
+    const TimeInterval curTime = scene->getCurrentTime();
+    MarkerSceneRep dummyRep;
+    for (const auto markerID : markerIDs)
     {
-        SimpleIdentity markerID = *mit;
-        MarkerSceneRep dummyRep;
         dummyRep.setId(markerID);
-        MarkerSceneRepSet::iterator it = markerReps.find(&dummyRep);
-        if (it != markerReps.end())
+        const auto it = markerReps.find(&dummyRep);
+        if (it == markerReps.end())
         {
-            MarkerSceneRep *markerRep = *it;
-            
-            TimeInterval removeTime = 0.0;
-            if (markerRep->fadeOut > 0.0)
-            {
-                for (SimpleIDSet::iterator idIt = markerRep->drawIDs.begin();
-                     idIt != markerRep->drawIDs.end(); ++idIt)
-                    changes.push_back(new FadeChangeRequest(*idIt,curTime,curTime+markerRep->fadeOut));
-                
-                removeTime = curTime + markerRep->fadeOut;
-            }
-            
-            
-            markerRep->clearContents(selectManager, layoutManager, changes, removeTime);
-            
-            markerReps.erase(it);
-            delete markerRep;
+            continue;
         }
+
+        MarkerSceneRep *markerRep = *it;
+
+        TimeInterval removeTime = 0.0;
+        if (markerRep->fadeOut > 0.0)
+        {
+            for (const auto did : markerRep->drawIDs)
+            {
+                changes.push_back(new FadeChangeRequest(did, curTime, curTime + markerRep->fadeOut));
+            }
+            removeTime = curTime + markerRep->fadeOut;
+        }
+
+        markerRep->clearContents(selectManager, layoutManager, changes, removeTime);
+
+        markerReps.erase(it);
+        delete markerRep;
     }
 }
 

@@ -1,9 +1,8 @@
-/*
- *  DynamicTextureAtlasMTL.mm
+/*  DynamicTextureAtlasMTL.mm
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/16/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,16 +14,17 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "DynamicTextureAtlasMTL.h"
 
 namespace WhirlyKit
 {
-    
-DynamicTextureMTL::DynamicTextureMTL(const std::string &name)
-: DynamicTexture(name), TextureBase(name), TextureBaseMTL(name), valid(false), bytesPerRow(0), bytesPerPixel(0)
+
+DynamicTextureMTL::DynamicTextureMTL(std::string name) :
+    TextureBase(name),
+    DynamicTexture(name),
+    TextureBaseMTL()
 {
 }
 
@@ -47,22 +47,46 @@ void DynamicTextureMTL::setup(int texSize,int cellSize,TextureType inType,bool c
             type = inType;
             break;
         case TexTypeShort565:
+#if TARGET_OS_SIMULATOR || TARGET_OS_MACCATALYST
+            // todo: leverage TextureMTL
+            bytesPerPixel = 4;
+            bytesPerRow = texSize * bytesPerPixel;
+            pixFormat = MTLPixelFormatRGBA8Unorm;
+            type = TexTypeUnsignedByte;
+#else
             bytesPerPixel = 2;
             bytesPerRow = texSize * bytesPerPixel;
             pixFormat = MTLPixelFormatB5G6R5Unorm;
             type = inType;
+#endif
             break;
         case TexTypeShort4444:
+#if TARGET_OS_SIMULATOR || TARGET_OS_MACCATALYST
+            // todo: leverage TextureMTL
+            bytesPerPixel = 4;
+            bytesPerRow = texSize * bytesPerPixel;
+            pixFormat = MTLPixelFormatRGBA8Unorm;
+            type = TexTypeUnsignedByte;
+#else
             bytesPerPixel = 2;
             bytesPerRow = texSize * bytesPerPixel;
             pixFormat = MTLPixelFormatABGR4Unorm;
             type = inType;
+#endif
             break;
         case TexTypeShort5551:
+#if TARGET_OS_SIMULATOR || TARGET_OS_MACCATALYST
+            // todo: leverage TextureMTL
+            bytesPerPixel = 4;
+            bytesPerRow = texSize * bytesPerPixel;
+            pixFormat = MTLPixelFormatRGBA8Unorm;
+            type = TexTypeUnsignedByte;
+#else
             bytesPerPixel = 2;
             bytesPerRow = texSize * bytesPerPixel;
             pixFormat = MTLPixelFormatBGR5A1Unorm;
             type = inType;
+#endif
             break;
         default:
             NSLog(@"DynamicTextureMTL: Unrecognized texture type.");

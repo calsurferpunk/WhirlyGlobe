@@ -1,9 +1,8 @@
-/*
- *  QuadTileBuilder.mm
+/*  QuadTileBuilder.cpp
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 3/29/18.
- *  Copyright 2012-2018 Saildrone Inc
+ *  Copyright 2012-2021 Saildrone Inc
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "QuadTileBuilder.h"
@@ -24,17 +22,9 @@
 
 namespace WhirlyKit
 {
-    
-QuadTileBuilderDelegate::QuadTileBuilderDelegate()
-{
-}
-    
-QuadTileBuilderDelegate::~QuadTileBuilderDelegate()
-{
-}
-    
-QuadTileBuilder::QuadTileBuilder(CoordSystemRef coordSys,QuadTileBuilderDelegate *delegate)
-    : delegate(delegate), debugMode(false)
+
+QuadTileBuilder::QuadTileBuilder(CoordSystemRef coordSys, QuadTileBuilderDelegate *delegate) :
+    delegate(delegate)
 {
     geomSettings.sampleX = 20;
     geomSettings.sampleY = 20;
@@ -42,11 +32,7 @@ QuadTileBuilder::QuadTileBuilder(CoordSystemRef coordSys,QuadTileBuilderDelegate
     geomSettings.topSampleY = 40;
     geomSettings.enableGeom = false;
     geomSettings.singleLevel = false;
-    geomManage.coordSys = coordSys;
-}
-    
-QuadTileBuilder::~QuadTileBuilder()
-{
+    geomManage.coordSys = std::move(coordSys);
 }
 
 TileBuilderDelegateInfo QuadTileBuilder::getLoadingState()
@@ -157,27 +143,34 @@ void QuadTileBuilder::setController(QuadDisplayControllerNew *inControl)
 {
     QuadLoaderNew::setController(inControl);
     
-    MbrD mbr = MbrD(control->getDataStructure()->getValidExtents());
-    geomManage.setup(inControl->getRenderer(),geomSettings,control, control->getScene()->getCoordAdapter(),geomManage.coordSys,mbr);
+    const MbrD mbr = control->getDataStructure()->getValidExtents();
+    geomManage.setup(inControl->getRenderer(), geomSettings, control,
+                     control->getScene()->getCoordAdapter(),geomManage.coordSys,mbr);
     
     delegate->setBuilder(this,control);
 }
     
 /// Load some tiles, unload others, and the rest had their importance values change
 /// Return the nodes we wanted to keep rather than delete
-QuadTreeNew::NodeSet QuadTileBuilder::quadLoaderUpdate(PlatformThreadInfo *threadInfo,const WhirlyKit::QuadTreeNew::ImportantNodeSet &loadTiles,const WhirlyKit::QuadTreeNew::NodeSet &unloadTiles,const WhirlyKit::QuadTreeNew::ImportantNodeSet &updateTiles,int targetLevel, ChangeSet &changes)
+QuadTreeNew::NodeSet QuadTileBuilder::quadLoaderUpdate(PlatformThreadInfo *threadInfo,
+                                                       const QuadTreeNew::ImportantNodeSet &loadTiles,
+                                                       const QuadTreeNew::NodeSet &unloadTiles,
+                                                       const QuadTreeNew::ImportantNodeSet &updateTiles,
+                                                       int targetLevel, ChangeSet &changes)
 {
     TileBuilderDelegateInfo info;
     info.unloadTiles = unloadTiles;
     info.changeTiles = updateTiles;
     
     QuadTreeNew::NodeSet toKeep;
-    if (!unloadTiles.empty()) {
+    if (!unloadTiles.empty())
+    {
         toKeep = delegate->builderUnloadCheck(this,loadTiles,unloadTiles,targetLevel);
         // Remove the keep nodes and add them to update with very little importance
-        for (const QuadTreeNew::Node &node: toKeep) {
+        for (const QuadTreeNew::Node &node: toKeep)
+        {
             info.unloadTiles.erase(node);
-            info.changeTiles.insert(QuadTreeNew::ImportantNode(node,0.0));
+            info.changeTiles.emplace(node,0.0);
         }
     }
     
@@ -194,29 +187,29 @@ QuadTreeNew::NodeSet QuadTileBuilder::quadLoaderUpdate(PlatformThreadInfo *threa
     if (debugMode)
     {
         wkLogLevel(Verbose,"----- Tiles to add ------");
-        for (auto tile : loadTiles)
+        for (const auto& tile : loadTiles)
             wkLogLevel(Verbose,"  %d: (%d,%d)",tile.level,tile.x,tile.y);
         wkLogLevel(Verbose,"----- Tiles to remove ------");
-        for (auto tile : unloadTiles)
+        for (const auto& tile : unloadTiles)
             wkLogLevel(Verbose,"  %d: (%d,%d)",tile.level,tile.x,tile.y);
         wkLogLevel(Verbose,"----- Tiles that changed importance ------");
-        for (auto tile : updateTiles)
+        for (const auto& tile : updateTiles)
             wkLogLevel(Verbose,"  %d: (%d,%d)",tile.level,tile.x,tile.y);
         wkLogLevel(Verbose,"----- Nodes to enable ------");
-        for (auto tile : tileChanges.enabledTiles)
+        for (const auto& tile : tileChanges.enabledTiles)
             wkLogLevel(Verbose,"  %d: (%d,%d)",tile->ident.level,tile->ident.x,tile->ident.y);
         wkLogLevel(Verbose,"----- Nodes to disable ------");
-        for (auto tile : tileChanges.disabledTiles)
+        for (const auto& tile : tileChanges.disabledTiles)
             wkLogLevel(Verbose,"  %d: (%d,%d)",tile->ident.level,tile->ident.x,tile->ident.y);
         wkLogLevel(Verbose,"----- Tiles to keep -----");
-        for (auto tile : toKeep)
+        for (const auto& tile : toKeep)
             wkLogLevel(Verbose,"  %d: (%d,%d)",tile.level,tile.x,tile.y);
         wkLogLevel(Verbose,"----- ------------- ------");
     }
     
     // We need the layer flush to run if we're holding on to nodes
     if (!toKeep.empty() && changes.empty())
-        changes.push_back(NULL);
+        changes.push_back(nullptr);
     
     // Caller will flush out any visual changes
 
@@ -235,7 +228,7 @@ void QuadTileBuilder::quadLoaderShutdown(PlatformThreadInfo *threadInfo,ChangeSe
     geomManage.cleanup(changes);
     delegate->builderShutdown(threadInfo,this,changes);
 
-    delegate = NULL;
+    delegate = nullptr;
 }
 
 }

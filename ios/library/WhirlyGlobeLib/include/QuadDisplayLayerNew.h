@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 3/26/18.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@
 #import "QuadDisplayControllerNew.h"
 #import "DataLayer.h"
 
+@class MaplyRenderController;
+
 /** This layer turns view state updates into quad tree tiles to load.
   */
 @interface WhirlyKitQuadDisplayLayerNew : NSObject<WhirlyKitLayer>
@@ -31,7 +33,8 @@
 @property (nonatomic,weak,readonly,nullable) WhirlyKitLayerThread *layerThread;
 
 /// Construct with a renderer and data source for the tiles
-- (nonnull)initWithController:(WhirlyKit::QuadDisplayControllerNewRef)controller;
+- (nonnull)initWithController:(WhirlyKit::QuadDisplayControllerNewRef)controller
+                renderControl:(MaplyRenderController* __nullable)renderControl;
 
 - (WhirlyKit::QuadDisplayControllerNewRef)getController;
 

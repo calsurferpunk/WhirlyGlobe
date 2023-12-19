@@ -3,7 +3,7 @@
  *  WhirlyGlobeComponentTester
  *
  *  Created by Steve Gifford on 10/21/15.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -23,9 +23,9 @@
 
 
 // Handles fetching and managing the particle source data tiles
-@interface ParticleTileDelegate : NSObject<MaplyPagingDelegate>
+@interface ParticleTileDelegate : NSObject//<MaplyPagingDelegate>
 
-@property(nonatomic,weak) MaplyQuadPagingLayer *layer;
+@property(nonatomic,weak) MaplyQuadPagingLoader *layer;
 @property(nonatomic,strong) MaplyCoordinateSystem *coordSys;
 @property(nonatomic) int minZoom,maxZoom;
 @property(nonatomic) double updateInterval;

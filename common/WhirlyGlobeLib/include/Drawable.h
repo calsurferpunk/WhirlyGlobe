@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 2/1/11.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ namespace WhirlyKit
 {
 
 class Drawable;
-class RendererFrameInfo;
+struct RendererFrameInfo;
 class Scene;
 class SceneRenderer;
 
@@ -63,8 +63,9 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
     /// Construct empty
-	Drawable(const std::string &name);
-	virtual ~Drawable();
+    Drawable() = default;
+    Drawable(std::string name);
+    virtual ~Drawable() = default;
 
     virtual std::string const &getName() const { return name; }
     
@@ -76,9 +77,9 @@ public:
 
     /// We use this to sort drawables
     virtual int64_t getDrawOrder() const = 0;
-    
-	/// We use this to sort drawables with drawOrder
-	virtual unsigned int getDrawPriority() const = 0;
+
+    /// We use this to sort drawables with drawOrder
+    virtual unsigned int getDrawPriority() const = 0;
     
     /// Return the Matrix if there is an active one (ideally not)
     virtual const Eigen::Matrix4d *getMatrix() const = 0;
@@ -88,7 +89,13 @@ public:
 
     /// Check if we're supposed to write to the z buffer
     virtual bool getWriteZbuffer() const = 0;
-    
+
+    /// Get whether we should skip transforms on this drawable
+    virtual bool getClipCoords() const { return clipCoords; }
+
+    /// Set whether we should skip transforms on this drawable
+    virtual void setClipCoords(bool newValue) { clipCoords = newValue; }
+
     /// Drawables can override where they're drawn.  EmptyIdentity is the regular screen.
     virtual SimpleIdentity getRenderTarget() const = 0;
     
@@ -110,7 +117,11 @@ public:
     
     /// For OpenGLES2, this is the program to use to render this drawable.
     virtual SimpleIdentity getProgram() const = 0;
-    
+
+    /// Controls whether the drawable is blended assuming that its color components have been pre-multipled by its alpha components.
+    void setBlendPremultipliedAlpha(bool enable) { blendPremultipliedAlpha = enable; }
+    bool getBlendPremultipliedAlpha() const { return blendPremultipliedAlpha; }
+
     // Which workgroups this is in (might be in multiple if there's a calculation shader)
     SimpleIDSet workGroupIDs;
     
@@ -120,6 +131,11 @@ public:
 protected:
     std::string name;
     DrawableTweakerRefSet tweakers;
+
+    // If set the geometry is already in OpenGL clip coordinates, so no transform
+    bool clipCoords = false;
+
+    bool blendPremultipliedAlpha = false;
 };
 
 /// Reference counted Drawable pointer

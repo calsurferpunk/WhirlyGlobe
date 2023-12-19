@@ -1,9 +1,8 @@
-/*
- *  GlobeAnimateHeight.mm
+/*  GlobeAnimateHeight.cpp
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/23/11.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "GlobeAnimateHeight.h"
@@ -25,11 +23,6 @@ using namespace WhirlyKit;
 
 namespace WhirlyGlobe
 {
-    
-TiltCalculator::TiltCalculator()
-    : minTilt(0.0), maxTilt(0.0), minHeight(0.0), maxHeight(0.0)
-{
-}
     
 void TiltCalculator::setContraints(double inMinTilt,double inMaxTilt,double inMinHeight,double inMaxHeight)
 {
@@ -68,20 +61,27 @@ double StandardTiltDelegate::tiltFromHeight(double height)
     // Now the tilt, if we're in that mode
     double newHeight = height;
     if (newHeight <= minHeight)
+    {
         newTilt = minTilt;
-        else if (newHeight >= maxHeight)
-            newTilt = maxTilt;
-            else {
-                float t = (newHeight-minHeight)/(maxHeight - minHeight);
-                if (t != 0.0)
-                    newTilt = t * (maxTilt - minTilt) + minTilt;
-                    }
+    }
+    else if (newHeight >= maxHeight)
+    {
+        newTilt = maxTilt;
+    }
+    else
+    {
+        const auto t = (newHeight - minHeight) / (maxHeight - minHeight);
+        if (t != 0.0)
+        {
+            newTilt = t * (maxTilt - minTilt) + minTilt;
+        }
+    }
     
     return std::min(newTilt,maxValidTilt);
 }
 
 /// Return the maximum allowable tilt
-double StandardTiltDelegate::getMaxTilt()
+double StandardTiltDelegate::getMaxTilt() const
 {
     return asin(1.0/(1.0+globeView->getHeightAboveGlobe()));
 }
@@ -104,34 +104,39 @@ AnimateViewHeight::AnimateViewHeight(GlobeView *inGlobeView,double toHeight,Time
     
 void AnimateViewHeight::setTiltDelegate(TiltCalculatorRef newDelegate)
 {
-    tiltDelegate = newDelegate;
+    tiltDelegate = std::move(newDelegate);
 }
 
 // Called by the view when it's time to update
-void AnimateViewHeight::updateView(GlobeView *globeView)
+void AnimateViewHeight::updateView(WhirlyKit::View *view)
 {
+    auto globeView = (GlobeView *)view;
     if (startDate == 0.0)
+    {
         return;
-	
-	TimeInterval now = TimeGetCurrent();
-    double span = endDate-startDate;
-    double remain = endDate - now;
+    }
+
+    const TimeInterval now = TimeGetCurrent();
+    const double span = endDate-startDate;
+    const double remain = endDate - now;
     
-	// All done.  Snap to the end
-	if (remain < 0)
-	{
+    // All done.  Snap to the end
+    if (remain <= 0)
+    {
         globeView->setHeightAboveGlobe(endHeight,false);
         startDate = 0;
         endDate = 0;
         globeView->cancelAnimation();
-	} else {
-		// Interpolate somewhere along the path
-		double t = (span-remain)/span;
+    }
+    else
+    {
+        // Interpolate somewhere along the path
+        const double t = (span-remain)/span;
         globeView->setHeightAboveGlobe(startHeight + (endHeight-startHeight)*t,true);
 
         if (tiltDelegate)
         {
-            double newTilt = tiltDelegate->tiltFromHeight(globeView->getHeightAboveGlobe());
+            const double newTilt = tiltDelegate->tiltFromHeight(globeView->getHeightAboveGlobe());
             globeView->setTilt(newTilt);
         }
     }

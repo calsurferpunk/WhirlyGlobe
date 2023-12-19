@@ -1,9 +1,8 @@
-/*
- *  ParticleSystemDrawableGLES.cpp
+/*  ParticleSystemDrawableGLES.cpp
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 4/28/15.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "ParticleSystemDrawableGLES.h"
@@ -25,12 +23,9 @@
 namespace WhirlyKit
 {
 
-ParticleSystemDrawableGLES::~ParticleSystemDrawableGLES()
-{
-}
-    
-ParticleSystemDrawableGLES::ParticleSystemDrawableGLES(const std::string &name)
-: ParticleSystemDrawable(name), Drawable(name), pointBuffer(0), rectBuffer(0)
+ParticleSystemDrawableGLES::ParticleSystemDrawableGLES(std::string name) :
+    ParticleSystemDrawable(name),
+    DrawableGLES(std::move(name))
 {
 }
 
@@ -229,6 +224,8 @@ void ParticleSystemDrawableGLES::drawTeardownTextures(RendererFrameInfo *frameIn
 
 void ParticleSystemDrawableGLES::drawSetupUniforms(RendererFrameInfo *frameInfo,Scene *scene,ProgramGLES *prog)
 {
+    const Point2f frameSize = frameInfo->sceneRenderer->getFramebufferSize();
+
     // Model/View/Projection matrix
     prog->setUniform(mvpMatrixNameID, frameInfo->mvpMat);
     prog->setUniform(mvpInvMatrixNameID, frameInfo->mvpInvMat);
@@ -236,10 +233,10 @@ void ParticleSystemDrawableGLES::drawSetupUniforms(RendererFrameInfo *frameInfo,
     prog->setUniform(mvNormalMatrixNameID, frameInfo->viewModelNormalMat);
     prog->setUniform(mvpNormalMatrixNameID, frameInfo->mvpNormalMat);
     prog->setUniform(u_pMatrixNameID, frameInfo->projMat);
-    prog->setUniform(u_ScaleNameID, Point2f(2.f/(float)frameInfo->sceneRenderer->framebufferWidth,2.f/(float)frameInfo->sceneRenderer->framebufferHeight));
+    prog->setUniform(u_ScaleNameID, Point2f(2.f/frameSize.x(),2.f/frameSize.y()));
     
     // Size of a single pixel
-    Point2f pixDispSize(frameInfo->screenSizeInDisplayCoords.x()/frameInfo->sceneRenderer->framebufferWidth,frameInfo->screenSizeInDisplayCoords.y()/frameInfo->sceneRenderer->framebufferHeight);
+    const Point2f pixDispSize = frameInfo->screenSizeInDisplayCoords.cast<float>().cwiseQuotient(frameSize);
     
     // If this is present, the drawable wants to do something based where the viewer is looking
     prog->setUniform(u_EyeVecNameID, frameInfo->fullEyeVec);

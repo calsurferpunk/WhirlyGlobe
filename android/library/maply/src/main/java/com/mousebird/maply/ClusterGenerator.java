@@ -1,9 +1,8 @@
-/*
- *  MaplyClusterGenerator.java
+/*  MaplyClusterGenerator.java
  *  WhirlyGlobeLib
  *
  *  Created by jmnavarro
- *  Copyright 2011-2014 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,63 +14,71 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 package com.mousebird.maply;
 
+import androidx.annotation.Keep;
 
-import android.util.Log;
-
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashSet;
+
+import static com.mousebird.maply.RenderController.EmptyIdentity;
 
 /**
  * Fill in this protocol to provide images when individual markers/labels are clustered.
  * <p>
- * This is the protocol for marker/label clustering.  You must fill this in and register the cluster
+ * This is the protocol for marker/label clustering.
+ * You must fill this in and register the cluster generator.
  */
 public class ClusterGenerator
 {
-    public BaseController baseController = null;
-    private HashSet<Long> currentTextures,oldTextures;
+    protected ClusterGenerator(BaseController control) {
+        baseController = new WeakReference<>(control);
+    }
 
     /**
      * Called at the start of clustering.
      * <p>
      * Called right before we start generating clusters.  Do you setup here if need be.
      */
-    public void startClusterGroup()
-    {
+    @Keep
+    @SuppressWarnings("unused")		// Used from JNI
+    public void startClusterGroup() {
         if (oldTextures != null) {
-            baseController.removeTexturesByID(new ArrayList<Long>(oldTextures), RenderController.ThreadMode.ThreadCurrent);
+            BaseController control = baseController.get();
+            if (control != null) {
+                control.removeTexturesByID(new ArrayList<>(oldTextures), RenderController.ThreadMode.ThreadCurrent);
+            }
             oldTextures = null;
         }
 
         oldTextures = currentTextures;
-        currentTextures = new HashSet<Long>();
+        currentTextures = new HashSet<>();
     }
 
     /**
      * Generate a cluster group for a given collection of markers.
      * <p>
      * Generate an image and size to represent the number of marker/labels we're consolidating.
-     * @param clusterInfo
+     * @param clusterInfo Description of the cluster
      * @return a cluster group for a given collection of markers.
      */
-    public ClusterGroup makeClusterGroup(ClusterInfo clusterInfo)
-    {
+    public ClusterGroup makeClusterGroup(ClusterInfo clusterInfo) {
         return null;
     }
 
     // The C++ code calls this to get a Bitmap then we call makeClusterGroup
-    public long makeClusterGroupJNI(int num)
-    {
-        ClusterInfo clusterInfo = new ClusterInfo(num);
+    @Keep
+    @SuppressWarnings("unused")		// Used from JNI
+    private long makeClusterGroupJNI(int num, String[] uniqueIDs) {
+        ClusterInfo clusterInfo = new ClusterInfo(num, uniqueIDs);
         ClusterGroup newGroup = makeClusterGroup(clusterInfo);
-
-        currentTextures.add(newGroup.tex.texID);
-
-        return newGroup.tex.texID;
+        if (newGroup != null) {
+            currentTextures.add(newGroup.tex.texID);
+            return newGroup.tex.texID;
+        }
+        return EmptyIdentity;
     }
 
     /**
@@ -79,8 +86,17 @@ public class ClusterGenerator
      * <p>
      * If you were doing optimization (for image reuse, say) clean it up here.
      */
-    public void endClusterGroup()
-    {
+    @Keep
+    @SuppressWarnings("unused")		// Used from JNI
+    public void endClusterGroup() {
+    }
+
+    /**
+     * Clean up resources on removal
+     */
+    @Keep
+    @SuppressWarnings("unused")		// Used from JNI
+    public void shutdown() {
     }
 
     /**
@@ -88,8 +104,7 @@ public class ClusterGenerator
      * share a cluster number together.
      * @return the cluster number we're covering
      */
-    public int clusterNumber()
-    {
+    public int clusterNumber() {
         return 0;
     }
 
@@ -99,17 +114,15 @@ public class ClusterGenerator
      * This is the biggest cluster you're likely to create.  We use it to figure overlaps between clusters.
      * @return The size of the cluster that will be created.
      */
-    public Point2d clusterLayoutSize()
-    {
+    public Point2d clusterLayoutSize() {
         return new Point2d(32.0,32.0);
     }
 
     /**
      * Set this if you want cluster to be user selectable.  On by default.
-     * @return
+     * @return true
      */
-    public boolean selectable()
-    {
+    public boolean selectable() {
         return true;
     }
 
@@ -117,8 +130,7 @@ public class ClusterGenerator
      * How long to animate markers the join and leave a cluster
      * @return time in seconds
      */
-    public double markerAnimationTime()
-    {
+    public double markerAnimationTime() {
         return 1.0;
     }
 
@@ -126,10 +138,12 @@ public class ClusterGenerator
      * The shader to use for moving objects around
      * <p>
      * If you're doing animation from point to cluster you need to provide a suitable shader.
-     * @return
+     * @return null
      */
-//    public Shader motionShader()
-//    {
-//    }
+    public Shader motionShader() {
+        return null;
+    }
 
+    protected final WeakReference<BaseController> baseController;
+    private HashSet<Long> currentTextures,oldTextures;
 }

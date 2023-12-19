@@ -1,9 +1,8 @@
-/*
- *  SceneRendererMTL.h
+/*  SceneRendererMTL.h
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/16/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "SceneRenderer.h"
@@ -41,6 +39,8 @@
 
 @end
 
+@class MaplyRenderController;
+
 namespace WhirlyKit
 {
 
@@ -48,20 +48,17 @@ class RenderTargetMTL;
 typedef std::shared_ptr<RenderTargetMTL> RenderTargetMTLRef;
 
 /// Metal stores a bit more per-frame information
-class RendererFrameInfoMTL : public RendererFrameInfo
+struct RendererFrameInfoMTL : public RendererFrameInfo
 {
-public:
-    RendererFrameInfoMTL();
-    RendererFrameInfoMTL(const RendererFrameInfoMTL &that);
-
     // Render pass descriptor from the view
-    MTLRenderPassDescriptor *renderPassDesc;
+    MTLRenderPassDescriptor *renderPassDesc = nullptr;
     // Current render target
-    RenderTargetMTL *renderTarget;
+    RenderTargetMTL *renderTarget = nullptr;
 
-    id<MTLBlitCommandEncoder> bltEncode;
-    id<MTLRenderCommandEncoder> cmdEncode;
+    id<MTLBlitCommandEncoder> bltEncode = nil;
+    id<MTLRenderCommandEncoder> cmdEncode = nil;
 };
+using RendererFrameInfoMTLRef = std::shared_ptr<RendererFrameInfoMTL>;
 
 // Drawables sorted by draw priority and grouped by state
 class DrawGroupMTL {
@@ -90,9 +87,6 @@ public:
     // Drawables sorted into groups for drawing
     // For Metal we have specialized versions
     std::vector<DrawGroupMTLRef> drawGroups;
-    
-    // This keeps us from stomping on the previous frame's uniforms
-    id<MTLFence> lastRenderFence;
 };
 typedef std::shared_ptr<RenderTargetContainerMTL> RenderTargetContainerMTLRef;
 
@@ -101,7 +95,8 @@ class WorkGroupMTL : public WorkGroup
 {
 public:
     WorkGroupMTL(GroupType groupType);
-    virtual ~WorkGroupMTL();
+    WorkGroupMTL(GroupType groupType, std::string name);
+    virtual ~WorkGroupMTL() = default;
     
 protected:
     virtual RenderTargetContainerRef makeRenderTargetContainer(RenderTargetRef renderTarget);
@@ -111,65 +106,73 @@ protected:
 class SceneRendererMTL : public SceneRenderer
 {
 public:
-    SceneRendererMTL(id<MTLDevice> mtlDevice,id<MTLLibrary> mtlLibrary,float scale);
+    SceneRendererMTL(MaplyRenderController *,id<MTLDevice> mtlDevice,id<MTLLibrary> mtlLibrary,float scale);
     virtual ~SceneRendererMTL();
     
     // Metal (obviously)
-    virtual Type getType();
+    virtual Type getType() override;
     
     // Various information about the renderer passed around to call
-    virtual const RenderSetupInfo *getRenderSetupInfo() const;
+    virtual const RenderSetupInfo *getRenderSetupInfo() const override;
     
-    virtual void setView(View *newView);
-    virtual void setScene(Scene *newScene);
+    virtual void setView(View *newView) override;
+    virtual void setScene(Scene *newScene) override;
     
     /// Called right after the constructor
     bool setup(int sizeX,int sizeY,bool offscreen);
     
     /// Resize framebuffer because something changed
-    virtual bool resize(int sizeX,int sizeY);
-    
+    virtual bool resize(int sizeX,int sizeY) override;
+
+    struct RenderInfoMTL : public RenderInfo
+    {
+        MTLRenderPassDescriptor *renderPassDesc;
+        id<SceneRendererMTLDrawableGetter> drawGetter;
+    };
+
     /// Draw stuff (the whole point!)
-    void render(TimeInterval period,MTLRenderPassDescriptor *renderPassDesc,id<SceneRendererMTLDrawableGetter> drawGetter);
+    virtual void render(TimeInterval period, RenderInfo *) override;
     
     /// Set the clear color we're using
-    virtual void setClearColor(const RGBAColor &color);
+    virtual void setClearColor(const RGBAColor &color) override;
         
     /// Want a snapshot, set up this delegate
     void addSnapshotDelegate(NSObject<WhirlyKitSnapshot> *);
     
     /// Remove an existing snapshot delegate
     void removeSnapshotDelegate(NSObject<WhirlyKitSnapshot> *);
-    
+
+    virtual RendererFrameInfoRef getFrameInfo() override { return lastFrameInfo; }
+
     /// Move things around as required by outside updates
-    virtual void updateWorkGroups(RendererFrameInfo *frameInfo);
+    virtual void updateWorkGroups(RendererFrameInfo *frameInfo,int numViewOffsets) override;
 
     /// Construct a basic drawable builder for the appropriate rendering type
-    virtual BasicDrawableBuilderRef makeBasicDrawableBuilder(const std::string &name) const;
+    virtual BasicDrawableBuilderRef makeBasicDrawableBuilder(const std::string &name) const override;
     
     /// Construct a basic drawables instance builder for the current rendering type
-    virtual BasicDrawableInstanceBuilderRef makeBasicDrawableInstanceBuilder(const std::string &name) const;
+    virtual BasicDrawableInstanceBuilderRef makeBasicDrawableInstanceBuilder(const std::string &name) const override;
     
     /// Construct a billboard drawable builder for the current rendering type
-    virtual BillboardDrawableBuilderRef makeBillboardDrawableBuilder(const std::string &name) const;
+    virtual BillboardDrawableBuilderRef makeBillboardDrawableBuilder(const std::string &name) const override;
     
-    /// Construct a screnspace drawable builder for the current rendering type
-    virtual ScreenSpaceDrawableBuilderRef makeScreenSpaceDrawableBuilder(const std::string &name) const;
+    /// Construct a screen-space drawable builder for the current rendering type
+    virtual ScreenSpaceDrawableBuilderRef makeScreenSpaceDrawableBuilder(const std::string &name) const override;
     
     /// Construct a particle system builder of the appropriate rendering type
-    virtual ParticleSystemDrawableBuilderRef  makeParticleSystemDrawableBuilder(const std::string &name) const;
+    virtual ParticleSystemDrawableBuilderRef  makeParticleSystemDrawableBuilder(const std::string &name) const override;
     
     /// Construct a wide vector drawable builder of the appropriate rendering type
-    virtual WideVectorDrawableBuilderRef makeWideVectorDrawableBuilder(const std::string &name) const;
+    virtual WideVectorDrawableBuilderRef makeWideVectorDrawableBuilder(const std::string &name) const override;
     
     /// Construct a renderer-specific render target
-    virtual RenderTargetRef makeRenderTarget() const;
+    virtual RenderTargetRef makeRenderTarget() const override;
     
     /// Construct a renderer-specific dynamic texture
-    virtual DynamicTextureRef makeDynamicTexture(const std::string &name) const;
+    virtual DynamicTextureRef makeDynamicTexture(const std::string &name) const override;
     
     /// Set up the buffer for general uniforms and attach it to its vertex/fragment buffers
-    void setupUniformBuffer(RendererFrameInfoMTL *frameInfo, id<MTLBlitCommandEncoder> bltEncode,CoordSystemDisplayAdapter *coordAdapter);
+    void setupUniformBuffer(RendererFrameInfoMTL *frameInfo, int offset, id<MTLBlitCommandEncoder> bltEncode,CoordSystemDisplayAdapter *coordAdapter);
 
     /// Set the lights and tie them to a vertex buffer index
     void setupLightBuffer(SceneMTL *scene,RendererFrameInfoMTL *frameInfo,id<MTLBlitCommandEncoder> bltEncode);
@@ -194,6 +197,11 @@ public:
 
     bool isShuttingDown() const { return *_isShuttingDown; }
 
+protected:
+    RendererFrameInfoMTLRef makeFrameInfo();
+
+    void tryRender(TimeInterval duration, RenderInfo *);
+
 public:
     RenderTargetMTLRef getRenderTarget(SimpleIdentity renderTargetID);
     id<MTLCommandBuffer> lastCmdBuff;
@@ -206,9 +214,20 @@ public:
     RenderSetupInfoMTL setupInfo;
     std::vector<NSObject<WhirlyKitSnapshot> *> snapshotDelegates;
     dispatch_queue_t releaseQueue;
-    
+
+    id<MTLCommandQueue> cmdQueue;
+    id<MTLCaptureScope> cmdCaptureScope;
+
+    int lastNumViewOffsets = -1;
+    // This keeps us from stomping on the previous frame's uniforms
+    int lastRenderNo;
+    id<MTLEvent> renderEvent;
+
 private:
+    RendererFrameInfoRef lastFrameInfo;
     const std::shared_ptr<bool> _isShuttingDown;
+    __weak MaplyRenderController *renderControl;
+    bool failed = false;
 };
     
 typedef std::shared_ptr<SceneRendererMTL> SceneRendererMTLRef;

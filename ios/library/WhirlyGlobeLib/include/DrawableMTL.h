@@ -3,7 +3,7 @@
 *  WhirlyGlobeLib
 *
 *  Created by Steve Gifford on 9/30/19.
-*  Copyright 2011-2019 mousebird consulting
+*  Copyright 2011-2022 mousebird consulting
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -76,8 +76,8 @@ public:
     BufferEntryMTL &getBuffer() { return buff; }
 
     // False if this failed to set up correctly
-    bool isValid();
-    
+    bool isValid() const { return valid; }
+
 protected:
     bool valid;
     bool isSetup;
@@ -152,7 +152,9 @@ class DrawableMTL : virtual public Drawable
 {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
-        
+
+    DrawableMTL();
+
     // An all-purpose pre-render that sets up textures, uniforms and such in preparation for rendering
     // Also adds to the list of resources being used by this drawable
     virtual bool preProcess(SceneRendererMTL *sceneRender,
@@ -167,7 +169,7 @@ public:
     virtual void encodeDirectCalculate(RendererFrameInfoMTL *frameInfo,id<MTLRenderCommandEncoder> cmdEncode,Scene *scene) = 0;
 
     /// Draw directly, once per frame
-    virtual void encodeDirect(RendererFrameInfoMTL *frameInfo,id<MTLRenderCommandEncoder> cmdEncode,Scene *scene) = 0;
+    virtual void encodeDirect(RendererFrameInfoMTL *frameInfo,int oi,id<MTLRenderCommandEncoder> cmdEncode,Scene *scene) = 0;
     
     /// Indirect version of calculate encoding.  Called only when things change enough to re-encode.
     API_AVAILABLE(ios(13.0))
@@ -175,7 +177,7 @@ public:
 
     /// Indirect version of regular encoding.  Called only when things change enough to re-encode.
     API_AVAILABLE(ios(13.0))
-    virtual void encodeIndirect(id<MTLIndirectRenderCommand> cmdEncode,SceneRendererMTL *sceneRender,Scene *scene,RenderTargetMTL *renderTarget) = 0;
+    virtual void encodeIndirect(id<MTLIndirectRenderCommand> cmdEncode,int oi,SceneRendererMTL *sceneRender,Scene *scene,RenderTargetMTL *renderTarget) = 0;
 };
 
 }

@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 2/15/19.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,21 +18,24 @@
  *
  */
 
-#import "BillboardManager.h"
-#import "GeometryManager.h"
-#import "IntersectionManager.h"
-#import "LabelManager.h"
-#import "LayoutManager.h"
-#import "LoftManager.h"
-#import "MarkerManager.h"
-#import "ParticleSystemManager.h"
-#import "SceneGraphManager.h"
 #import "ShapeManager.h"
-#import "SphericalEarthChunkManager.h"
-#import "VectorManager.h"
-#import "VectorObject.h"
-#import "WideVectorManager.h"
-#import "SelectionManager.h"
+
+#if !MAPLY_MINIMAL
+# import "BillboardManager.h"
+# import "GeometryManager.h"
+# import "IntersectionManager.h"
+# import "LabelManager.h"
+# import "LayoutManager.h"
+# import "LoftManager.h"
+# import "MarkerManager.h"
+# import "ParticleSystemManager.h"
+# import "SceneGraphManager.h"
+# import "SphericalEarthChunkManager.h"
+# import "VectorManager.h"
+# import "VectorObject.h"
+# import "WideVectorManager.h"
+# import "SelectionManager.h"
+#endif //!MAPLY_MINIMAL
 
 namespace WhirlyKit
 {
@@ -44,7 +47,7 @@ class ComponentObject : public Identifiable
 {
     friend class ComponentManager;
 public:
-    virtual ~ComponentObject();
+    virtual ~ComponentObject() = default;
     
     SimpleIDSet markerIDs;
     SimpleIDSet labelIDs;
@@ -62,7 +65,7 @@ public:
     // Vectors objects associated with this component object
     std::vector<VectorObjectRef> vecObjs;
     
-    Point2d vectorOffset;
+    Point2d vectorOffset = { 0, 0, };
     
     std::string uuid;
     std::string representation;
@@ -70,9 +73,9 @@ public:
     // If the object uses masks, these are the masks in use
     SimpleIDSet maskIDs;
 
-    bool isSelectable;
     bool enable;
-    bool underConstruction;
+    bool isSelectable;
+    bool underConstruction = false;
     
     // Empty out references
     void clear();
@@ -84,6 +87,7 @@ public:
 };
 
 typedef std::shared_ptr<ComponentObject> ComponentObjectRef;
+using ComponentObjectRefVec = std::vector<ComponentObjectRef>;
     
 typedef std::map<SimpleIdentity,ComponentObjectRef> ComponentObjectMap;
     
@@ -92,13 +96,12 @@ typedef std::map<SimpleIdentity,ComponentObjectRef> ComponentObjectMap;
 /** Component Object Manager
  
     Manages component objects, particular enable/disable and deletion.
-    The
   */
 class ComponentManager : public SceneManager
 {
 public:
-    ComponentManager();
-    virtual ~ComponentManager();
+    ComponentManager() = default;
+    virtual ~ComponentManager() = default;
     
     // Called when the scene sets up the managers
     void setScene(Scene *inScene);
@@ -111,13 +114,22 @@ public:
     virtual bool hasComponentObject(SimpleIdentity compID);
 
     /// Remove the given Component Object and all its associated data
-    virtual void removeComponentObject(PlatformThreadInfo *threadInfo,SimpleIdentity compID,ChangeSet &changes);
+    virtual void removeComponentObject(PlatformThreadInfo *threadInfo,
+                                       SimpleIdentity compID,
+                                       ChangeSet &changes,
+                                       bool disposeAfterRemoval = true);
 
     /// Remove a list of Component Objects
-    virtual void removeComponentObjects(PlatformThreadInfo *threadInfo,const SimpleIDSet &compIDs,ChangeSet &changes);
+    virtual void removeComponentObjects(PlatformThreadInfo *threadInfo,
+                                        const SimpleIDSet &compIDs,
+                                        ChangeSet &changes,
+                                        bool disposeAfterRemoval = true);
     
     /// Remove a vector of Component Objects
-    virtual void removeComponentObjects(PlatformThreadInfo *threadInfo,const std::vector<ComponentObjectRef> &compObjs,ChangeSet &changes);
+    virtual void removeComponentObjects(PlatformThreadInfo *threadInfo,
+                                        const std::vector<ComponentObjectRef> &compObjs,
+                                        ChangeSet &changes,
+                                        bool disposeAfterRemoval = true);
 
     /// Enable/disable the contents of a Component Object
     virtual void enableComponentObject(SimpleIdentity compID,bool enable,ChangeSet &changes, bool resolveReps = false);
@@ -148,23 +160,49 @@ public:
 
     /// We're done with the given mask target
     virtual void releaseMaskIDs(const SimpleIDSet &maskIDs);
-    
-    /// Find all the vectors that fall within or near the given point
-    std::vector<std::pair<ComponentObjectRef,VectorObjectRef> > findVectors(const Point2d &pt,double maxDist,ViewStateRef viewState,const Point2f &frameSize,bool muti);
-    
+
+    using CompObjVectorObjPair = std::pair<ComponentObjectRef,VectorObjectRef>;
+
+    /** Find all the vectors that fall within or near the given point
+     *
+     *  @param pt The point to search in geographic coordinates
+     *  @param maxDist The maximum distance from the point within which a vector must be. (todo: units?)
+     *  @param viewState The view state to use for scaling
+     *  @param frameSize The frame size in device coordinates to use for scaling
+     *  @param multi If true, return all matches; if false return the first match.
+     */
+    std::vector<CompObjVectorObjPair> findVectors(
+            const Point2d &pt,double maxDist,const ViewStateRef &viewState,
+            const Point2f &frameSize,bool multi) {
+        return findVectors(pt,maxDist,viewState,frameSize,multi?0:1);
+    }
+
+    /** Find all the vectors that fall within or near the given point
+     *
+     *  @param pt The point to search in geographic coordinates
+     *  @param maxDist The maximum distance from the point, in device units.
+     *  @param viewState The view state to use for scaling
+     *  @param frameSize The frame size in device coordinates to use for scaling
+     *  @param resultLimit The maximum number of results to return, zero or less for unlimited.
+     */
+    std::vector<CompObjVectorObjPair> findVectors(
+            const Point2d &pt,double maxDist,const ViewStateRef &viewState,
+            const Point2f &frameSize,int resultLimit = 0);
+
     // These are here for convenience
+    ShapeManagerRef shapeManager;
+#if !MAPLY_MINIMAL
     LayoutManagerRef layoutManager;
     MarkerManagerRef markerManager;
     LabelManagerRef labelManager;
     VectorManagerRef vectorManager;
     WideVectorManagerRef wideVectorManager;
-    ShapeManagerRef shapeManager;
     SphericalChunkManagerRef chunkManager;
     LoftManagerRef loftManager;
     BillboardManagerRef billManager;
     GeometryManagerRef geomManager;
-    FontTextureManagerRef fontTexManager;
     ParticleSystemManagerRef partSysManager;
+#endif //!MAPLY_MINIMAL
 
 protected:
     // Subclass fills this in
@@ -197,7 +235,7 @@ protected:
     std::unordered_map<std::string,MaskEntryRef> maskEntriesByName;
     std::unordered_map<SimpleIdentity,MaskEntryRef> maskEntriesByID;
     // We have 32 bits of range in the mask ID on iOS
-    unsigned int lastMaskID;
+    unsigned int lastMaskID = 0;
     std::mutex maskLock;
 };
 typedef std::shared_ptr<ComponentManager> ComponentManagerRef;

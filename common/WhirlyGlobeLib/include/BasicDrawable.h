@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 2/1/11.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -47,8 +47,8 @@ friend class BasicDrawableBuilder;
 friend class WideVectorDrawableBuilder;
 friend class WideVectorDrawableBuilderMTL;
 friend class ShapeManager;
-friend class ScreenSpaceDrawableBuilderMTL;
-friend class BasicDrawableInstanceGLES;
+friend struct ScreenSpaceDrawableBuilderMTL;
+friend struct BasicDrawableInstanceGLES;
 friend class BasicDrawableInstanceMTL;
 friend class BillboardDrawableBuilderMTL;
 friend class BasicDrawableBuilderGLES;
@@ -56,13 +56,12 @@ friend class BasicDrawableBuilderMTL;
     
 public:
     /// Simple triangle.  Can obviously only have 2^16 vertices
-    class Triangle
+    struct Triangle
     {
-    public:
-        Triangle();
+        Triangle() = default;
         /// Construct with vertex IDs
         Triangle(unsigned short v0,unsigned short v1,unsigned short v2);
-        unsigned short verts[3];
+        unsigned short verts[3] = {0};
     };
 
     /// Construct empty
@@ -70,7 +69,7 @@ public:
     virtual ~BasicDrawable();
     
     /// We're allowed to turn drawables off completely
-    virtual bool isOn(RendererFrameInfo *frameInfo) const;
+    virtual bool isOn(RendererFrameInfo *frameInfo) const override;
     /// True to turn it on, false to turn it off
     void setOnOff(bool onOff);
     
@@ -78,10 +77,10 @@ public:
     virtual bool hasMotion() const;
 
     /// Return the local MBR, if we're working in a non-geo coordinate system
-    virtual Mbr getLocalMbr() const;
+    virtual Mbr getLocalMbr() const override;
 
     /// Return the Matrix if there is an active one (ideally not)
-    virtual const Eigen::Matrix4d *getMatrix() const;
+    virtual const Eigen::Matrix4d *getMatrix() const override;
 
     /// Set the time range for enable
     void setEnableTimeRange(TimeInterval inStartEnable,TimeInterval inEndEnable);
@@ -100,12 +99,12 @@ public:
     ///  the surface of the globe as at 1.0
     virtual void setVisibleRange(float minVis,float maxVis,float minVisBand=0.0,float maxVisBand=0.0);
     
-    virtual int64_t getDrawOrder() const;
+    virtual int64_t getDrawOrder() const override;
     
     virtual void setDrawOrder(int64_t newOrder);
     
     /// We use this to sort drawables
-    virtual unsigned int getDrawPriority() const;
+    virtual unsigned int getDrawPriority() const override;
 
     /// Draw priority used for sorting
     virtual void setDrawPriority(unsigned int newPriority);
@@ -114,15 +113,15 @@ public:
     virtual void setMatrix(const Eigen::Matrix4d *inMat);
     
     /// Check if the force Z buffer on mode is on
-    virtual bool getRequestZBuffer() const;
+    virtual bool getRequestZBuffer() const override;
     virtual void setRequestZBuffer(bool val);
     
     /// Set the z buffer mode for this drawable
-    virtual bool getWriteZbuffer() const;
+    virtual bool getWriteZbuffer() const override;
     virtual void setWriteZBuffer(bool val);
 
     /// Drawables can override where they're drawn.  EmptyIdentity is the regular screen.
-    virtual SimpleIdentity getRenderTarget() const;
+    virtual SimpleIdentity getRenderTarget() const override;
     
     // If set, we'll render this data where directed
     void setRenderTarget(SimpleIdentity newRenderTarget);
@@ -190,9 +189,8 @@ public:
 
     // Block of data to be passed into a given buffer ID
     // We do this in Metal rather than setting individual uniforms (like OpenGL)
-    class UniformBlock
+    struct UniformBlock
     {
-    public:
         int bufferID;  // Actually an index into a shared shader structure, not a buffer
         RawDataRef blockData;
     };
@@ -200,17 +198,22 @@ public:
     /// Set a block of uniforms (Metal only, at the moment)
     virtual void setUniBlock(const UniformBlock &uniBlock);
     
+    /// If there's a calculation pass, this is the data we'll pass in.
+    /// This is just for Metal at the moment.
+    virtual void setCalculationData(int numEntries,const std::vector<RawDataRef> &data);
+    
     /// Add a tweaker to be run before each frame
     virtual void addTweaker(const DrawableTweakerRef &tweak);
 
     /// Update anything associated with the renderer.  Probably renderUntil.
-    virtual void updateRenderer(SceneRenderer *renderer);
+    virtual void updateRenderer(SceneRenderer *renderer) override;
         
     /// If present, we'll do a pre-render calculation pass with this program set
-    virtual SimpleIdentity getCalculationProgram() const;
-            
+    virtual SimpleIdentity getCalculationProgram() const override;
+    void setCalculationProgram(SimpleIdentity calcProgramId);
+
     /// For OpenGLES2, this is the program to use to render this drawable.
-    virtual SimpleIdentity getProgram() const;
+    virtual SimpleIdentity getProgram() const override;
     void setProgram(SimpleIdentity progId);
     
 public:
@@ -218,34 +221,41 @@ public:
     virtual void setValuesChanged();
     virtual void setTexturesChanged();
 
-    GeometryType type;
-    bool on;  // If set, draw.  If not, not
-    TimeInterval startEnable,endEnable;
-    TimeInterval fadeUp,fadeDown;  // Controls fade in and fade out
-    float minVisible,maxVisible;
-    float minVisibleFadeBand,maxVisibleFadeBand;
-    double minViewerDist,maxViewerDist;
-    int zoomSlot;
-    double minZoomVis,maxZoomVis;
+    GeometryType type = (GeometryType)-1;
+    bool on = false;  // If set, draw.  If not, not
+    TimeInterval startEnable = 0.0;
+    TimeInterval endEnable = 0.0;
+    TimeInterval fadeUp = 0.0;
+    TimeInterval fadeDown = 0.0;  // Controls fade in and fade out
+    float minVisible = 0.0f;
+    float maxVisible = 0.0f;
+    float minVisibleFadeBand = 0.0f;
+    float maxVisibleFadeBand = 0.0f;
+    double minViewerDist = 0.0;
+    double maxViewerDist = 0.0;
+    int zoomSlot = 0;
+    double minZoomVis = 0.0;
+    double maxZoomVis = 0.0;
     Point3d viewerCenter;
-    int64_t drawOrder;
-    unsigned int drawPriority;  // Used to sort drawables
-    float drawOffset;    // Number of units of Z buffer resolution to offset upward (by the normal)
-    bool isAlpha;  // Set if we want to be drawn last
-    bool motion;   // If set, this need continuous render
-    int extraFrames;   // This needs to draw a bit longer than normal
+    int64_t drawOrder = 0;
+    unsigned int drawPriority = 0;  // Used to sort drawables
+    float drawOffset = 0.0f;    // Number of units of Z buffer resolution to offset upward (by the normal)
+    bool isAlpha = false;  // Set if we want to be drawn last
+    bool motion = false;   // If set, this need continuous render
+    int extraFrames = 0;   // This needs to draw a bit longer than normal
     
-    SimpleIdentity programId;    // Program to use for rendering
-    SimpleIdentity renderTargetID;
+    SimpleIdentity programId = EmptyIdentity;    // Program to use for rendering
+    SimpleIdentity calcProgramId = EmptyIdentity;  // Program to use for calculation
+    SimpleIdentity renderTargetID = EmptyIdentity;
     Mbr localMbr;  // Extents in a local space, if we're not using lat/lon/radius
     std::vector<TexInfo> texInfo;
-    float lineWidth;
+    float lineWidth = 0.0f;
     // For zBufferOffDefault mode we'll sort this to the end
-    bool requestZBuffer;
+    bool requestZBuffer = false;
     // When this is set we'll update the z buffer with our geometry.
-    bool writeZBuffer;
+    bool writeZBuffer = false;
 
-    bool hasMatrix;
+    bool hasMatrix = false;
     // If the drawable has a matrix, we'll transform by that before drawing
     Eigen::Matrix4d mat;
 
@@ -253,24 +263,28 @@ public:
     std::vector<VertexAttribute *> vertexAttributes;
     // Uniforms to be passed into a shader (just Metal for now)
     std::vector<UniformBlock> uniBlocks;
+
     // Entries for the standard attributes we create on startup
-    int colorEntry,normalEntry;
+    int colorEntry = 0;
+    int normalEntry = 0;
 
     // We'll nuke the data arrays when we hand over the data to GL
-    unsigned int numPoints, numTris;
-    RGBAColor color;
-    bool hasOverrideColor;  // If set, we've changed the default color
+    unsigned int numPoints = 0;
+    unsigned int numTris = 0;
+    RGBAColor color = RGBAColor::white();
+    bool hasOverrideColor = false;  // If set, we've changed the default color
+    
+    // For an optional calculation phase, we just pass in raw buffer data
+    int calcDataEntries = 0;
+    std::vector<RawDataRef> calcData;
 
     // Uniforms to apply to shader
     SingleVertexAttributeSet uniforms;
         
-    // If set the geometry is already in OpenGL clip coordinates, so no transform
-    bool clipCoords;
-    
     // Set if we changed one of the general values (presumably during execution)
-    bool valuesChanged;
+    bool valuesChanged = false;
     // Set if the textures changed
-    bool texturesChanged;
+    bool texturesChanged = false;
 };
 
 struct BasicDrawableTweaker : DrawableTweaker
@@ -288,9 +302,8 @@ protected:
  */
 struct BasicDrawableTexTweaker : public BasicDrawableTweaker
 {
-    BasicDrawableTexTweaker(std::vector<SimpleIdentity> &&texIDs,TimeInterval startTime,double period);
-    BasicDrawableTexTweaker(const std::vector<SimpleIdentity> &texIDs,TimeInterval startTime,double period);
-    
+    BasicDrawableTexTweaker(std::vector<SimpleIdentity> texIDs,TimeInterval startTime,double period);
+
     /// Modify the active texture IDs
     virtual void tweakForFrame(Drawable *draw,RendererFrameInfo *frame) override;
 
@@ -329,7 +342,7 @@ public:
     void execute2(Scene *scene,SceneRenderer *renderer,DrawableRef draw);
     
 protected:
-    unsigned char color[4];
+    unsigned char color[4] = {0};
 };
 
 /// Turn a given drawable on or off.  This doesn't delete it.
@@ -369,27 +382,29 @@ protected:
 };
 
 /// Change the texture used by a drawable
-class DrawTexChangeRequest : public DrawableChangeRequest
+struct DrawTexChangeRequest : public DrawableChangeRequest
 {
-public:
     DrawTexChangeRequest(SimpleIdentity drawId,unsigned int which,SimpleIdentity newTexId);
     DrawTexChangeRequest(SimpleIdentity drawId,unsigned int which,SimpleIdentity newTexId,int size,int borderTexel,int relLevel,int relX,int relY);
     
     void execute2(Scene *scene,SceneRenderer *renderer,DrawableRef draw);
     
 protected:
-    unsigned int which;
-    SimpleIdentity newTexId;
-    bool relSet;
-    int size,borderTexel;
-    int relLevel,relX,relY;
+    unsigned int which = 0;
+    SimpleIdentity newTexId = EmptyIdentity;
+    bool relSet = false;
+    int size = 0;
+    int borderTexel = 0;
+    int relLevel = 0;
+    int relX = 0;
+    int relY = 0;
 };
 
 /// Change the textures used by a drawable
 class DrawTexturesChangeRequest : public DrawableChangeRequest
 {
 public:
-    DrawTexturesChangeRequest(SimpleIdentity drawId,const std::vector<SimpleIdentity> &newTexIDs);
+    DrawTexturesChangeRequest(SimpleIdentity drawId, std::vector<SimpleIdentity> newTexIDs);
     
     void execute2(Scene *scene,SceneRenderer *renderer,DrawableRef draw);
     
@@ -451,7 +466,7 @@ protected:
 class DrawUniformsChangeRequest : public DrawableChangeRequest
 {
 public:
-    DrawUniformsChangeRequest(SimpleIdentity drawID,const SingleVertexAttributeSet &attrs);
+    DrawUniformsChangeRequest(SimpleIdentity drawID, SingleVertexAttributeSet attrs);
     
     void execute2(Scene *scene,SceneRenderer *renderer,DrawableRef draw);
     

@@ -1,9 +1,8 @@
-/*
- *  VectorObject.cpp
+/*  VectorObject.cpp
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 7/17/11.
- *  Copyright 2011-2013 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,22 +14,26 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "VectorObject.h"
 #import "GlobeMath.h"
 #import "VectorData.h"
-#import "ShapeReader.h"
 #import "Tesselator.h"
 #import "GridClipper.h"
 #import "WhirlyKitLog.h"
 #import "GlobeView.h"
 #import "MaplyView.h"
 
+#import "ShapeReader.h"
+#import "GeographicLib/Geocentric.hpp"
+#import "GeographicLib/Geodesic.hpp"
+#import "GeographicLib.h"
+
 namespace WhirlyKit
 {
-    
+using namespace detail;
+
 VectorObject::VectorObject()
     : VectorObject(10)
 {
@@ -41,10 +44,9 @@ VectorObject::VectorObject(SimpleIdentity theId)
 {
 }
 
-VectorObject::VectorObject(SimpleIdentity theId, int capacity)
-    : Identifiable(theId)
-    , shapes(capacity)
-    , selectable(true)
+VectorObject::VectorObject(SimpleIdentity theId, int capacity) :
+    Identifiable(theId),
+    shapes(capacity)
 {
 }
 
@@ -63,7 +65,7 @@ bool VectorObject::FromGeoJSONAssembly(const std::string &json,std::map<std::str
     
     for (auto const &it : newShapes)
     {
-        VectorObject *vecObj = new VectorObject();
+        auto *vecObj = new VectorObject();
         vecObj->shapes.reserve(vecObj->shapes.size() + it.second.size());
         vecObj->shapes.insert(it.second.begin(),it.second.end());
         vecData[it.first] = vecObj;
@@ -71,19 +73,37 @@ bool VectorObject::FromGeoJSONAssembly(const std::string &json,std::map<std::str
     
     return true;
 }
-    
+
+bool VectorObject::FromGeoJSONAssembly(const std::string &json,std::map<std::string,VectorObjectRef> &vecData)
+{
+    // TODO: unordered_map?
+    std::map<std::string, ShapeSet> newShapes;
+
+    if (!VectorParseGeoJSONAssembly(json, newShapes))
+        return false;
+
+    for (auto const &it : newShapes)
+    {
+        auto vecObj = std::make_shared<VectorObject>();
+        vecObj->shapes.reserve(vecObj->shapes.size() + it.second.size());
+        vecObj->shapes.insert(it.second.begin(),it.second.end());
+        vecData[it.first] = std::move(vecObj);
+    }
+
+    return true;
+}
+
 bool VectorObject::fromShapeFile(const std::string &fileName)
 {
     ShapeReader shapeReader(fileName);
     if (!shapeReader.isValid())
         return false;
     
-    const int numObj = shapeReader.getNumObjects();
+    const unsigned numObj = shapeReader.getNumObjects();
     shapes.reserve(shapes.size() + numObj);
     for (unsigned int ii=0;ii<numObj;ii++) {
-        shapes.insert(shapeReader.getObjectByIndex(ii, NULL));
+        shapes.insert(shapeReader.getObjectByIndex(ii, nullptr));
     }
-    
     return true;
 }
 
@@ -92,15 +112,17 @@ MutableDictionaryRef VectorObject::getAttributes() const
     return shapes.empty() ? MutableDictionaryRef() : (*shapes.begin())->getAttrDict();
 }
 
-void VectorObject::setAttributes(MutableDictionaryRef newDict)
+void VectorObject::setAttributes(const MutableDictionaryRef &newDict)
 {
     for (const auto &shape : shapes)
+    {
         shape->setAttrDict(newDict);
+    }
 }
 
 void VectorObject::mergeVectorsFrom(const VectorObject &otherVec)
 {
-    shapes.reserve(shapes.size() + otherVec.shapes.size());
+    shapes.reserve(otherVec.shapes.size());
     shapes.insert(otherVec.shapes.begin(),otherVec.shapes.end());
 }
 
@@ -109,7 +131,7 @@ void VectorObject::splitVectors(std::vector<VectorObject *> &vecs)
     vecs.reserve(vecs.size() + shapes.size());
     for (const auto &shape : shapes)
     {
-        VectorObject *vecObj = new VectorObject();
+        auto *vecObj = new VectorObject();
         vecObj->shapes.insert(shape);
         vecs.push_back(vecObj);
     }
@@ -120,15 +142,21 @@ bool VectorObject::center(Point2d &center) const
     Mbr mbr;
     for (const auto &shape : shapes)
     {
-        GeoMbr geoMbr = shape->calcGeoMbr();
-        mbr.addPoint(geoMbr.ll());
-        mbr.addPoint(geoMbr.ur());
+        const GeoMbr geoMbr = shape->calcGeoMbr();
+        if (geoMbr.valid())
+        {
+            mbr.addPoint(geoMbr.ll());
+            mbr.addPoint(geoMbr.ur());
+        }
     }
 
-    center.x() = (mbr.ll().x() + mbr.ur().x())/2.0;
-    center.y() = (mbr.ll().y() + mbr.ur().y())/2.0;
-
-    return true;
+    if (mbr.valid())
+    {
+        center.x() = (mbr.ll().x() + mbr.ur().x()) / 2.0;
+        center.y() = (mbr.ll().y() + mbr.ur().y()) / 2.0;
+        return true;
+    }
+    return false;
 }
 
 bool VectorObject::centroid(Point2d &centroid) const
@@ -139,29 +167,36 @@ bool VectorObject::centroid(Point2d &centroid) const
     for (const auto &shapeRef : shapes)
     {
         const auto shape = shapeRef.get();
-        if (const auto areal = dynamic_cast<const VectorAreal*>(shape)) {
-            if (areal->loops.size() > 0) {
-                for (unsigned int ii=0;ii<areal->loops.size();ii++)
+        if (const auto areal = dynamic_cast<const VectorAreal*>(shape))
+        {
+            if (!areal->loops.empty())
+            {
+                for (const auto &loop : areal->loops)
                 {
-                    const float area = CalcLoopArea(areal->loops[ii]);
+                    const float area = CalcLoopArea(loop);
                     if (std::abs(area) > std::abs(bigArea))
                     {
-                        bigLoop = &areal->loops[ii];
+                        bigLoop = &loop;
                         bigArea = area;
                     }
                 }
             }
-        } else if (const auto linear = dynamic_cast<const VectorLinear*>(shape)) {
+        } else if (const auto linear = dynamic_cast<const VectorLinear*>(shape))
+        {
             const GeoCoord midCoord = linear->geoMbr.mid();
             centroid.x() = midCoord.x();
             centroid.y() = midCoord.y();
             return true;
-        } else if (const auto linear3d = dynamic_cast<const VectorLinear3d*>(shape)) {
+        }
+        else if (const auto linear3d = dynamic_cast<const VectorLinear3d*>(shape))
+        {
             const GeoCoord midCoord = linear3d->geoMbr.mid();
             centroid.x() = midCoord.x();
             centroid.y() = midCoord.y();
             return true;
-        } else if (const auto pts = dynamic_cast<const VectorPoints*>(shape)) {
+        }
+        else if (const auto pts = dynamic_cast<const VectorPoints*>(shape))
+        {
             const GeoCoord midCoord = pts->geoMbr.mid();
             centroid.x() = midCoord.x();
             centroid.y() = midCoord.y();
@@ -182,19 +217,19 @@ bool VectorObject::centroid(Point2d &centroid) const
 bool VectorObject::largestLoopCenter(Point2d &center,Point2d &ll,Point2d &ur) const
 {
     // Find the loop with the largest area
-    float bigArea = -1.0;
+    double bigArea = -1.0;
     const VectorRing *bigLoop = nullptr;
     for (const auto &shape : shapes)
     {
         const auto areal = dynamic_cast<VectorAreal*>(shape.get());
-        if (areal && areal->loops.size() > 0)
+        if (areal && !areal->loops.empty())
         {
-            for (unsigned int ii=0;ii<areal->loops.size();ii++)
+            for (const auto &loop : areal->loops)
             {
-                const float area = std::abs(CalcLoopArea(areal->loops[ii]));
+                const auto area = std::abs(CalcLoopArea(loop));
                 if (area > bigArea)
                 {
-                    bigLoop = &areal->loops[ii];
+                    bigLoop = &loop;
                     bigArea = area;
                 }
             }
@@ -241,7 +276,7 @@ bool VectorObject::linearMiddle(Point2d &middle,double &rot) const
             const float len = (pts[ii+1]-pts[ii]).norm();
             totLen += len;
         }
-        const float halfLen = totLen / 2.0;
+        const float halfLen = totLen / 2.0f;
         
         // Now we'll walk along, looking for the middle
         float lenSoFar = 0.0;
@@ -274,7 +309,7 @@ bool VectorObject::linearMiddle(Point2d &middle,double &rot) const
             const float len = (pts[ii+1]-pts[ii]).norm();
             totLen += len;
         }
-        const float halfLen = totLen / 2.0;
+        const float halfLen = totLen / 2.0f;
         
         // Now we'll walk along, looking for the middle
         float lenSoFar = 0.0;
@@ -304,7 +339,7 @@ bool VectorObject::linearMiddle(Point2d &middle,double &rot) const
     return true;
 }
     
-bool VectorObject::linearMiddle(Point2d &middle,double &rot,CoordSystem *coordSys) const
+bool VectorObject::linearMiddle(Point2d &middle,double &rot,const CoordSystem *coordSys) const
 {
     if (shapes.empty())
         return false;
@@ -335,10 +370,10 @@ bool VectorObject::linearMiddle(Point2d &middle,double &rot,CoordSystem *coordSy
             const float len = (pts[ii+1]-pts[ii]).norm();
             totLen += len;
         }
-        const float halfLen = totLen / 2.0;
+        const float halfLen = totLen / 2.0f;
         
         // Now we'll walk along, looking for the middle
-        float lenSoFar = 0.0;
+        double lenSoFar = 0.0;
         for (unsigned int ii=0;ii<pts.size()-1;ii++)
         {
             const Point3d pt0 = coordSys->geographicToLocal3d(GeoCoord(pts[ii].x(),pts[ii].y()));
@@ -351,7 +386,7 @@ bool VectorObject::linearMiddle(Point2d &middle,double &rot,CoordSystem *coordSy
                 const GeoCoord middleGeo = coordSys->localToGeographic(thePt);
                 middle.x() = middleGeo.x();
                 middle.y() = middleGeo.y();
-                rot = M_PI/2.0-atan2(pt1.y()-pt0.y(),pt1.x()-pt0.x());
+                rot = M_PI_2 - atan2(pt1.y()-pt0.y(),pt1.x()-pt0.x());
                 return true;
             }
             
@@ -381,10 +416,10 @@ bool VectorObject::linearMiddle(Point2d &middle,double &rot,CoordSystem *coordSy
             const float len = (pts[ii+1]-pts[ii]).norm();
             totLen += len;
         }
-        const float halfLen = totLen / 2.0;
+        const double halfLen = totLen / 2.0;
         
         // Now we'll walk along, looking for the middle
-        float lenSoFar = 0.0;
+        double lenSoFar = 0.0;
         for (unsigned int ii=0;ii<pts.size()-1;ii++)
         {
             const GeoCoord geo0(pts[ii].x(),pts[ii].y());
@@ -399,7 +434,7 @@ bool VectorObject::linearMiddle(Point2d &middle,double &rot,CoordSystem *coordSy
                 const GeoCoord middleGeo = coordSys->localToGeographic(thePt);
                 middle.x() = middleGeo.x();
                 middle.y() = middleGeo.y();
-                rot = M_PI/2.0-atan2(pt1.y()-pt0.y(),pt1.x()-pt0.x());
+                rot = M_PI_2 - atan2(pt1.y()-pt0.y(),pt1.x()-pt0.x());
                 return true;
             }
             
@@ -457,9 +492,9 @@ bool VectorObject::pointInside(const Point2d &pt) const
     
 // Helper routine to convert and check geographic points (globe version)
 static bool ScreenPointFromGeo(const Point2d &geoCoord,
-                               WhirlyGlobe::GlobeViewStateRef globeView,
-                               Maply::MapViewStateRef mapView,
-                               CoordSystemDisplayAdapter *coordAdapter,
+                               WhirlyGlobe::GlobeViewState* globeView,
+                               Maply::MapViewState* mapView,
+                               const CoordSystemDisplayAdapter *coordAdapter,
                                const Point2f &frameSize,
                                const Eigen::Matrix4f &modelAndViewMat,
                                const Eigen::Matrix4d &modelAndViewMat4d,
@@ -468,21 +503,43 @@ static bool ScreenPointFromGeo(const Point2d &geoCoord,
                                Point2d *screenPt)
 {
     const Point3d pt = coordAdapter->localToDisplay(coordAdapter->getCoordSystem()->geographicToLocal3d(GeoCoord(geoCoord.x(),geoCoord.y())));
-    const Point3f pt3f(pt.x(),pt.y(),pt.z());
+    const Point3f pt3f = pt.cast<float>();
     
     Point2f screenPt2f;
-    if (globeView) {
+    if (globeView)
+    {
         if (CheckPointAndNormFacing(pt3f,pt3f.normalized(),modelAndViewMat,modelAndViewNormalMat) < 0.0)
+        {
             return false;
+        }
         
         screenPt2f = globeView->pointOnScreenFromDisplay(pt, &modelAndViewMat4d, frameSize);
-    } else {
+    }
+    else
+    {
         screenPt2f = mapView->pointOnScreenFromDisplay(pt, &modelAndViewMat4d, frameSize);
     }
-    screenPt->x() = screenPt2f.x();  screenPt->y() = screenPt2f.y();
-
-    return !(screenPt->x() < 0 || screenPt->y() < 0 || screenPt->x() > frameSize.x() || screenPt->y() > frameSize.y());
+    *screenPt = screenPt2f.cast<double>();
+    return (screenPt2f.x() >= 0.0f &&
+            screenPt2f.y() >= 0.0f &&
+            screenPt2f.x() < frameSize.x() &&
+            screenPt2f.y() < frameSize.y());
 }
+
+//static bool ScreenPointFromGeo(const Point2d &geoCoord,
+//                               WhirlyGlobe::GlobeViewStateRef globeView,
+//                               Maply::MapViewStateRef mapView,
+//                               CoordSystemDisplayAdapter *coordAdapter,
+//                               const Point2f &frameSize,
+//                               const Eigen::Matrix4f &modelAndViewMat,
+//                               const Eigen::Matrix4d &modelAndViewMat4d,
+//                               const Eigen::Matrix4d &modelMatFull,
+//                               const Eigen::Matrix4f &modelAndViewNormalMat,
+//                               Point2d *screenPt) {
+//    return ScreenPointFromGeo(geoCoord, globeView.get(), mapView.get(), coordAdapter, frameSize,
+//                              modelAndViewMat, modelAndViewMat4d, modelMatFull, modelAndViewNormalMat,
+//                              screenPt);
+//}
 
 // Return the square of the hypotenuse, i.e., hypot() without the sqrt()
 inline static double hypotSq(double dx, double dy)
@@ -490,26 +547,88 @@ inline static double hypotSq(double dx, double dy)
     return dx * dx + dy * dy;
 }
 
-bool VectorObject::pointNearLinear(const Point2d &coord,float maxDistance,ViewStateRef viewState,const Point2f &frameSize) const
+// Given a geographic bound, try to expand it by the specified size in screen coordinates.
+static void expandBound(GeoMbr &bound, const Point2f &screenCoord,
+                        Maply::MapViewState *mapView, WhirlyGlobe::GlobeViewState *globeView,
+                        const CoordSystemDisplayAdapter *adapter, const Eigen::Matrix4d &matrix,
+                        const Point2f &frameSize, float maxDistance)
+{
+    const Point2f corners[4] = {
+        screenCoord + Point2f( maxDistance,  maxDistance),
+        screenCoord + Point2f(-maxDistance,  maxDistance),
+        screenCoord + Point2f( maxDistance, -maxDistance),
+        screenCoord + Point2f(-maxDistance, -maxDistance),
+    };
+    for (auto const &c : corners)
+    {
+        Point3d disp;
+        if ((mapView && mapView->pointOnPlaneFromScreen(c, matrix, frameSize, disp, false)) ||
+            (globeView && globeView->pointOnSphereFromScreen(c, matrix, frameSize, disp, false)))
+        {
+            bound.addPoint(adapter->getCoordSystem()->localToGeographic(adapter->displayToLocal(disp)));
+        }
+    }
+    if (bound.empty())
+    {
+        // No change... expand it by the smallest amount possible to make it non-empty
+        bound.ur().x() = std::nextafter(bound.ur().x(), std::numeric_limits<float>::max());
+        bound.ur().y() = std::nextafter(bound.ur().y(), std::numeric_limits<float>::max());
+    }
+}
+
+// See whether a given item's bounding rect overlaps the search area, which is defined by a point
+// and distance.  If the point is not within the item's bounding rect, approximate the distance
+// check by expanding the point into another bounding rect (once) using the specified distance and
+// compare that instead.
+static inline bool checkBounds(const Point2f &screenCoord, const GeoCoord &geoCoord,
+                               const GeoMbr &itemMbr, GeoMbr &searchMbr,
+                               Maply::MapViewState *mapView, WhirlyGlobe::GlobeViewState *globeView,
+                               const CoordSystemDisplayAdapter *adapter,
+                               const Eigen::Matrix4d &matrix,
+                               const Point2f &frameSize, float maxDistance)
+{
+    if (itemMbr.inside(geoCoord))
+    {
+        return true;
+    }
+    if (searchMbr.empty())
+    {
+        expandBound(searchMbr, screenCoord,
+                    mapView, globeView,
+                    adapter, matrix,
+                    frameSize, maxDistance);
+    }
+    return itemMbr.overlaps(searchMbr);
+}
+
+bool VectorObject::pointNearLinear(const Point2d &coord,float maxDistance,
+                                   const ViewStateRef &viewState,const Point2f &frameSize) const
 {
     CoordSystemDisplayAdapter *coordAdapter = viewState->coordAdapter;
    
-    WhirlyGlobe::GlobeViewStateRef globeView = std::dynamic_pointer_cast<WhirlyGlobe::GlobeViewState>(viewState);
-    Maply::MapViewStateRef mapView = std::dynamic_pointer_cast<Maply::MapViewState>(viewState);
-    
-    Eigen::Matrix4d modelTrans4d = viewState->modelMatrix;
+    const auto globeView = dynamic_cast<WhirlyGlobe::GlobeViewState*>(viewState.get());
+    const auto mapView = dynamic_cast<Maply::MapViewState*>(viewState.get());
+
+    const Eigen::Matrix4d &modelTrans4d = viewState->modelMatrix;
     // Note: This won't work if there's more than one matrix
-    Eigen::Matrix4d viewTrans4d = viewState->viewMatrices[0];
-    Eigen::Matrix4d modelAndViewMat4d = viewTrans4d * modelTrans4d;
-    Eigen::Matrix4f modelAndViewMat = Matrix4dToMatrix4f(modelAndViewMat4d);
-    Eigen::Matrix4f modelAndViewNormalMat = modelAndViewMat.inverse().transpose();
+    const Eigen::Matrix4d &viewTrans4d = viewState->viewMatrices[0];
+    const Eigen::Matrix4d &modelAndViewMat4d = viewTrans4d * modelTrans4d;
+    const Eigen::Matrix4f &modelAndViewMat = Matrix4dToMatrix4f(modelAndViewMat4d);
+    const Eigen::Matrix4f &modelAndViewNormalMat = modelAndViewMat.inverse().transpose();
     // Note: This is probably redundant
-    Eigen::Matrix4d modelMatFull = viewState->fullMatrices[0];
+    const Eigen::Matrix4d &modelMatFull = viewState->fullMatrices[0];
 
     // Point we're searching around
     Point2d p;
-    if (!ScreenPointFromGeo(coord, globeView, mapView, coordAdapter, frameSize, modelAndViewMat, modelAndViewMat4d, modelMatFull, modelAndViewNormalMat, &p))
+    if (!ScreenPointFromGeo(coord, globeView, mapView, coordAdapter, frameSize, modelAndViewMat,
+                            modelAndViewMat4d, modelMatFull, modelAndViewNormalMat, &p))
+    {
         return false;
+    }
+
+    const Point2f pf = p.cast<float>();
+    const GeoCoord geoCoord(coord.x(),coord.y());
+    GeoMbr searchMbr(geoCoord, geoCoord);
 
     const double maxDistSq = (double)maxDistance * maxDistance;
     for (const auto &shape : shapes)
@@ -517,82 +636,116 @@ bool VectorObject::pointNearLinear(const Point2d &coord,float maxDistance,ViewSt
         if (const auto linear = dynamic_cast<VectorLinear*>(shape.get()))
         {
             const GeoMbr geoMbr = linear->calcGeoMbr();
-            if(geoMbr.inside(GeoCoord(coord.x(),coord.y())))
+            if (!checkBounds(pf, geoCoord, geoMbr, searchMbr, mapView, globeView,
+                             coordAdapter, modelMatFull, frameSize, maxDistance))
             {
-                const VectorRing &pts = linear->pts;
-                for (int ii=0;ii<pts.size()-1;ii++)
-                {
-                    const Point2f &p0 = pts[ii];
-                    Point2d pc(p0.x(),p0.y());
-                    Point2d a;
-                    if (!ScreenPointFromGeo(pc, globeView, mapView, coordAdapter, frameSize, modelAndViewMat, modelAndViewMat4d, modelMatFull, modelAndViewNormalMat, &a))
-                        continue;
-                    
-                    const Point2f &p1 = pts[ii + 1];
-                    pc = Point2d(p1.x(),p1.y());
-                    Point2d b;
-                    if (!ScreenPointFromGeo(pc, globeView, mapView, coordAdapter, frameSize, modelAndViewMat, modelAndViewMat4d, modelMatFull, modelAndViewNormalMat, &b))
-                        continue;
-                    
-                    const Point2d aToP = a - p;
-                    const Point2d aToB = a - b;
-                    const double aToBMagitude = hypotSq(aToB.x(), aToB.y());
-                    const double dot = aToP.x() * aToB.x() + aToP.y() * aToB.y();
-                    const double d = dot/aToBMagitude;
+                continue;
+            }
 
-                    double distance = std::numeric_limits<double>::max();
-                    if(d < 0)
-                    {
-                        distance = hypotSq(p.x() - a.x(), p.y() - a.y());
-                    } else if(d > 1) {
-                        distance = hypotSq(p.x() - b.x(), p.y() - b.y());
-                    } else {
-                        distance = hypotSq(p.x() - a.x() + (aToB.x() * d),
-                                         p.y() - a.y() + (aToB.y() * d));
-                    }
-                    
-                    if (distance < maxDistSq)
-                        return true;
+            const VectorRing &pts = linear->pts;
+            for (int ii=0;ii<pts.size()-1;ii++)
+            {
+                const Point2f &p0 = pts[ii];
+                Point2d pc = p0.cast<double>();
+                Point2d a;
+                if (!ScreenPointFromGeo(pc, globeView, mapView, coordAdapter, frameSize,
+                                        modelAndViewMat, modelAndViewMat4d, modelMatFull,
+                                        modelAndViewNormalMat, &a))
+                {
+                    continue;
+                }
+
+                const Point2f &p1 = pts[ii + 1];
+                pc = p1.cast<double>();
+                Point2d b;
+                if (!ScreenPointFromGeo(pc, globeView, mapView, coordAdapter, frameSize,
+                                        modelAndViewMat, modelAndViewMat4d, modelMatFull,
+                                        modelAndViewNormalMat, &b))
+                {
+                    continue;
+                }
+
+                const Point2d aToP = a - p;
+                const Point2d aToB = a - b;
+                const double aToBMagnitudeSq = hypotSq(aToB.x(), aToB.y());
+                const double d = aToP.dot(aToB) / aToBMagnitudeSq;
+
+                double distance = std::numeric_limits<double>::max();
+                if(d < 0)
+                {
+                    distance = hypotSq(p.x() - a.x(), p.y() - a.y());
+                }
+                else if(d > 1)
+                {
+                    distance = hypotSq(p.x() - b.x(), p.y() - b.y());
+                }
+                else
+                {
+                    distance = hypotSq(p.x() - a.x() + (aToB.x() * d),
+                                       p.y() - a.y() + (aToB.y() * d));
+                }
+
+                if (distance < maxDistSq)
+                {
+                    return true;
                 }
             }
-        } else if (const auto linear3d = dynamic_cast<VectorLinear3d*>(shape.get())) {
+        }
+        else if (const auto linear3d = dynamic_cast<VectorLinear3d*>(shape.get()))
+        {
             const GeoMbr geoMbr = linear3d->calcGeoMbr();
-            if(geoMbr.inside(GeoCoord(coord.x(),coord.y())))
+            if (!checkBounds(pf, geoCoord, geoMbr, searchMbr, mapView, globeView,
+                             coordAdapter, modelMatFull, frameSize, maxDistance))
             {
-                const VectorRing3d &pts = linear3d->pts;
-                for (int ii=0;ii<pts.size()-1;ii++)
+                continue;
+            }
+
+            const VectorRing3d &pts = linear3d->pts;
+            for (int ii=0;ii<pts.size()-1;ii++)
+            {
+                const Point3d &p0 = pts[ii];
+                const Point2d pc { p0.x(), p0.y() };
+                Point2d a;
+                if (!ScreenPointFromGeo(pc, globeView, mapView, coordAdapter, frameSize,
+                                        modelAndViewMat, modelAndViewMat4d, modelMatFull,
+                                        modelAndViewNormalMat, &a))
                 {
-                    Point3d p0 = pts[ii];
-                    Point2d pc(p0.x(),p0.y());
-                    Point2d a;
-                    if (!ScreenPointFromGeo(pc, globeView, mapView, coordAdapter, frameSize, modelAndViewMat, modelAndViewMat4d, modelMatFull, modelAndViewNormalMat, &a))
-                        continue;
+                    continue;
+                }
 
-                    Point3d p1 = pts[ii + 1];
-                    pc = Point2d(p1.x(),p1.y());
-                    Point2d b;
-                    if (!ScreenPointFromGeo(pc, globeView, mapView, coordAdapter, frameSize, modelAndViewMat, modelAndViewMat4d, modelMatFull, modelAndViewNormalMat, &b))
-                        continue;
+                const Point3d &p1 = pts[ii + 1];
+                const Point2d pd { p1.x(), p1.y() };
+                Point2d b;
+                if (!ScreenPointFromGeo(pd, globeView, mapView, coordAdapter, frameSize,
+                                        modelAndViewMat, modelAndViewMat4d, modelMatFull,
+                                        modelAndViewNormalMat, &b))
+                {
+                    continue;
+                }
 
-                    const Point2d aToP = a - p;
-                    const Point2d aToB = a - b;
-                    const double aToBMagitude = hypotSq(aToB.x(), aToB.y());
-                    const double dot = aToP.x() * aToB.x() + aToP.y() * aToB.y();
-                    const double d = dot/aToBMagitude;
+                const Point2d aToP = a - p;
+                const Point2d aToB = a - b;
+                const double aToBMagnitudeSq = hypotSq(aToB.x(), aToB.y());
+                const double d = aToP.dot(aToB)/aToBMagnitudeSq;
 
-                    double distance = std::numeric_limits<double>::max();
-                    if(d < 0)
-                    {
-                        distance = hypotSq(p.x() - a.x(), p.y() - a.y());
-                    } else if(d > 1) {
-                        distance = hypotSq(p.x() - b.x(), p.y() - b.y());
-                    } else {
-                        distance = hypotSq(p.x() - a.x() + (aToB.x() * d),
-                                         p.y() - a.y() + (aToB.y() * d));
-                    }
-                    
-                    if (distance < maxDistSq)
-                        return true;
+                double distance = std::numeric_limits<double>::max();
+                if(d < 0)
+                {
+                    distance = hypotSq(p.x() - a.x(), p.y() - a.y());
+                }
+                else if(d > 1)
+                {
+                    distance = hypotSq(p.x() - b.x(), p.y() - b.y());
+                }
+                else
+                {
+                    distance = hypotSq(p.x() - a.x() + (aToB.x() * d),
+                                       p.y() - a.y() + (aToB.y() * d));
+                }
+
+                if (distance < maxDistSq)
+                {
+                    return true;
                 }
             }
         }
@@ -600,54 +753,59 @@ bool VectorObject::pointNearLinear(const Point2d &coord,float maxDistance,ViewSt
     
     return false;
 }
-    
+
 double VectorObject::areaOfOuterLoops() const
 {
     double area = 0.0;
     for (const auto& shape : shapes)
     {
         const auto areal = dynamic_cast<VectorAreal*>(shape.get());
-        if (areal && areal->loops.size() > 0)
+        if (areal && !areal->loops.empty())
         {
-            area = CalcLoopArea(areal->loops[0]);
+            area += CalcLoopArea(areal->loops[0]);
         }
     }
     
     return area;
 }
-    
+
 bool VectorObject::boundingBox(Point2d &ll,Point2d &ur) const
 {
-    bool valid = false;
     Mbr mbr;
     for (const auto &shape : shapes)
     {
         const GeoMbr geoMbr = shape->calcGeoMbr();
-        mbr.addPoint(geoMbr.ll());
-        mbr.addPoint(geoMbr.ur());
-        valid = true;
+        if (geoMbr.valid())
+        {
+            mbr.addPoint(geoMbr.ll());
+            mbr.addPoint(geoMbr.ur());
+        }
     }
     
-    if (valid)
+    if (mbr.valid())
     {
         ll.x() = mbr.ll().x();
         ll.y() = mbr.ll().y();
         ur.x() = mbr.ur().x();
         ur.y() = mbr.ur().y();
+        return true;
     }
-    
-    return valid;
+    return false;
 }
 
 void VectorObject::addHole(const VectorRing &hole)
 {
+    if (shapes.empty())
+    {
+        return;
+    }
     const auto areal = dynamic_cast<VectorAreal*>(shapes.begin()->get());
     if (areal)
     {
         areal->loops.push_back(hole);
     }
 }
-    
+
 VectorObjectRef VectorObject::deepCopy() const
 {
     auto newVecObj = std::make_shared<VectorObject>();
@@ -846,22 +1004,28 @@ void VectorObject::subdivideToGlobe(float epsilon)
 {
     FakeGeocentricDisplayAdapter adapter;
     
+    VectorRing outPts;
+    VectorRing3d outPts3;
     for (const auto &shapeRef : shapes)
     {
         const auto shape = shapeRef.get();
         if (const auto lin = dynamic_cast<VectorLinear*>(shape))
         {
-            VectorRing outPts;
+            outPts.clear();
             SubdivideEdgesToSurface(lin->pts, outPts, false, &adapter, epsilon);
             lin->pts = outPts;
-        } else if (const auto lin3d = dynamic_cast<VectorLinear3d*>(shape)) {
-            VectorRing3d outPts;
-            SubdivideEdgesToSurface(lin3d->pts, outPts, false, &adapter, epsilon);
-            lin3d->pts = outPts;
-        } else if (const auto ar = dynamic_cast<VectorAreal*>(shape)) {
+        }
+        else if (const auto lin3d = dynamic_cast<VectorLinear3d*>(shape))
+        {
+            outPts3.clear();
+            SubdivideEdgesToSurface(lin3d->pts, outPts3, false, &adapter, epsilon);
+            lin3d->pts = outPts3;
+        }
+        else if (const auto ar = dynamic_cast<VectorAreal*>(shape))
+        {
             for (unsigned int ii=0;ii<ar->loops.size();ii++)
             {
-                VectorRing outPts;
+                outPts.clear();
                 SubdivideEdgesToSurface(ar->loops[ii], outPts, true, &adapter, epsilon);
                 ar->loops[ii] = outPts;
             }
@@ -869,73 +1033,325 @@ void VectorObject::subdivideToGlobe(float epsilon)
     }
 }
 
-void VectorObject::subdivideToInternal(float epsilon,WhirlyKit::CoordSystemDisplayAdapter *adapter,bool edgeMode)
+// SubdivideEdgesToSurfaceGC and convert back to geographic
+static void SubdivideEdgesToSurfaceGCGeo(const VectorRing &inPts,VectorRing &outPts2D,bool closed,
+                                         CoordSystemDisplayAdapter *adapter,const CoordSystem* coordSys,
+                                         float eps,float surfOffset=0,int minPts=0)
 {
-    CoordSystem *coordSys = adapter->getCoordSystem();
-    
+    Point3dVector outPts;
+    outPts.reserve(std::max(20, 3 * minPts));
+    SubdivideEdgesToSurfaceGC(inPts,outPts,closed,adapter,eps,surfOffset,minPts);
+
+    outPts2D.resize(outPts.size());
+    for (unsigned int ii=0;ii<outPts.size();ii++)
+    {
+        outPts2D[ii] = coordSys->localToGeographic(adapter->displayToLocal(outPts[ii]));
+    }
+    if (!inPts.empty())
+    {
+        outPts2D.front() = inPts.front();
+        outPts2D.back() = inPts.back();
+    }
+}
+
+static void SubdivideEdgesToSurfaceGCGeo(const VectorRing3d &inPts,Point3dVector &outPts,bool closed,
+                                         CoordSystemDisplayAdapter *adapter,const CoordSystem* coordSys,
+                                         float eps,float surfOffset=0,int minPts=0)
+{
+    VectorRing inPts2D;
+    inPts2D.reserve(inPts.size());
+    for (const auto &p : inPts)
+    {
+        inPts2D.emplace_back(p.x(),p.y());
+    }
+    VectorRing outPts2d;
+    outPts2d.resize(inPts.size() * 3);
+    SubdivideEdgesToSurfaceGCGeo(inPts2D,outPts2d,closed,adapter,coordSys,eps,surfOffset,minPts);
+    outPts.reserve(outPts.size() + outPts2d.size());
+    for (const auto &p : outPts2d)
+    {
+        outPts.emplace_back(p.x(), p.y(), 0.0);
+    }
+}
+
+static void fixEdges(const VectorRing& outPts2D, VectorRing& offsetPts2D)
+{
+    // See if they cross the edge of a wraparound coordinate system
+    // Note: Only works for spherical mercator, most likely
+    offsetPts2D.resize(outPts2D.size());
+    double xOff = 0.0;
+    for (unsigned int ii=0;ii<outPts2D.size()-1;ii++)
+    {
+        offsetPts2D[ii] = Point2f(outPts2D[ii].x()+xOff,outPts2D[ii].y());
+        if (std::abs(outPts2D[ii].x() - outPts2D[ii+1].x()) > 1.1*M_PI)
+        {
+            if (outPts2D[ii].x() < 0.0)
+                xOff -= 2*M_PI;
+            else
+                xOff += 2*M_PI;
+        }
+    }
+    offsetPts2D.back() = outPts2D.back() + Point2f(xOff,0.0);
+}
+
+template <typename T>
+static inline Point3d toGeocentric(const Eigen::Matrix<T,2,1> &p, double geoidHeight = 0.0)
+{
+    double x = 0, y = 0, z = 0;
+    wgs84Geocentric().Forward(WhirlyKit::RadToDeg(p.y()),
+                              WhirlyKit::RadToDeg(p.x()),
+                              geoidHeight, x, y, z);
+    return {x,y,z};
+}
+
+// Test for any intersections among non-consecutive segments.
+// If `close` is true, consider an implicit segment from end-begin, if those are not equal.
+template <typename TIter>
+static bool anyIntersect(const TIter beg, const TIter end, bool close)
+{
+    if (std::distance(beg, end) < 4)
+    {
+        // triangles can't self-intersect
+        return false;
+    }
+
+    // We consider intersection between the segment from the current point
+    // to the next and the segment *after* the next, adjacent segment.
+    auto ia = beg;
+    auto ib = std::next(beg, 1);
+
+    auto a = Point3d();
+    auto b = toGeocentric(*ia);
+
+    for (;; ib = std::next(ia = ib))
+    {
+        auto ic = std::next(ib);
+        if (ic == end)
+        {
+            break;
+        }
+
+        a = b;
+        b = toGeocentric(*ib);
+
+        auto id = std::next(ic);
+
+        // Convert initial points to geocentric for intersection calculations
+        auto c = Point3d();
+        auto d = toGeocentric(*ic);
+
+        for (; ; id = std::next(ic = id))
+        {
+            // We have considered the final segment and might be done...
+            if (id == end)
+            {
+                // Unless we need to consider the implicit segment from the last to the first point...
+                if (close)
+                {
+                    // Are those equal?
+                    if (*ic == *beg)
+                    {
+                        // Yes, the sequence is explicitly closed, so we are done.
+                        break;
+                    }
+                    else
+                    {
+                        // No, check the implicit closing segment by wrapping to the first point
+                        id = beg;
+                    }
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            // Step forward
+            c = d;
+            d = toGeocentric(*id);
+
+            // Check A-B against C-D
+            if (Geocentric::checkIntersection(a, b, c, d, wgs84Geodesic()))
+            {
+                return true;
+            }
+
+            if (id == beg)
+            {
+                // wrap-around case
+                break;
+            }
+        }
+    }
+    return false;
+}
+
+static std::pair<double,double> CalcInv(const Point2f &p1, const Point2f &p2)
+{
+    const auto lat1 = WhirlyKit::RadToDeg(p1.y());
+    const auto lon1 = WhirlyKit::RadToDeg(p1.x());
+    const auto lat2 = WhirlyKit::RadToDeg(p2.y());
+    const auto lon2 = WhirlyKit::RadToDeg(p2.x());
+    double dist = 0.0, az1 = 0.0, az2 = 0.0;
+    detail::wgs84Geodesic().Inverse(lat1, lon1, lat2, lon2, dist, az1, az2);
+    return std::make_pair(dist,WhirlyKit::DegToRad(az1));
+}
+
+static std::pair<bool,Point2f> CalcDirect(const Point2f &origin, double az, double dist)
+{
+    const auto lat1 = WhirlyKit::RadToDeg(origin.y());
+    const auto lon1 = WhirlyKit::RadToDeg(origin.x());
+    const auto azDeg = WhirlyKit::RadToDeg(az);
+
+    double lat2 = 0.0, lon2 = 0.0;
+    const auto res = detail::wgs84Geodesic().Direct(lat1, lon1, azDeg, dist, lat2, lon2);
+
+    return std::make_pair(std::isfinite(res),
+                          Point2f((float)WhirlyKit::DegToRad(lon2),
+                                  (float)WhirlyKit::DegToRad(lat2)));
+}
+
+template <typename Tin,typename Tout>
+static void SubdivideGeoLib(Tin beg, Tin end, Tout out, double maxDistMeters)
+{
+    const auto count = std::distance(beg, end);
+    if (count < 2)
+    {
+        if (beg != end)
+        {
+            // special case for one point
+            *out++ = *beg;
+        }
+        return;
+    }
+    while (beg != end)
+    {
+        const auto next = std::next(beg);
+        if (next == end)
+        {
+            *out++ = *beg;
+            break;
+        }
+        const auto &p0 = *beg;
+        const auto &p1 = *next;
+        ++beg;
+        *out++ = p0;
+
+        double dist,az;
+        std::tie(dist,az) = CalcInv(p0,p1);
+
+        if (dist > maxDistMeters)
+        {
+            const auto segs = (int)std::ceil(dist / maxDistMeters);
+            const auto segLen = dist / segs;
+            Point2f outPt;
+            bool valid;
+            for (int i = 1; i < segs; ++i)
+            {
+                std::tie(valid,outPt) = CalcDirect(p0,az,segLen * i);
+                if (valid)
+                {
+                    *out++ = outPt;
+                }
+            }
+        }
+    }
+}
+
+template <typename T> struct Adapt3dTo2f : std::vector<Point2f>::const_iterator
+{
+    explicit Adapt3dTo2f(T i) : _i(i) {}
+    Adapt3dTo2f(const Adapt3dTo2f &i) : _i(i._i) {}
+    Point2f operator*() const { return Point2f(_i->x(),_i->y()); }
+    Adapt3dTo2f& operator++() { ++_i; return *this; }
+    Adapt3dTo2f operator++(int) { auto x = *this; ++_i; return x; }
+    bool operator==(const Adapt3dTo2f &other) const { return _i == other._i; }
+    bool operator!=(const Adapt3dTo2f &other) const { return _i != other._i; }
+    T _i;
+};
+template <typename T> struct Adapt2fTo3d
+{
+    explicit Adapt2fTo3d(T i) : _i(i) {}
+    Adapt2fTo3d& operator*() { return *this; }
+    Adapt2fTo3d& operator++() { ++_i; return this; }
+    Adapt2fTo3d operator++(int) { auto x = *this; ++_i; return x; }
+    Adapt2fTo3d& operator=(const Point2f &p) { _i.operator=(Point3d(p.x(),p.y(),0.0)); return *this; }
+    bool operator==(const Adapt2fTo3d &other) const { return _i == other._i; }
+    bool operator!=(const Adapt2fTo3d &other) const { return _i != other._i; }
+    T _i;
+};
+template <typename T> Adapt3dTo2f<T> make3to2(T iter) { return Adapt3dTo2f<T>(iter); }
+template <typename T> Adapt2fTo3d<T> make2to3(T iter) { return Adapt2fTo3d<T>(iter); }
+
+static void SubdivideGeoLib(const VectorRing &inPts, VectorRing &outPts, double maxDistMeters)
+{
+    outPts.reserve(outPts.size() + inPts.size() * 10);
+    SubdivideGeoLib(inPts.begin(), inPts.end(), std::back_inserter(outPts), maxDistMeters);
+}
+
+static void SubdivideGeoLib(const VectorRing3d &inPts, VectorRing3d &outPts, double maxDistMeters)
+{
+    outPts.reserve(outPts.size() + inPts.size() * 10);
+    SubdivideGeoLib(make3to2(inPts.begin()), make3to2(inPts.end()), make2to3(std::back_inserter(outPts)), maxDistMeters);
+}
+
+#define GEOC_EARTH_RAD detail::wgs84Geodesic().EquatorialRadius()
+
+void VectorObject::subdivideToInternal(float epsilon,WhirlyKit::CoordSystemDisplayAdapter *adapter,bool useGeoLib,bool edgeMode)
+{
+    const CoordSystem *coordSys = adapter->getCoordSystem();
+
+    const auto geoDist = useGeoLib ? epsilon * GEOC_EARTH_RAD : 0.0;
+
     for (const auto &shapeRef : shapes)
     {
         const auto shape = shapeRef.get();
         if (const auto lin = dynamic_cast<VectorLinear*>(shape))
         {
-            VectorRing3d outPts;
-            outPts.reserve(10);
-            SubdivideEdgesToSurfaceGC(lin->pts, outPts, false, adapter, epsilon);
-            
             VectorRing outPts2D;
-            outPts2D.resize(outPts.size());
-            for (unsigned int ii=0;ii<outPts.size();ii++)
-                outPts2D[ii] = coordSys->localToGeographic(adapter->displayToLocal(outPts[ii]));
-            if (lin->pts.size() > 0)
+            if (useGeoLib)
             {
-                outPts2D.front() = lin->pts.front();
-                outPts2D.back() = lin->pts.back();
+                SubdivideGeoLib(lin->pts,outPts2D,geoDist);
             }
-            
-            if (edgeMode && outPts.size() > 1)
+            else
+            {
+                SubdivideEdgesToSurfaceGCGeo(lin->pts,outPts2D,false,adapter,coordSys,epsilon);
+            }
+
+            if (edgeMode && outPts2D.size() > 1)
             {
                 // See if they cross the edge of a wraparound coordinate system
                 // Note: Only works for spherical mercator, most likely
-                VectorRing offsetPts2D(outPts2D.size());
-                double xOff = 0.0;
-                for (unsigned int ii=0;ii<outPts2D.size()-1;ii++)
-                {
-                    offsetPts2D[ii] = Point2f(outPts2D[ii].x()+xOff,outPts2D[ii].y());
-                    if (std::abs(outPts2D[ii].x() - outPts2D[ii+1].x()) > 1.1*M_PI)
-                    {
-                        if (outPts2D[ii].x() < 0.0)
-                            xOff -= 2*M_PI;
-                        else
-                            xOff += 2*M_PI;
-                    }
-                }
-                offsetPts2D.back() = outPts2D.back() + Point2f(xOff,0.0);
-                lin->pts = offsetPts2D;
-            } else
+                lin->pts.clear();
+                fixEdges(outPts2D,lin->pts);
+            } else {
                 lin->pts = outPts2D;
+            }
         } else if (const auto lin3d = dynamic_cast<VectorLinear3d*>(shape)) {
             VectorRing3d outPts;
-            outPts.reserve(10);
-            SubdivideEdgesToSurfaceGC(lin->pts, outPts, false, adapter, epsilon);
-            for (unsigned int ii=0;ii<outPts.size();ii++)
+            if (useGeoLib)
             {
-                Point3d locPt = adapter->displayToLocal(outPts[ii]);
-                GeoCoord outPt = coordSys->localToGeographic(locPt);
-                outPts[ii] = Point3d(outPt.x(),outPt.y(),0.0);
+                SubdivideGeoLib(lin3d->pts, outPts, geoDist);
+            }
+            else
+            {
+                SubdivideEdgesToSurfaceGCGeo(lin3d->pts, outPts, false, adapter, coordSys, epsilon);
             }
             lin3d->pts = outPts;
         } else if (const auto ar = dynamic_cast<VectorAreal*>(shape)) {
+            VectorRing outPts;
             for (unsigned int ii=0;ii<ar->loops.size();ii++)
             {
-                VectorRing3d outPts;
-                outPts.reserve(10);
-                SubdivideEdgesToSurfaceGC(ar->loops[ii], outPts, true, adapter, epsilon);
-                
-                VectorRing outPts2D;
-                outPts2D.resize(outPts.size());
-                for (unsigned int ii=0;ii<outPts.size();ii++)
-                outPts2D[ii] = coordSys->localToGeographic(adapter->displayToLocal(outPts[ii]));
-                ar->loops[ii] = outPts2D;
+                outPts.clear();
+                if (useGeoLib)
+                {
+                    SubdivideGeoLib(ar->loops[ii], outPts, geoDist);
+                }
+                else
+                {
+                    SubdivideEdgesToSurfaceGCGeo(ar->loops[ii], outPts, true, adapter, coordSys, epsilon);
+                }
+                ar->loops[ii] = outPts;
             }
         }
     }
@@ -945,14 +1361,26 @@ void VectorObject::subdivideToGlobeGreatCircle(float epsilon)
 {
     FakeGeocentricDisplayAdapter adapter;
     
-    subdivideToInternal(epsilon,&adapter,true);
+    subdivideToInternal(epsilon,&adapter,false,true);
 }
     
 void VectorObject::subdivideToFlatGreatCircle(float epsilon)
 {
     FakeGeocentricDisplayAdapter adapter;
     
-    subdivideToInternal(epsilon,&adapter,false);
+    subdivideToInternal(epsilon,&adapter,false,false);
+}
+
+void VectorObject::subdivideToGlobeGreatCirclePrecise(float epsilon)
+{
+    FakeGeocentricDisplayAdapter adapter;
+    subdivideToInternal(epsilon,&adapter,true,true);
+}
+    
+void VectorObject::subdivideToFlatGreatCirclePrecise(float epsilon)
+{
+    FakeGeocentricDisplayAdapter adapter;
+    subdivideToInternal(epsilon,&adapter,true,false);
 }
 
 VectorObjectRef VectorObject::linearsToAreals() const
@@ -962,12 +1390,16 @@ VectorObjectRef VectorObject::linearsToAreals() const
 
     for (const auto &shape : shapes)
     {
-        if (const auto ar = std::dynamic_pointer_cast<VectorAreal>(shape)) {
-            newVec->shapes.insert(ar);
-        } else if (const auto ln = std::dynamic_pointer_cast<VectorLinear>(shape)) {
-            const auto newAr = VectorAreal::createAreal();
+        if (const auto ln = dynamic_cast<const VectorLinear*>(shape.get()))
+        {
+            auto newAr = VectorAreal::createAreal();
+            newAr->setAttrDict(ln->getAttrDict());
             newAr->loops.push_back(ln->pts);
             newVec->shapes.insert(newAr);
+        }
+        else
+        {
+            newVec->shapes.insert(shape);
         }
     }
 
@@ -981,22 +1413,200 @@ VectorObjectRef VectorObject::arealsToLinears() const
 
     for (const auto &shape : shapes)
     {
-        if (const auto ar = dynamic_cast<VectorAreal*>(shape.get()))
+        if (const auto ar = dynamic_cast<const VectorAreal*>(shape.get()))
         {
-            for (const auto &loop : ar->loops) {
-                const auto newLn = VectorLinear::createLinear();
+            for (const auto &loop : ar->loops)
+            {
+                auto newLn = VectorLinear::createLinear();
                 newLn->setAttrDict(ar->getAttrDict());
                 newLn->pts = loop;
-                newVec->shapes.insert(newLn);
+                newVec->shapes.insert(std::move(newLn));
             }
-        } else if (const auto ln = std::dynamic_pointer_cast<VectorLinear>(shape)) {
-            newVec->shapes.insert(ln);
+        }
+        else
+        {
+            newVec->shapes.insert(shape);
         }
     }
-    
+
     return newVec;
 }
-    
+
+// Count collection contents castable to the specified type
+template <typename T, typename TIter>
+static int count(TIter beg, TIter end)
+{
+    return (int)std::count_if(beg, end, [](const auto& s) { return dynamic_cast<T*>(s.get()); });
+}
+
+int VectorObject::countLinears() const
+{
+    return count<VectorLinear>(shapes.cbegin(), shapes.cend());
+}
+
+int VectorObject::countAreals() const
+{
+    return count<VectorAreal>(shapes.cbegin(), shapes.cend());
+}
+
+void VectorObject::reverseAreals()
+{
+    for (auto& shape : shapes)
+    {
+        if (auto areal = dynamic_cast<VectorAreal*>(shape.get()))
+        {
+            for (auto &loop : areal->loops)
+            {
+                std::reverse(loop.begin(), loop.end());
+            }
+        }
+    }
+}
+
+VectorObjectRef VectorObject::reversedAreals() const
+{
+    auto newVec = std::make_shared<VectorObject>();
+    newVec->shapes.reserve(shapes.size());
+
+    for (const auto &shape : shapes)
+    {
+        if (const auto ar = dynamic_cast<const VectorAreal*>(shape.get()))
+        {
+            auto newAr = VectorAreal::createAreal();
+            newAr->setAttrDict(ar->getAttrDict());
+            newAr->loops.reserve(ar->loops.size());
+            for (const auto &loop : ar->loops)
+            {
+                newAr->loops.emplace_back(loop.rbegin(), loop.rend());
+            }
+            newVec->shapes.insert(newAr);
+        }
+        else
+        {
+            newVec->shapes.insert(shape);
+        }
+    }
+
+    return newVec;
+}
+
+int VectorObject::countClosedLoops() const
+{
+    int n = 0;
+    for (auto& shape : shapes)
+    {
+        if (auto areal = dynamic_cast<VectorAreal*>(shape.get()))
+        {
+            for (auto &loop : areal->loops)
+            {
+                if (loop.size() > 2 && loop.front() == loop.back())
+                {
+                    ++n;
+                }
+            }
+        }
+    }
+    return n;
+}
+
+int VectorObject::countUnClosedLoops() const
+{
+    int n = 0;
+    for (auto& shape : shapes)
+    {
+        if (auto areal = dynamic_cast<VectorAreal*>(shape.get()))
+        {
+            for (auto &loop : areal->loops)
+            {
+                if (loop.size() > 2 && loop.front() != loop.back())
+                {
+                    ++n;
+                }
+            }
+        }
+    }
+    return n;
+}
+
+void VectorObject::closeLoops()
+{
+    for (auto& shape : shapes)
+    {
+        if (auto areal = dynamic_cast<VectorAreal*>(shape.get()))
+        {
+            for (auto &loop : areal->loops)
+            {
+                if (loop.size() > 2 && loop.front() != loop.back())
+                {
+                    loop.push_back(loop.front());
+                }
+            }
+        }
+    }
+}
+
+VectorObjectRef VectorObject::closedLoops() const
+{
+    if (auto newObj = deepCopy())
+    {
+        newObj->closeLoops();
+        return newObj;
+    }
+    return VectorObjectRef();
+}
+
+void VectorObject::unCloseLoops()
+{
+    for (auto& shape : shapes)
+    {
+        if (auto areal = dynamic_cast<VectorAreal*>(shape.get()))
+        {
+            for (auto &loop : areal->loops)
+            {
+                if (loop.size() > 2 && loop.front() == loop.back())
+                {
+                    loop.pop_back();
+                }
+            }
+        }
+    }
+}
+
+VectorObjectRef VectorObject::unClosedLoops() const
+{
+    if (auto newObj = deepCopy())
+    {
+        newObj->unCloseLoops();
+        return newObj;
+    }
+    return VectorObjectRef();
+}
+
+bool VectorObject::anyIntersections() const
+{
+    for (const auto &shape : shapes)
+    {
+        if (const auto ln = dynamic_cast<const VectorLinear*>(shape.get()))
+        {
+            if (anyIntersect(ln->pts.cbegin(), ln->pts.cend(), false))
+            {
+                return true;
+            }
+        }
+        else if (const auto ar = dynamic_cast<const VectorAreal*>(shape.get()))
+        {
+            for (const auto &loop : ar->loops)
+            {
+                if (anyIntersect(loop.cbegin(), loop.cend(), true))
+                {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
 VectorObjectRef VectorObject::filterClippedEdges() const
 {
     auto newVec = std::make_shared<VectorObject>();
@@ -1011,15 +1621,15 @@ VectorObjectRef VectorObject::filterClippedEdges() const
                     continue;
 
                 // Compare segments against the bounding box
-                Mbr mbr;
-                mbr.addPoints(loop);
+                const Mbr mbr(loop);
                 
                 int which = 0;
                 while (which < loop.size()) {
                     VectorRing pts;
+                    pts.reserve(loop.size());
                     while (which < loop.size()) {
-                        auto p0 = loop[which];
-                        auto p1 = loop[(which+1)%loop.size()];
+                        const auto &p0 = loop[which];
+                        const auto &p1 = loop[(which+1)%loop.size()];
                         
                         which++;
                         if (p0 == p1)
@@ -1031,21 +1641,21 @@ VectorObjectRef VectorObject::filterClippedEdges() const
                         } else {
                             if (pts.empty() || pts.back() != p0)
                                 pts.push_back(p0);
-                                if (pts.empty() || pts.back() != p1)
-                                    pts.push_back(p1);
-                                    }
+                            if (pts.back() != p1)
+                                pts.push_back(p1);
+                        }
                     }
                     
                     if (!pts.empty()) {
                         const auto newLn = VectorLinear::createLinear();
                         newLn->setAttrDict(ar->getAttrDict());
-                        newLn->pts = pts;
+                        newLn->pts = std::move(pts);
                         newVec->shapes.insert(newLn);
                     }
                 }
             }
-        } else if (const auto ln = std::dynamic_pointer_cast<VectorLinear>(shape)) {
-            newVec->shapes.insert(ln);
+        } else if (auto ln = std::dynamic_pointer_cast<VectorLinear>(shape)) {
+            newVec->shapes.insert(std::move(ln));
         }
     }
     
@@ -1154,8 +1764,9 @@ VectorObjectRef VectorObject::clipToMbr(const Point2d &ll,const Point2d &ur)
 
     return newVec;
 }
- 
-void SampleGreatCircle(const Point2d &startPt,const Point2d &endPt,double height,Point3dVector &pts,WhirlyKit::CoordSystemDisplayAdapter *coordAdapter,double eps)
+
+void SampleGreatCircle(const Point2d &startPt,const Point2d &endPt,double height,Point3dVector &pts,
+                       const WhirlyKit::CoordSystemDisplayAdapter *coordAdapter,double eps)
 {
     const bool isFlat = coordAdapter->isFlat();
     
@@ -1203,7 +1814,8 @@ void SampleGreatCircle(const Point2d &startPt,const Point2d &endPt,double height
     }
 }
 
-void SampleGreatCircleStatic(const Point2d &startPt,const Point2d &endPt,double height,Point3dVector &pts,WhirlyKit::CoordSystemDisplayAdapter *coordAdapter,double samples)
+void SampleGreatCircleStatic(const Point2d &startPt,const Point2d &endPt,double height,Point3dVector &pts,
+                             const WhirlyKit::CoordSystemDisplayAdapter *coordAdapter,int minPts)
 {
     const bool isFlat = coordAdapter->isFlat();
     
@@ -1218,7 +1830,9 @@ void SampleGreatCircleStatic(const Point2d &startPt,const Point2d &endPt,double 
         
         VectorRing3d tmpPts;
         tmpPts.reserve(10); // ?
-        SubdivideEdgesToSurfaceGC(inPts, tmpPts, false, coordAdapter, 1.0, 0.0, samples);
+
+
+        SubdivideEdgesToSurfaceGC(inPts, tmpPts, false, coordAdapter, 1.0, 0.0, minPts);
         pts = tmpPts;
         
         // To apply the height, we'll need the total length
@@ -1239,9 +1853,9 @@ void SampleGreatCircleStatic(const Point2d &startPt,const Point2d &endPt,double 
             lenSoFar += len;
             
             // Parabolic curve
-            const float b = 4*height;
-            const float a = -b;
-            const float thisHeight = a*(t*t) + b*t;
+            const double b = 4*height;
+            const double a = -b;
+            const double thisHeight = a*(t*t) + b*t;
             
             if (isFlat)
                 pt.z() = thisHeight;

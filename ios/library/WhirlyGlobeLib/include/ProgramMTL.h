@@ -1,9 +1,8 @@
-/*
- *  ProgramMTL.h
+/*  ProgramMTL.h
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/16/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import <Foundation/Foundation.h>
@@ -34,21 +32,22 @@ class SceneMTL;
 class ProgramMTL : public Program
 {
 public:
-    ProgramMTL();
-    virtual ~ProgramMTL();
+    ProgramMTL() = default;
+    virtual ~ProgramMTL() = default;
     
     /// Set up with a vertex and fragment shader
     ProgramMTL(const std::string &name,id<MTLFunction> vertfunc,id<MTLFunction> fragFunc);
     
     /// Return true if it was built correctly
-    bool isValid() override;
+    virtual bool isValid() const override;
     
     /// Check for the specific attribute associated with WhirlyKit lights
-    bool hasLights() override;
+    virtual bool hasLights() const override;
     
     /// Set the attributes associated with lighting.
     /// We'll check their last updated time against ours.
-    bool setLights(const std::vector<DirectionalLight> &lights, TimeInterval lastUpdated, Material *mat, Eigen::Matrix4f &modelMat);
+    virtual bool setLights(const std::vector<DirectionalLight> &lights, TimeInterval lastUpdated,
+                           const Material *mat, const Eigen::Matrix4f &modelMat) const;
     
     /// Tie a given texture ID to the given slot in the renderer
     /// We have to set these up each time before drawing
@@ -58,22 +57,22 @@ public:
     virtual void clearTexture(SimpleIdentity texID) override;
     
     /// Return the name (for tracking purposes)
-    const std::string &getName();
+    virtual const std::string &getName() const override;
     
     /// Clean up Metal resources, rather than letting the destructor do it (which it will)
     virtual void teardownForRenderer(const RenderSetupInfo *setupInfo,Scene *scene,RenderTeardownInfoRef teardown) override;
-        
+
 public:
-    bool valid;
+    bool valid = false;
     id<MTLFunction> vertFunc,fragFunc;
-    TimeInterval lightsLastUpdated;
+    TimeInterval lightsLastUpdated = 0.0;
 
     // Program wide textures
     class TextureEntry {
     public:
-        TextureEntry();
+        TextureEntry() = default;
         
-        int slot;
+        int slot = -1;
         TextureEntryMTL texBuf;
         SimpleIdentity texID;
     } ;

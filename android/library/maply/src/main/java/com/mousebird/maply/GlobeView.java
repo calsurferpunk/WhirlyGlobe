@@ -1,9 +1,8 @@
-/*
- *  GlobeView.java
+/*  GlobeView.java
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 3/13/15.
- *  Copyright 2011-2015 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,12 +14,15 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 package com.mousebird.maply;
 
-import java.util.GregorianCalendar;
+import android.app.Activity;
+
+import org.jetbrains.annotations.NotNull;
+
+import java.lang.ref.WeakReference;
 
 /**
  * The Globe View handles math related to user position and orientation.
@@ -30,16 +32,14 @@ import java.util.GregorianCalendar;
  */
 public class GlobeView extends View
 {
-	private GlobeView()
-	{
+	@SuppressWarnings("unused")		// Referenced from JNI, not actually used
+	protected GlobeView() {
+		control = new WeakReference<>(null);
 	}
-
-	GlobeController control = null;
-	double lastUpdated = 0.0;
 
 	GlobeView(GlobeController inControl,CoordSystemDisplayAdapter inCoordAdapter)
 	{
-		control = inControl;
+		control = new WeakReference<>(inControl);
 		coordAdapter = inCoordAdapter;
 		initialise(coordAdapter);
 	}
@@ -48,29 +48,26 @@ public class GlobeView extends View
 	 * Make a copy of this MapView and return it.
 	 * Handles the native side stuff
 	 */
-	protected GlobeView clone()
-	{
-		GlobeView that = new GlobeView(control,coordAdapter);
+	@NotNull
+	protected GlobeView clone() {
+		GlobeView that = new GlobeView(control.get(),coordAdapter);
 		nativeClone(that);
 		return that;
 	}
 
-	public void finalize()
-	{
+	public void finalize() {
 		dispose();
 	}
 	
 	// Return a view state for this Map View
-	@Override public ViewState makeViewState(RenderController renderer)
-	{
+	@Override public ViewState makeViewState(RenderController renderer) {
 		return new GlobeViewState(this,renderer);
 	}
 		
 	// These are viewpoint animations
-	interface AnimationDelegate
-	{
+	interface AnimationDelegate {
 		// Called to update the view every frame
-		public void updateView(GlobeView view);
+		void updateView(GlobeView view);
 	}
 	
 	AnimationDelegate animationDelegate = null;
@@ -78,23 +75,31 @@ public class GlobeView extends View
 	// Set the animation delegate.  Called every frame.
 	void setAnimationDelegate(AnimationDelegate delegate)
 	{
-		animationDelegate = delegate;
-		control.handleStartMoving(false);
+		synchronized (this) {
+			animationDelegate = delegate;
+		}
+
+		final GlobeController theControl = control.get();
+		if (theControl != null) {
+			theControl.handleStartMoving(false);
+		}
 	}
 	
 	// Clear the animation delegate
-	@Override public void cancelAnimation() 
-	{
-		animationDelegate = null;
+	@Override public void cancelAnimation() {
+		final boolean didStop;
+		synchronized (this) {
+			didStop = (animationDelegate != null);
+			animationDelegate = null;
+		}
 
-		control.activity.runOnUiThread(
-				new Runnable() {
-					@Override
-					public void run() {
-						control.handleStopMoving(false);
-					}
-				}
-		);
+		if (didStop) {
+			final GlobeController theControl = control.get();
+			Activity activity = (theControl != null) ? theControl.getActivity() : null;
+			if (activity != null) {
+				activity.runOnUiThread(() -> theControl.handleStopMoving(false));
+			}
+		}
 	}
 	
 	// Called on the rendering thread right before we render
@@ -114,10 +119,7 @@ public class GlobeView extends View
 	@Override
 	public boolean isAnimating()
 	{
-		if (animationDelegate != null)
-			return true;
-
-		return false;
+		return animationDelegate != null;
 	}
 	
 	/**
@@ -206,7 +208,9 @@ public class GlobeView extends View
         Point4d newUp = modelMat.multiply(new Point4d(0,0,1,0));
         return new Point3d(newUp.getX(),newUp.getY(),newUp.getZ());
     }
-		
+
+	protected final WeakReference<GlobeController> control;
+
 	// Calculate the point on the view plane given the screen location
 	native Point3d pointOnSphereFromScreen(Point2d screenPt,Matrix4d viewModelMatrix,Point2d frameSize,boolean clip);
 	// Calculate the point on the screen from a point on the view plane
@@ -238,8 +242,7 @@ public class GlobeView extends View
 	// If set, we can zoom closer to the globe
 	public native void setContinuousZoom(boolean continuousZoom);
 	
-	static
-	{
+	static {
 		nativeInit();
 	}
 	private static native void nativeInit();

@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/9/19.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -84,7 +84,10 @@ public:
     virtual void setDrawPriority(unsigned int newPriority);
 
     /// Set the active transform matrix
-    virtual void setMatrix(const Eigen::Matrix4d *inMat);
+    virtual void setMatrix(const Eigen::Matrix4d *inMat) { setMatrix(*inMat); }
+
+    /// Set the active transform matrix
+    virtual void setMatrix(const Eigen::Matrix4d &inMat);
 
     /// Resulting drawable wants the Z buffer for comparison
     virtual void setRequestZBuffer(bool val);
@@ -114,6 +117,9 @@ public:
 
     /// For OpenGLES2, you can set the program to use in rendering
     void setProgram(SimpleIdentity progId);
+    
+    /// Program use for calculation phase
+    void setCalculationProgram(SimpleIdentity progId);
 
     /// Add a tweaker to this list to be run each frame
     void addTweaker(const DrawableTweakerRef &tweakRef);
@@ -132,10 +138,14 @@ public:
     
     // Apply a dynamic color expression
     void setColorExpression(const ColorExpressionInfoRef &colorExp);
-    
+
+    const ColorExpressionInfoRef &getColorExpression() const { return colorExp; }
+
     // Apply a dynamic opacity expression
     void setOpacityExpression(const FloatExpressionInfoRef &opacityExp);
-    
+
+    const FloatExpressionInfoRef &getOpacityExpression() const { return opacityExp; }
+
     /// Number of extra frames to draw after we'd normally stop
     virtual void setExtraFrames(int numFrames);
     
@@ -184,6 +194,10 @@ public:
     /// Add a normal
     virtual void addNormal(const Point3f &norm);
     virtual void addNormal(const Point3d &norm);
+    
+    /// If there's a calculation pass, this is the data we'll pass in.
+    /// This is just for Metal at the moment.
+    virtual void setCalculationData(int numEntries,const std::vector<RawDataRef> &data);
     
     /// Decide if the given list of vertex attributes is the same as the one we have
     bool compareVertexAttributes(const SingleVertexAttributeSet &attrs) const;
@@ -256,7 +270,7 @@ public:
     virtual void setupTweaker(const DrawableTweakerRef &tweaker) const;
 
     // Unprocessed data arrays
-    std::vector<Eigen::Vector3f> points;
+    Point3fVector points;
     std::vector<BasicDrawable::Triangle> tris;
 
     // The basic drawable we're building up

@@ -1,9 +1,8 @@
-/*
- *  WrapperMTL.mm
+/*  WrapperMTL.mm
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/16/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "WrapperMTL.h"
@@ -51,9 +49,9 @@ void CopyIntoMtlFloat4x4Pair(simd::float4x4 &dest,simd::float4x4 &destDiff,const
 {
     for (unsigned int ix=0;ix<4;ix++)
         for (unsigned int iy=0;iy<4;iy++) {
-            double val = src(ix*4+iy);
-            float fVal = val;
-            float fDiff = val - fVal;
+            const double val = src(ix*4+iy);
+            const float fVal = val;
+            const float fDiff = val - fVal;
             
             dest.columns[ix][iy] = fVal;
             destDiff.columns[ix][iy] = fDiff;
@@ -101,11 +99,6 @@ BufferEntryMTL::BufferEntryMTL()
 {
 }
 
-BufferEntryMTL::BufferEntryMTL(const BufferEntryMTL &that)
-: heap(that.heap), buffer(that.buffer), offset(that.offset), valid(that.valid)
-{
-}
-
 bool BufferEntryMTL::operator == (const BufferEntryMTL &that)
 {
     return heap == that.heap && buffer == that.buffer && offset == that.offset;
@@ -115,12 +108,6 @@ void BufferEntryMTL::clear()
 {
     heap = nil;  buffer = nil;  offset = 0;
     valid = false;
-}
-
-BufferEntryMTL& BufferEntryMTL::operator = (const BufferEntryMTL &that)
-{
-    heap = that.heap; buffer = that.buffer; offset = that.offset; valid = that.valid;
-    return *this;
 }
 
 BufferBuilderMTL::BufferBuilderMTL(RenderSetupInfoMTL *setupInfo)
@@ -190,53 +177,59 @@ TextureEntryMTL::TextureEntryMTL()
 ResourceRefsMTL::ResourceRefsMTL(bool trackHolds)
 : trackHolds(trackHolds)
 {
+    heaps = [[NSMutableSet alloc] init];
+    buffers = [[NSMutableSet alloc] init];
+    textures = [[NSMutableSet alloc] init];
+
+    buffersToHold = [[NSMutableSet alloc] init];
+    texturesToHold = [[NSMutableSet alloc] init];
 }
 
-void ResourceRefsMTL::addEntry(BufferEntryMTL &entry)
+void ResourceRefsMTL::addEntry(const BufferEntryMTL &entry)
 {
     if (entry.heap)
-        heaps.insert(entry.heap);
+        [heaps addObject:entry.heap];
     else if (entry.buffer)
-        buffers.insert(entry.buffer);
+        [buffers addObject:entry.buffer];
     
     if (trackHolds)
-        buffersToHold.insert(entry.buffer);
+        [buffersToHold addObject:entry.buffer];
 }
 
 void ResourceRefsMTL::addBuffer(id<MTLBuffer> buffer)
 {
-    buffers.insert(buffer);
+    [buffers addObject:buffer];
 }
 
-void ResourceRefsMTL::addTexture(TextureEntryMTL &tex)
+void ResourceRefsMTL::addTexture(const TextureEntryMTL &tex)
 {
     if (tex.heap)
-        heaps.insert(tex.heap);
+        [heaps addObject:tex.heap];
     else
-        textures.insert(tex.tex);
+        [textures addObject:tex.tex];
     
     if (trackHolds)
-        texturesToHold.insert(tex.tex);
+        [texturesToHold addObject:tex.tex];
 }
 
 void ResourceRefsMTL::addTextures(const std::vector<TextureEntryMTL> &textures)
 {
-    for (auto tex: textures)
+    for (const auto &tex: textures)
         addTexture(tex);
 }
 
-void ResourceRefsMTL::addResources(ResourceRefsMTL &other)
+void ResourceRefsMTL::addResources(const ResourceRefsMTL &other)
 {
-    heaps.insert(other.heaps.begin(),other.heaps.end());
-    buffers.insert(other.buffers.begin(),other.buffers.end());
-    textures.insert(other.textures.begin(),other.textures.end());
-    buffersToHold.insert(other.buffersToHold.begin(),other.buffersToHold.end());
-    texturesToHold.insert(other.texturesToHold.begin(),other.texturesToHold.end());
+    [heaps unionSet:other.heaps];
+    [buffers unionSet:other.buffers];
+    [textures unionSet:other.textures];
+    [buffersToHold unionSet:other.buffersToHold];
+    [texturesToHold unionSet:other.texturesToHold];
 }
 
 void ResourceRefsMTL::use(id<MTLRenderCommandEncoder> cmdEncode)
 {
-    if (heaps.empty() && buffers.empty() && textures.empty())
+    if ([heaps count] == 0 && [buffers count] == 0 && [textures count] == 0)
         return;
 //    int count = 0;
 //    id<MTLResource> all[heaps.size()+buffers.size()+textures.size()];
@@ -255,10 +248,11 @@ void ResourceRefsMTL::use(id<MTLRenderCommandEncoder> cmdEncode)
 
 void ResourceRefsMTL::clear()
 {
-    heaps.clear();
-    buffers.clear();
-    textures.clear();
-    buffersToHold.clear();
+    [heaps removeAllObjects];
+    [buffers removeAllObjects];
+    [textures removeAllObjects];
+    [buffersToHold removeAllObjects];
+    [texturesToHold removeAllObjects];
 }
 
 RenderTeardownInfoMTL::RenderTeardownInfoMTL()
@@ -270,11 +264,18 @@ void RenderTeardownInfoMTL::clear()
 {
     resources->clear();
 
+    drawGroups.clear();
     // For Metal, we just drop the references and the rest is cleaned up
     for (auto &draw: drawables)
-        draw->teardownForRenderer(NULL, NULL, NULL);
+        draw->teardownForRenderer(nullptr, nullptr, nullptr);
     for (auto &tex: textures)
-        tex->destroyInRenderer(NULL,NULL);
+        tex->destroyInRenderer(nullptr, nullptr);
+}
+
+void RenderTeardownInfoMTL::releaseDrawGroups(SceneRenderer *renderer,std::vector<DrawGroupMTLRef> &refs)
+{
+    for (auto &ref : refs)
+        drawGroups.push_back(ref);
 }
 
 void RenderTeardownInfoMTL::destroyTexture(SceneRenderer *renderer,const TextureBaseRef &tex)
@@ -289,7 +290,7 @@ void RenderTeardownInfoMTL::destroyDrawable(SceneRenderer *renderer,const Drawab
 
 
 const bool HeapManagerMTL::UseHeaps =
-#if TARGET_OS_SIMULATOR
+#if TARGET_OS_SIMULATOR || TARGET_OS_MACCATALYST
     false;
 #else
     true;
@@ -301,107 +302,145 @@ HeapManagerMTL::HeapManagerMTL(id<MTLDevice> mtlDevice)
     memAlign = [mtlDevice heapBufferSizeAndAlignWithLength:1 options:MTLResourceUsageRead].align;
 }
 
-id<MTLHeap> HeapManagerMTL::findHeap(HeapType heapType,size_t &size)
+void HeapManagerMTL::updateHeaps()
 {
-    HeapGroup &heapGroup = heapGroups[heapType];
-    for (auto heap : heapGroup.heaps) {
-        MTLSizeAndAlign sAlign = [mtlDevice heapBufferSizeAndAlignWithLength:size options:MTLResourceUsageRead];
-        size = sAlign.size;
-        if ([heap maxAvailableSizeWithAlignment:sAlign.align] >= size)
-            return heap;
-    }
-    MTLHeapDescriptor *heapDesc = [[MTLHeapDescriptor alloc] init];
-    heapDesc.size = 32*1024*1024;  // 32MB, at a guess
-    if (size > heapDesc.size) {
-        heapDesc.size = size + 1024*1024;   // Silly to make a heap just for this, but this works
-    }
-    // TODO: Don't need this for most things
-    heapDesc.storageMode = MTLStorageModeShared;
-    id<MTLHeap> newHeap = [mtlDevice newHeapWithDescriptor:heapDesc];
-    if (newHeap) {
-        heapGroup.heaps.push_back(newHeap);
+    for (unsigned int ig=0;ig<MaxType;ig++) {
+        for (auto heap : heapGroups[ig].heaps) {
+            heap->maxAvailSize = [heap->heap maxAvailableSizeWithAlignment:memAlign];
+        }
     }
     
-    return newHeap;
+    for (auto texHeap : texGroups.heaps) {
+        texHeap->maxAvailSize = [texHeap->heap maxAvailableSizeWithAlignment:memAlign];
+    }
 }
 
-id<MTLHeap> HeapManagerMTL::findTextureHeap(MTLTextureDescriptor *desc,size_t size)
+HeapManagerMTL::HeapInfoRef HeapManagerMTL::allocateHeap(unsigned size, unsigned minSize, MTLStorageMode mode)
 {
-    for (auto heap : texGroups.heaps) {
-        MTLSizeAndAlign sAlign = [mtlDevice heapBufferSizeAndAlignWithLength:size options:MTLResourceUsageRead];
-        size = sAlign.size;
-        if ([heap maxAvailableSizeWithAlignment:sAlign.align] >= size)
-            return heap;
-    }
-    
     MTLHeapDescriptor *heapDesc = [[MTLHeapDescriptor alloc] init];
-    heapDesc.size = 32*1024*1024;  // 32MB, at a guess
-    if (size > heapDesc.size) {
-        heapDesc.size = size + 1024*1024;   // Silly to make a heap just for this, but this works
+    heapDesc.size = size;
+    heapDesc.storageMode = mode;
+
+    for (; heapDesc.size >= minSize; heapDesc.size /= 2)
+    {
+        if (const id <MTLHeap> heap = [mtlDevice newHeapWithDescriptor:heapDesc])
+        {
+            const NSUInteger availableSize = [heap maxAvailableSizeWithAlignment:memAlign];
+            if (availableSize > 0)
+            {
+                HeapInfoRef heapInfo = std::make_shared<HeapManagerMTL::HeapInfo>();
+                heapInfo->heap = heap;
+                heapInfo->maxAvailSize = availableSize;
+                return heapInfo;
+            }
+        }
     }
-    // TODO: Don't need this for most things
-    heapDesc.storageMode = MTLStorageModeShared;
-    id<MTLHeap> newHeap = [mtlDevice newHeapWithDescriptor:heapDesc];
-    if (newHeap) {
-        texGroups.heaps.push_back(newHeap);
+    return HeapInfoRef();
+}
+
+HeapManagerMTL::HeapInfoRef HeapManagerMTL::findHeap(HeapType heapType,size_t &size,id<MTLHeap> prevHeap)
+{
+    return findHeap(heapGroups[heapType].heaps,size,prevHeap);
+}
+
+HeapManagerMTL::HeapInfoRef HeapManagerMTL::findTextureHeap(MTLTextureDescriptor *desc,size_t size,id<MTLHeap> prevHeap)
+{
+    size += memAlign;   // Add one alignment size for metadata overhead
+    return findHeap(texGroups.heaps,size,prevHeap);
+}
+
+HeapManagerMTL::HeapInfoRef HeapManagerMTL::findHeap(HeapSet &heapSet,size_t &size,id<MTLHeap> prevHeap)
+{
+    const MTLSizeAndAlign sAlign = [mtlDevice heapBufferSizeAndAlignWithLength:size options:MTLResourceUsageRead];
+    size = std::max((NSUInteger)size, sAlign.size);
+
+    for (const auto &heap : heapSet)
+    {
+        if (prevHeap)
+        {
+            // Caller doesn't want this one or any before it, so keep trying.
+            if (heap->heap == prevHeap)
+            {
+                prevHeap = nil;
+            }
+            continue;
+        }
+        if (heap->maxAvailSize >= size)
+        {
+            heap->maxAvailSize -= size;
+            return heap;
+        }
     }
     
+    // TODO: Don't need this for most things
+    const auto mode = MTLStorageModeShared;
+    const auto maxSize = std::max(32U * MB, size + 1U * MB);
+    const auto minSize = std::max(4U * MB, size + 1U * MB);
+    auto newHeap = allocateHeap(maxSize, minSize, mode);
+    if (newHeap)
+    {
+        heapSet.insert(newHeap);
+    }
     return newHeap;
 }
 
 BufferEntryMTL HeapManagerMTL::allocateBuffer(HeapType heapType,size_t size)
 {
-    BufferEntryMTL buffer;
-    if (UseHeaps) {
-        {
-            std::lock_guard<std::mutex> guardLock(lock);
-
-            buffer.heap = findHeap(heapType,size);
-            buffer.buffer = [buffer.heap newBufferWithLength:size options:MTLResourceStorageModeShared];
-        }
-        if (!buffer.buffer) {
-            NSLog(@"Uh oh!  Ran out of buffer space [heap type %d, alloc %zu]", heapType, size);
-            buffer.valid = false;
-            return buffer;
-        }
-        buffer.offset = 0;
-    } else {
-        size_t extra = size % memAlign;
-        if (extra > 0) {
-            size += memAlign - extra;
-        }
-
-        buffer.buffer = [mtlDevice newBufferWithLength:size options:MTLResourceStorageModeShared];
-        buffer.heap = nil;
-        buffer.offset = 0;
-    }
-    
-    buffer.valid = true;
-    return buffer;
+    return allocateBuffer(heapType,nullptr,size);
 }
 
 BufferEntryMTL HeapManagerMTL::allocateBuffer(HeapType heapType,const void *data,size_t size)
 {
     BufferEntryMTL buffer;
-    if (UseHeaps) {
+    if (UseHeaps)
+    {
         {
+            id<MTLHeap> prevHeap = nil;
             std::lock_guard<std::mutex> guardLock(lock);
+            while (true)
+            {
+                auto heapInfo = findHeap(heapType,size,prevHeap);
+                if (!heapInfo)
+                {
+                    return buffer;
+                }
 
-            buffer.heap = findHeap(heapType,size);
-            buffer.buffer = [buffer.heap newBufferWithLength:size options:MTLResourceStorageModeShared];
+                buffer.buffer = [heapInfo->heap newBufferWithLength:size options:MTLResourceStorageModeShared];
+                if (buffer.buffer)
+                {
+                    buffer.heap = heapInfo->heap;
+                    break;
+                }
+                else
+                {
+                    prevHeap = heapInfo->heap;
+                    continue;
+                }
+            }
         }
-        if (!buffer.buffer) {
-            NSLog(@"Uh oh!  Ran out of buffer space [heap type %d, alloc %zu]", heapType, size);
-            buffer.valid = false;
-            return buffer;
-        }
-        if (data && size) {
+        if (data && size)
+        {
             memcpy([buffer.buffer contents], data, size);
         }
         buffer.offset = 0;
-    } else {
+    }
+    else
+    {
+        const size_t extra = size % memAlign;
+        if (extra > 0)
+        {
+            size += memAlign - extra;
+        }
+
         buffer.heap = nil;
-        buffer.buffer = [mtlDevice newBufferWithBytes:data length:size options:MTLResourceStorageModeShared];
+        if (data)
+        {
+            buffer.buffer = [mtlDevice newBufferWithBytes:data length:size options:MTLResourceStorageModeShared];
+        }
+        else
+        {
+            buffer.buffer = [mtlDevice newBufferWithLength:size options:MTLResourceStorageModeShared];
+        }
         buffer.offset = 0;
     }
 
@@ -413,76 +452,92 @@ TextureEntryMTL HeapManagerMTL::newTextureWithDescriptor(MTLTextureDescriptor *d
 {
     TextureEntryMTL tex;
     
-    if (UseHeaps) {
-        // It turns out that our estimates on size aren't valid for some formats, so try a few times with bigger estimates
-        for (unsigned int ii=0;ii<3;ii++)
-            if (!tex.tex) {
-                std::lock_guard<std::mutex> guardLock(texLock);
+    if (UseHeaps)
+    {
+        std::lock_guard<std::mutex> guardLock(texLock);
 
-                tex.heap = findTextureHeap(desc, (1<<ii)*size);
-                tex.tex = [tex.heap newTextureWithDescriptor:desc];
-                if (tex.tex)
-                    break;
+        // It turns out that our estimates on size aren't valid for some formats, so try a few times with bigger estimates
+        id<MTLHeap> prevHeap = nil;
+        for (int i = 0; i < 3; ++i)
+        {
+            auto heapInfo = findTextureHeap(desc, size * (1 << i), prevHeap);
+            if (!heapInfo)
+            {
+                return tex;
             }
-    } else {
+
+            tex.tex = [heapInfo->heap newTextureWithDescriptor:desc];
+            if (tex.tex)
+            {
+                tex.heap = heapInfo->heap;
+                break;
+            }
+            else
+            {
+                // Try again with a different one
+                prevHeap = heapInfo->heap;
+                continue;
+            }
+        }
+    }
+    else
+    {
         tex.tex = [mtlDevice newTextureWithDescriptor:desc];
     }
 
-    if (!tex.tex) {
+    if (!tex.tex)
+    {
         wkLogLevel(Warn, "Failed to allocate texture (%lld)", size);
     }
     
     return tex;
 }
 
-RenderSetupInfoMTL::RenderSetupInfoMTL(id<MTLDevice> mtlDevice,id<MTLLibrary> mtlLibrary)
-: mtlDevice(mtlDevice), heapManage(mtlDevice)
+RenderSetupInfoMTL::RenderSetupInfoMTL(id<MTLDevice> mtlDevice,
+                                       id<MTLLibrary> mtlLibrary) :
+    mtlDevice(mtlDevice),
+    heapManage(mtlDevice)
 {
     memAlign = [mtlDevice heapBufferSizeAndAlignWithLength:1 options:MTLResourceUsageRead].align;
 }
-    
-void FloatExpressionToMtl(FloatExpressionInfoRef expInfo,WhirlyKitShader::FloatExp &mtlExp)
+
+static WhirlyKitShader::ExpType ToExpType(ExpressionInfoType type)
 {
-    switch (expInfo->type) {
-        case ExpressionNone:
-            mtlExp.type = WhirlyKitShader::ExpNone;
-            break;
-        case ExpressionLinear:
-            mtlExp.type = WhirlyKitShader::ExpLinear;
-            break;
-        case ExpressionExponential:
-            mtlExp.type = WhirlyKitShader::ExpExponential;
-            break;
+    switch (type)
+    {
+        case ExpressionNone:        return WhirlyKitShader::ExpNone;
+        default:
+        case ExpressionLinear:      return WhirlyKitShader::ExpLinear;
+        case ExpressionExponential: return WhirlyKitShader::ExpExponential;
     }
+}
+
+void FloatExpressionToMtl(const FloatExpressionInfoRef &expInfo,WhirlyKitShader::FloatExp &mtlExp)
+{
+    mtlExp.type = ToExpType(expInfo->type);
+    mtlExp.base = expInfo->base;
     mtlExp.numStops = std::min(std::min(expInfo->stopInputs.size(),expInfo->stopOutputs.size()),(size_t)WKSExpStops);
-    for (unsigned int ii=0;ii<mtlExp.numStops;ii++) {
-        mtlExp.base = expInfo->base;
+    for (unsigned int ii=0;ii<mtlExp.numStops;ii++)
+    {
         mtlExp.stopInputs[ii] = expInfo->stopInputs[ii];
         mtlExp.stopOutputs[ii] = expInfo->stopOutputs[ii];
     }
 }
 
-void ColorExpressionToMtl(ColorExpressionInfoRef expInfo,WhirlyKitShader::ColorExp &mtlExp)
+void ColorExpressionToMtl(const ColorExpressionInfoRef &expInfo,WhirlyKitShader::ColorExp &mtlExp)
 {
-    switch (expInfo->type) {
-        case ExpressionNone:
-            mtlExp.type = WhirlyKitShader::ExpNone;
-            break;
-        case ExpressionLinear:
-            mtlExp.type = WhirlyKitShader::ExpLinear;
-            break;
-        case ExpressionExponential:
-            mtlExp.type = WhirlyKitShader::ExpExponential;
-            break;
-    }
+    mtlExp.type = ToExpType(expInfo->type);
+    mtlExp.base = expInfo->base;
     mtlExp.numStops = std::min(std::min(expInfo->stopInputs.size(),expInfo->stopOutputs.size()),(size_t)WKSExpStops);
-    for (unsigned int ii=0;ii<mtlExp.numStops;ii++) {
-        mtlExp.base = 1.0;
+    for (unsigned int ii=0;ii<mtlExp.numStops;ii++)
+    {
         mtlExp.stopInputs[ii] = expInfo->stopInputs[ii];
         float vals[4];
         expInfo->stopOutputs[ii].asUnitFloats(vals);
         for (unsigned int jj=0;jj<4;jj++)
+        {
             mtlExp.stopOutputs[ii][jj] = vals[jj];
+        }
     }
 }
 

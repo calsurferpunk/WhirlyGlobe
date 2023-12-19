@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 6/2/14.
- *  Copyright 2011-2014 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@
  */
 
 package com.mousebird.maply;
+
+import androidx.annotation.CallSuper;
 
 /**
  * The Layer subclass is used by the LayerThread to track Maply
@@ -38,7 +40,7 @@ public class Layer
 	 * been started on the thread and can hook itself into the system, generating
 	 * geometry or registering for view changes and such.
 	 * 
-	 * @param inLayerThread
+	 * @param inLayerThread The thread to run on
 	 */
 	public void startLayer(LayerThread inLayerThread)
 	{
@@ -58,10 +60,24 @@ public class Layer
 	 * This method is called when a layer is to be removed.  The layer should
 	 * clean up any objects it may have created.
 	 * <p>
+	 * Called from the layer thread.
+	 * <p>
 	 * If the MaplyController is shut down, you may not get this call and instead
 	 * may simply be deleted.
 	 */
 	public void shutdown()
 	{
 	}
+
+	/**
+	 * This method is called when the layer will soon be shut down,
+	 * but outside any lock context and from another thread.
+	 * This should not block or do any real work.
+	 */
+	@CallSuper
+	public void preShutdown() {
+		isShuttingDown = true;
+	}
+
+	protected boolean isShuttingDown = false;
 }

@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 2/28/13.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -37,16 +37,17 @@ class DynamicTexture : virtual public TextureBase
 public:
     /// Constructor for sorting
     DynamicTexture(const std::string &name);
-    DynamicTexture(SimpleIdentity myId) : TextureBase(myId), layoutGrid(NULL) { }
+    DynamicTexture(SimpleIdentity myId) : TextureBase(myId) { }
     virtual void setup(int texSize,int cellSize,TextureType type,bool clearTextures);
     virtual ~DynamicTexture();
     
     /// Represents a region in the texture
-    class Region
+    struct Region
     {
-    public:
-        Region();
-        int sx,sy,ex,ey;
+        int sx = 0;
+        int sy = 0;
+        int ex = 0;
+        int ey = 0;
     };
     
     /// Create an appropriately empty texture in OpenGL ES
@@ -57,7 +58,7 @@ public:
     
     /// Set the interpolation type used for min and mag
     void setInterpType(TextureInterpType inType) { interpType = inType; }
-    TextureInterpType getInterpType() { return interpType; }
+    TextureInterpType getInterpType() const { return interpType; }
     
     /// Add the given texture at the given location.
     /// This is probably called on the layer thread
@@ -77,18 +78,20 @@ public:
     bool findRegion(int cellsX,int cellsY,Region &region);
     
     /// Return a list of released regions
-    void getReleasedRegions(std::vector<DynamicTexture::Region> &toClear);
-    
+    void getReleasedRegions(std::vector<DynamicTexture::Region> &toClear) const;
+    std::vector<DynamicTexture::Region> getReleasedRegions() const;
+
     /// Add a region to the list of ones to be cleared.
     /// This is called by the renderer
     void addRegionToClear(const Region &region);
     
     /// Return true if this isn't representing any regions
-    bool empty();
+    bool empty() const { return numRegions == 0; }
     
     /// Number of sub textures we're currently representing
     int &getNumRegions() { return numRegions; }
-    
+    int getNumRegions() const { return numRegions; }
+
     /// Return texture cell utilization
     void getUtilization(int &numCell,int &usedCell);
     
@@ -97,28 +100,28 @@ protected:
     std::string name;
     
     /// Number of texels on a side
-    int texSize;
+    int texSize = 0;
     /// Number of texels in a cell
-    int cellSize;
+    int cellSize = 0;
     /// Number of cells on a side
-    int numCell;
+    int numCell = 0;
     /// Interpolation type
-    TextureInterpType interpType;
+    TextureInterpType interpType = TextureInterpType::TexInterpLinear;
     /// Texture memory format
-    TextureType type;
+    TextureType type = TextureType::TexTypeUnsignedByte;
 
     // Use to track where sub textures are
-    bool *layoutGrid;
+    bool *layoutGrid = nullptr;
     
-    std::mutex regionLock;
+    mutable std::mutex regionLock;
     /// These regions have been released by the renderer
     std::vector<Region> releasedRegions;
     
     /// Number of active regions (as far as the texture is concerned)
-    int numRegions;
+    int numRegions = 0;
 
     /// If set, overwrite texture data with empty pixels
-    bool clearTextures;
+    bool clearTextures = false;
 };
     
 typedef std::shared_ptr<DynamicTexture> DynamicTextureRef;
@@ -126,7 +129,7 @@ typedef std::shared_ptr<DynamicTexture> DynamicTextureRef;
 typedef std::vector<DynamicTextureRef> DynamicTextureVec;
 
 // Used to sort dynamic texture vectors
-typedef struct
+typedef struct DynamicTextureVecSorter
 {
     bool operator () (const DynamicTextureVec *a,const DynamicTextureVec *b) const { return a->at(0)->getId() < b->at(0)->getId(); }
 } DynamicTextureVecSorter;
@@ -135,13 +138,17 @@ typedef struct
 class DynamicTextureAddRegion : public ChangeRequest
 {
 public:
-    DynamicTextureAddRegion(SimpleIdentity texId,int startX,int startY,int width,int height,RawDataRef data)
-    : texId(texId), startX(startX), startY(startY), width(width), height(height), data(data) { }
+    DynamicTextureAddRegion(SimpleIdentity texId,int startX,int startY,int width,int height,RawDataRef data) :
+        texId(texId), startX(startX), startY(startY), width(width), height(height), data(std::move(data)) { }
+    virtual ~DynamicTextureAddRegion();
 
     /// Add the region.  Never call this.
-    void execute(Scene *scene,SceneRenderer *renderer,WhirlyKit::View *view);
-    
+    virtual void execute(Scene *scene,SceneRenderer *renderer,WhirlyKit::View *view) override;
+
+    virtual void cancel() override { data.reset(); }
+
 protected:
+    bool wasRun = false;
     SimpleIdentity texId;
     int startX,startY,width,height;
     RawDataRef data;
@@ -173,31 +180,30 @@ class DynamicTextureAtlas
 {
 public:
     /// This maps a given texture to its location in a dynamic texture
-    class TextureRegion
+    struct TextureRegion
     {
-    public:
-        TextureRegion();
         bool operator < (const TextureRegion &that) const { return subTex.getId() < that.subTex.getId(); }
         
         SubTexture subTex;
-        SimpleIdentity dynTexId;
+        SimpleIdentity dynTexId = EmptyIdentity;
         DynamicTexture::Region region;
     };
 
     /// Construct with the square size of the textures, the cell size (in pixels) and the pixel format
-    DynamicTextureAtlas(const std::string &name,int texSize,int cellSize,TextureType format,int imageDepth=1,bool mainThreadMerge=false);
+    DynamicTextureAtlas(std::string name, int texSize, int cellSize,
+                        TextureType format, int imageDepth = 1, bool mainThreadMerge = false);
     virtual ~DynamicTextureAtlas();
-    
+
     /// Set the interpolation type used for min and mag
-    void setInterpType(TextureInterpType inType);
-    TextureInterpType getInterpType();
+    void setInterpType(TextureInterpType inType) { interpType = inType; }
+    TextureInterpType getInterpType() const { return interpType; }
     
     /// Return the dynamic texture's format
-    TextureType getFormat();
+    TextureType getFormat() const { return format; }
     
     /// Fudge factor for border pixels.  We'll add this/pixelSize to the lower left
     ///  and subtract this/pixelSize from the upper right for each texture application.
-    void setPixelFudgeFactor(float pixFudge);
+    void setPixelFudgeFactor(float pixFudge) { pixelFudge = pixFudge; }
     
     /// Try to add the texture to one of our dynamic textures, or create one.
     bool addTexture(SceneRenderer *sceneRender,const std::vector<Texture *> &textures,int frame,
@@ -218,7 +224,7 @@ public:
     
     /// Check if the dynamic texture atlas is empty.
     /// Call cleanup() first
-    bool empty();
+    bool empty() const;
     
     /// Look for any textures that should be cleaned up
     void cleanup(ChangeSet &changes,TimeInterval when);
@@ -228,10 +234,10 @@ public:
     void teardown(ChangeSet &changes);
     
     /// Get some basic info out
-    void getUsage(int &numRegions,int &dynamicTextures);
+    void getUsage(int &numRegions,int &dynamicTextures) const;
     
     /// Print out some utilization info
-    void log();
+    void log() const;
 
 protected:
     std::string name;
@@ -239,17 +245,17 @@ protected:
     /// Texture memory format
     TextureType format;
     /// Interpolation type
-    TextureInterpType interpType;
+    TextureInterpType interpType = TexInterpLinear;
 
     int imageDepth;
     int texSize;
     int cellSize;
     /// Interpolation type
-    float pixelFudge;
+    float pixelFudge = 0.0f;
     bool mainThreadMerge;
 
     /// If set, overwrite texture data with empty pixels
-    bool clearTextures;
+    bool clearTextures = false;
     
     // On some devices we can't clear with a NULL, we have to use an actual buffer
     std::vector<unsigned char> emptyPixelBuffer;

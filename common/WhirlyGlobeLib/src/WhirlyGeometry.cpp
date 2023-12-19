@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 1/18/11.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -87,8 +87,11 @@ bool IntersectSphereRadius(Point3d org,Vector3d dir,double radius,Point3d &hit,d
     return true;
 }
 
-// Point in poly routine
-// Courtesy: http://www.ecse.rpi.edu/Homepages/wrf/Research/Short_Notes/pnpoly.html
+// Planar point in poly routine based on Jordan curve theorem
+// Courtesy: https://wrf.ecse.rpi.edu//Research/Short_Notes/pnpoly.html
+// Vertices may be listed either clockwise or counter-clockwise.
+// If there is only one connected component, then it is optional to repeat the first vertex at the end.
+// If there are multiple (including "holes"), they must be closed and separated by zeros
 
 bool PointInPolygon(const Point2f &pt,const Point2fVector &ring)
 {
@@ -143,56 +146,49 @@ unsigned int NextPowOf2(unsigned int val)
 	val = (val >> 4) | val;
 	val = (val >> 8) | val;
 	val = (val >> 16) | val;
-	
+
 	return (val + 1);
 }
-    
+
 // General purpose 2D point closest to line segment
 Point2f ClosestPointOnLineSegment(const Point2f &p0,const Point2f &p1,const Point2f &pt,float &t)
 {
-    float dx = p1.x()-p0.x(), dy = p1.y()-p0.y();
-    float denom = dx*dx+dy*dy;
+    const double dx = (double)p1.x() - p0.x();
+    const double dy = (double)p1.y() - p0.y();
+    const float denom = dx * dx + dy * dy;
     
     if (denom == 0.0)
+    {
+        t = 0.0f;
         return p0;
+    }
     
-    float u = ((pt.x()-p0.x())*(p1.x()-p0.x())+(pt.y()-p0.y())*(p1.y()-p0.y()))/denom;
-    t = u;
-    
-    if (u <= 0.0)
-        return p0;
-    
-    if (u >= 1.0)
-        return p1;
+    const double u = ((pt.x()-p0.x())*(p1.x()-p0.x())+(pt.y()-p0.y())*(p1.y()-p0.y()))/denom;
+    t = (float)u;
 
-    return Point2f(p0.x()+dx*u,p0.y()+dy*u);
+    return (u <= 0.0) ? p0 : ((u >= 1.0) ? p1 : p0 + Point2f((float)dx, (float)dy) * u);
 }
     
 Point2d ClosestPointOnLineSegment(const Point2d &p0,const Point2d &p1,const Point2d &pt,double &t)
 {
-    float dx = p1.x()-p0.x(), dy = p1.y()-p0.y();
-    float denom = dx*dx+dy*dy;
+    const double dx = p1.x()-p0.x(), dy = p1.y()-p0.y();
+    const double denom = dx * dx + dy * dy;
     
     if (denom == 0.0)
+    {
+        t = 0.0;
         return p0;
+    }
     
-    float u = ((pt.x()-p0.x())*(p1.x()-p0.x())+(pt.y()-p0.y())*(p1.y()-p0.y()))/denom;
-    
-    t = u;
-    
-    if (u <= 0.0)
-        return p0;
-    
-    if (u >= 1.0)
-        return p1;
-    
-    return Point2d(p0.x()+dx*u,p0.y()+dy*u);
+    t = ((pt.x()-p0.x())*(p1.x()-p0.x())+(pt.y()-p0.y())*(p1.y()-p0.y()))/denom;
+
+    return (t <= 0.0) ? p0 : ((t >= 1.0) ? p1 : p0 + Point2d(dx,dy) * t);
 }
     
 double ClosestPointToPolygon(const Point2dVector &pts,const Point2d &pt,Point2d *retClosePt)
 {
     double minDist2 = MAXFLOAT;
-    Point2d closePt;
+    Point2d closePt(MAXFLOAT, MAXFLOAT);
     
     for (unsigned int ii=0;ii<4;ii++)
     {
@@ -200,8 +196,8 @@ double ClosestPointToPolygon(const Point2dVector &pts,const Point2d &pt,Point2d 
         const Point2d &p1 = pts[(ii+1)%4];
         
         double t;
-        Point2d thisClosePt = ClosestPointOnLineSegment(p0, p1, pt, t);
-        double thisDist2 = (pt - thisClosePt).squaredNorm();
+        const Point2d thisClosePt = ClosestPointOnLineSegment(p0, p1, pt, t);
+        const double thisDist2 = (pt - thisClosePt).squaredNorm();
         if (thisDist2 < minDist2)
         {
             minDist2 = thisDist2;
@@ -214,7 +210,7 @@ double ClosestPointToPolygon(const Point2dVector &pts,const Point2d &pt,Point2d 
     
     return sqrt(minDist2);
 }
-	
+
 bool IntersectLines(const Point2f &p1,const Point2f &p2,const Point2f &p3,const Point2f &p4,Point2f *iPt)
 {
     float denom = (p1.x()-p2.x())*(p3.y()-p4.y()) - (p1.y() - p2.y())*(p3.x() - p4.x());
@@ -271,66 +267,78 @@ bool insidePlane(const Vector4d &pt,ClipPlane plane)
 
 void ClipHomogeneousPolyToPlane(const Vector4dVector &pts,ClipPlane plane,Vector4dVector &outPts)
 {
-    outPts.reserve(pts.size());
     for (unsigned int ii=0;ii<pts.size();ii++)
     {
         const Vector4d &p0 = pts[ii];
         const Vector4d &p1 = pts[(ii+1)%pts.size()];
-        bool p0_in = insidePlane(p0,plane);
-        bool p1_in = insidePlane(p1,plane);
+        const bool p0_in = insidePlane(p0,plane);
+        const bool p1_in = insidePlane(p1,plane);
         // Edge crosses plane
         if (p0_in != p1_in)
         {
-            Vector4d newP = intersectPlane(p0,p1,plane);
-            outPts.push_back(newP);
+            if (outPts.empty())
+            {
+                outPts.reserve(pts.size());
+            }
+            outPts.emplace_back(intersectPlane(p0,p1,plane));
         }
         // 2nd vertex inside, add it
         if (p1_in)
+        {
+            if (outPts.empty())
+            {
+                outPts.reserve(pts.size());
+            }
             outPts.push_back(p1);
+        }
     }
 }
     
-void ClipHomogeneousPolygon(const Vector4dVector &inPts,Vector4dVector &outPts)
+void ClipHomogeneousPolygon(Vector4dVector &&pts,Vector4dVector &outPts)
 {
-    if (inPts.size() < 3)
+    if (pts.size() < 3)
         return;
-    Vector4dVector pts = inPts;
- 
-    ClipHomogeneousPolyToPlane(pts, Left, outPts);  pts = outPts;  outPts.clear();
-    ClipHomogeneousPolyToPlane(pts, Right, outPts);  pts = outPts;  outPts.clear();
-    ClipHomogeneousPolyToPlane(pts, Bottom, outPts);  pts = outPts;  outPts.clear();
-    ClipHomogeneousPolyToPlane(pts, Top, outPts);  pts = outPts;  outPts.clear();
-    ClipHomogeneousPolyToPlane(pts, Near, outPts);  pts = outPts;  outPts.clear();
-    ClipHomogeneousPolyToPlane(pts, Far, outPts);
+
+    ClipHomogeneousPolyToPlane(pts, Left,   outPts); pts.swap(outPts); outPts.clear();
+    ClipHomogeneousPolyToPlane(pts, Right,  outPts); pts.swap(outPts); outPts.clear();
+    ClipHomogeneousPolyToPlane(pts, Bottom, outPts); pts.swap(outPts); outPts.clear();
+    ClipHomogeneousPolyToPlane(pts, Top,    outPts); pts.swap(outPts); outPts.clear();
+    ClipHomogeneousPolyToPlane(pts, Near,   outPts); pts.swap(outPts); outPts.clear();
+    ClipHomogeneousPolyToPlane(pts, Far,    outPts);
+}
+
+void ClipHomogeneousPolygon(const Vector4dVector &pts,Vector4dVector &outPts)
+{
+    // have to make an extra copy
+    Vector4dVector inPts = pts;
+    ClipHomogeneousPolygon(std::move(inPts), outPts);
 }
 
 void ClipAndProjectPolygon(Eigen::Matrix4d &modelMat,Eigen::Matrix4d &projMat,Point2f frameSize,Point3dVector &poly,Point2fVector &screenPoly)
 {
     Vector4dVector pts;
-    for (unsigned int ii=0;ii<poly.size();ii++)
+    pts.reserve(poly.size());
+    for (const auto &pt : poly)
     {
-        const Point3d &pt = poly[ii];
         // Run through the model transform
-        Vector4d modPt = modelMat * Vector4d(pt.x(),pt.y(),pt.z(),1.0);
+        const Vector4d modPt = modelMat * Vector4d(pt.x(),pt.y(),pt.z(),1.0);
         // And then the projection matrix.  Now we're in clip space
-        Vector4d projPt = projMat * modPt;
-        pts.push_back(projPt);
+        pts.emplace_back(projMat * modPt);
     }
 
     Vector4dVector clipSpacePts;
-    ClipHomogeneousPolygon(pts,clipSpacePts);
+    ClipHomogeneousPolygon(std::move(pts),clipSpacePts);
     
     if (clipSpacePts.empty())
         return;
     
     // Project to the screen
-    Point2d halfFrameSize(frameSize.x()/2.0,frameSize.y()/2.0);
-    for (unsigned int ii=0;ii<clipSpacePts.size();ii++)
+    const Point2d halfFrameSize(frameSize.x()/2.0,frameSize.y()/2.0);
+    screenPoly.reserve(clipSpacePts.size());
+    for (const auto &outPt : clipSpacePts)
     {
-        Vector4d &outPt = clipSpacePts[ii];
-        Point2f screenPt(outPt.x()/outPt.w() * halfFrameSize.x()+halfFrameSize.x(),outPt.y()/outPt.w() * halfFrameSize.y()+halfFrameSize.y());
-        screenPt.y() = frameSize.y() - screenPt.y();
-        screenPoly.push_back(screenPt);
+        screenPoly.emplace_back(outPt.x()/outPt.w() * halfFrameSize.x()+halfFrameSize.x(),
+                                frameSize.y() - (outPt.y()/outPt.w() * halfFrameSize.y()+halfFrameSize.y()));
     }    
 }
 

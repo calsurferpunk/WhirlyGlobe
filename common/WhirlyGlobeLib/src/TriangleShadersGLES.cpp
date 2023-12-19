@@ -1,9 +1,8 @@
-/*
- *  TriangleShaders.cpp
+/*  TriangleShadersGLES.cpp
  *  WhirlyGlobe-MaplyComponent
  *
  *  Created by Steve Gifford on 8/21/18.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "TriangleShadersGLES.h"
@@ -89,7 +87,8 @@ void main()
      v_color = a_color * u_fade;
    }
 
-   gl_Position = u_mvpMatrix * vec4(a_position,1.0);
+   vec4 screenPos = u_mvpMatrix * vec4(a_position,1.0);
+   gl_Position = vec4(screenPos.xyz / screenPos.w, 1.0);
 }
 )";
 
@@ -113,13 +112,13 @@ void main()
 )";
     
 // Triangle shader with lighting
-ProgramGLES *BuildDefaultTriShaderLightingGLES(const std::string &name,SceneRenderer *sceneRender)
+ProgramGLES *BuildDefaultTriShaderLightingGLES(const std::string &name,SceneRenderer *)
 {
-    ProgramGLES *shader = new ProgramGLES(name,vertexShaderTri,fragmentShaderTri);
+    auto *shader = new ProgramGLES(name,vertexShaderTri,fragmentShaderTri);
     if (!shader->isValid())
     {
         delete shader;
-        shader = NULL;
+        shader = nullptr;
     }
     
     return shader;
@@ -149,7 +148,8 @@ void main()
         v_texCoord = a_texCoord0;
    v_color = a_color * u_fade;
 
-   gl_Position = u_mvpMatrix * vec4(a_position,1.0);
+   vec4 screenPos = u_mvpMatrix * vec4(a_position,1.0);
+   gl_Position = vec4(screenPos.xyz / screenPos.w, 1.0);
 }
 )";
 
@@ -173,13 +173,13 @@ void main()
 )";
     
 // Triangle shader without lighting
-ProgramGLES *BuildDefaultTriShaderNoLightingGLES(const std::string &name,SceneRenderer *sceneRender)
+ProgramGLES *BuildDefaultTriShaderNoLightingGLES(const std::string &name,SceneRenderer *)
 {
-    ProgramGLES *shader = new ProgramGLES(name,vertexShaderNoLightTri,fragmentShaderNoLightTri);
+    auto *shader = new ProgramGLES(name,vertexShaderNoLightTri,fragmentShaderNoLightTri);
     if (!shader->isValid())
     {
         delete shader;
-        shader = NULL;
+        shader = nullptr;
     }
     
     return shader;
@@ -258,13 +258,13 @@ void main()
 )";
 
 // Triangle shader for models
-ProgramGLES *BuildDefaultTriShaderModelGLES(const std::string &name,SceneRenderer *sceneRender)
+ProgramGLES *BuildDefaultTriShaderModelGLES(const std::string &name,SceneRenderer *)
 {
-    ProgramGLES *shader = new ProgramGLES(name,vertexShaderModelTri,fragmentShaderTri);
+    auto *shader = new ProgramGLES(name,vertexShaderModelTri,fragmentShaderTri);
     if (!shader->isValid())
     {
         delete shader;
-        shader = NULL;
+        shader = nullptr;
     }
     
     return shader;
@@ -342,13 +342,13 @@ void main()
 )";
     
 // Triangles with screen textures
-ProgramGLES *BuildDefaultTriShaderScreenTextureGLES(const std::string &name,SceneRenderer *sceneRender)
+ProgramGLES *BuildDefaultTriShaderScreenTextureGLES(const std::string &name,SceneRenderer *)
 {
-    ProgramGLES *shader = new ProgramGLES(name,vertexShaderScreenTexTri,fragmentShaderTri);
+    auto *shader = new ProgramGLES(name,vertexShaderScreenTexTri,fragmentShaderTri);
     if (!shader->isValid())
     {
         delete shader;
-        shader = NULL;
+        shader = nullptr;
     }
     
     return shader;
@@ -430,7 +430,8 @@ void main()
      v_color = a_color * u_fade;
    }
 
-   gl_Position = u_mvpMatrix * vec4(a_position,1.0);
+   vec4 screenPos = u_mvpMatrix * vec4(a_position,1.0);
+   gl_Position = vec4(screenPos.xyz / screenPos.w, 1.0);
 }
 )";
     
@@ -454,13 +455,13 @@ void main()
 )";
     
 // Triangles with multiple textures
-ProgramGLES *BuildDefaultTriShaderMultitexGLES(const std::string &name,SceneRenderer *sceneRender)
+ProgramGLES *BuildDefaultTriShaderMultitexGLES(const std::string &name,SceneRenderer *)
 {
-    ProgramGLES *shader = new ProgramGLES(name,vertexShaderTriMultiTex,fragmentShaderTriMultiTex);
+    auto *shader = new ProgramGLES(name,vertexShaderTriMultiTex,fragmentShaderTriMultiTex);
     if (!shader->isValid())
     {
         delete shader;
-        shader = NULL;
+        shader = nullptr;
     }
     
     return shader;
@@ -488,13 +489,13 @@ void main()
 )";
 
 // Triangles that use the ramp textures
-ProgramGLES *BuildDefaultTriShaderRamptexGLES(const std::string &name,SceneRenderer *renderer)
+ProgramGLES *BuildDefaultTriShaderRamptexGLES(const std::string &name,SceneRenderer *)
 {
-    ProgramGLES *shader = new ProgramGLES(name,vertexShaderTriMultiTex,fragmentShaderTriMultiTexRamp);
+    auto *shader = new ProgramGLES(name,vertexShaderTriMultiTex,fragmentShaderTriMultiTexRamp);
     if (!shader->isValid())
     {
         delete shader;
-        shader = NULL;
+        shader = nullptr;
     }
     
     return shader;
@@ -540,8 +541,7 @@ attribute vec3 a_normal;
 varying mediump vec2 v_texCoord0;
 varying mediump vec2 v_texCoord1;
 varying mediump vec4 v_color;
-varying mediump vec3 v_adjNorm;
-varying mediump vec3 v_lightDir;
+varying float v_ndotl;
 
 void main()
 {
@@ -556,8 +556,9 @@ void main()
         v_texCoord1 = a_texCoord0;
 
    v_color = a_color;
-   v_adjNorm = light[0].viewdepend > 0.0 ? normalize((u_mvpMatrix * vec4(a_normal.xyz, 0.0)).xyz) : a_normal.xzy;
-   v_lightDir = (u_numLights > 0) ? light[0].direction : vec3(1,0,0);
+   vec3 adjNorm = light[0].viewdepend > 0.0 ? normalize((u_mvpMatrix * vec4(a_normal.xyz, 0.0)).xyz) : a_normal.xzy;
+   vec3 lightDir = (u_numLights > 0) ? light[0].direction : vec3(1,0,0);
+   v_ndotl = pow(max(0.0, dot(adjNorm, lightDir)), 0.5);
    v_color = vec4(light[0].ambient.xyz * material.ambient.xyz * a_color.xyz + light[0].diffuse.xyz * a_color.xyz,a_color.a) * u_fade;
 
    gl_Position = u_mvpMatrix * vec4(a_position,1.0);
@@ -573,29 +574,25 @@ uniform sampler2D s_baseMap1;
 varying vec2      v_texCoord0;
 varying vec2      v_texCoord1;
 varying vec4      v_color;
-varying vec3      v_adjNorm;
-varying vec3      v_lightDir;
+varying float     v_ndotl;
 
 void main()
 {
-   float ndotl = max(0.0, dot(v_adjNorm, v_lightDir));
-   ndotl = pow(ndotl,0.5);
-
 // Note: Put the color back
   vec4 baseColor0 = texture2D(s_baseMap0, v_texCoord0);
   vec4 baseColor1 = texture2D(s_baseMap1, v_texCoord1);
-  gl_FragColor = mix(baseColor0,baseColor1,1.0-ndotl);
+  gl_FragColor = mix(baseColor0,baseColor1,1.0-v_ndotl);
 }
 )";
     
 // Day/night support for triangles
-ProgramGLES *BuildDefaultTriShaderNightDayGLES(const std::string &name,SceneRenderer *sceneRender)
+ProgramGLES *BuildDefaultTriShaderNightDayGLES(const std::string &name,SceneRenderer *)
 {
-    ProgramGLES *shader = new ProgramGLES(name,vertexShaderTriNightDay,fragmentShaderTriNightDay);
+    auto *shader = new ProgramGLES(name,vertexShaderTriNightDay,fragmentShaderTriNightDay);
     if (!shader->isValid())
     {
         delete shader;
-        shader = NULL;
+        shader = nullptr;
     }
     
     return shader;

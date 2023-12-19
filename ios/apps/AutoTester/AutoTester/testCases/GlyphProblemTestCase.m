@@ -1,16 +1,16 @@
 //
-//  GlyphProblemTestCase.h
+//  GlyphProblemTestCase.m
 //  AutoTester
 //
 //  Created by zhoujiong on 2019/11/12.
-//  Copyright © 2019 mousebird consulting. All rights reserved.
+//  Copyright 2019-2022 mousebird consulting. All rights reserved.
 //
 
 #define MIN_HEIGHT 0.000251845893
 #define MAX_HEIGHT 2.0
 
 #import "GlyphProblemTestCase.h"
-#import "AutoTester-Swift.h"
+#import "SwiftBridge.h"
 
 @interface GlyphProblemTestCase()
 
@@ -50,7 +50,7 @@
     globeVC.height = 2.0;
     globeVC.delegate = self;
     
-    [globeVC setPosition:MaplyCoordinateMakeWithDegrees(120,40)];
+    [globeVC animateToPosition:MaplyCoordinateMakeWithDegrees(120,40) height:0.5f heading:0.0f time:1.0f];
 }
 
 - (void)globeViewController:(WhirlyGlobeViewController *)viewC didStopMoving:(MaplyCoordinate *)corners userMotion:(bool)userMotion{

@@ -1,9 +1,8 @@
-/*
- *  Point2d.java
+/*  Point2d.java
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 6/2/14.
- *  Copyright 2011-2014 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,27 +14,27 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 package com.mousebird.maply;
 
+import androidx.annotation.Keep;
+
+import org.jetbrains.annotations.NotNull;
+
 /**
- * The Point2d class is the simple, dumb, 2D coordinate
- * class.  The only things of note is this is wrapping the
- * internal Maply coordinate class and gets passed around
- * a lot.
+ * The Point2d class is the simple, dumb, 2D coordinate class.
+ * The only things of note is this is wrapping the internal Maply
+ * coordinate class and gets passed around a lot.
  * 
  * @author sjg
- *
  */
 public class Point2d 
 {
 	/**
 	 * Construct with empty values.
 	 */
-	public Point2d()
-	{
+	public Point2d() {
 		initialise();
 	}
 	
@@ -44,8 +43,7 @@ public class Point2d
 	 */
 	public Point2d(Point2d that)
 	{
-		initialise();
-		setValue(that.getX(),that.getY());
+		this(that.getX(),that.getY());
 	}
 	
 	/**
@@ -53,30 +51,39 @@ public class Point2d
 	 */
 	public Point2d(double x,double y)
 	{
-		initialise();
+		this();
 		setValue(x,y);
 	}
 
 	@Override
 	public boolean equals(Object obj)
 	{
-		if (!(obj instanceof Point2d))
+		if (!(obj instanceof Point2d)) {
 			return false;
-		Point2d that = (Point2d) obj;
-
+		}
+		if (this == obj) {
+			return true;
+		}
+		final Point2d that = (Point2d)obj;
 		return getX() == that.getX() && getY() == that.getY();
 	}
 
-	public Point2d addTo(Point2d that)
-	{
+	public Point2d addTo(Point2d that) {
 		return new Point2d(getX()+that.getX(),getY()+that.getY());
 	}
-	
-	public Point2d multiplyBy(double t)
-	{
+	public Point2d subtract(Point2d that) {
+		return new Point2d(getX() - that.getX(), getY() - that.getY());
+	}
+	public Point2d negate() {
+		return new Point2d(-getX(), -getY());
+	}
+	public Point2d multiplyBy(double t) {
 		return new Point2d(getX()*t,getY()*t);
 	}
-	
+	public Point2d divideBy(double t) {
+		return new Point2d(getX()/t,getY()/t);
+	}
+
 	/**
 	 * Create a Point2D geo coordinate from degrees.
 	 * @param lon Longitude first in degrees.
@@ -110,6 +117,7 @@ public class Point2d
 		dispose();
 	}
 
+	@NotNull
 	public String toString()
 	{
 		return "(" + getX() + "," + getY() + ")";
@@ -127,7 +135,25 @@ public class Point2d
 	 * Set the value of the point.
 	 */
 	public native void setValue(double x,double y);
-	
+
+	/**
+	 * Distance between points (WGS84, GeoLib)
+	 * @return Distance in meters, or negative on error.
+	 */
+	public native double getGeoDist(Point2d other);
+
+	/**
+	 * Initial azimuth from this point to another.
+	 * @return Azimuth in radians or NaN on error.
+	 */
+	public native double getGeoAzimuth(Point2d other);
+
+	/**
+	 * Distance between points (spherical, Haversine)
+	 * @return Distance in meters, or negative on error.
+	 */
+	public native double getGeoDistApprox(Point2d other);
+
 	static
 	{
 		nativeInit();
@@ -135,5 +161,8 @@ public class Point2d
 	private static native void nativeInit();
 	native void initialise();
 	native void dispose();
+
+	@Keep
+	@SuppressWarnings("unused")	// Used by JNI
 	private long nativeHandle;
 }

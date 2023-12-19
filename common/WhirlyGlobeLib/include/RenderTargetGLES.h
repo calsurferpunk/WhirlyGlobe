@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/13/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ class RenderTargetGLES : public RenderTarget
 public:
     RenderTargetGLES();
     RenderTargetGLES(SimpleIdentity newID);
-    virtual ~RenderTargetGLES();
+    virtual ~RenderTargetGLES() = default;
     
     // Set up the render target
     bool init(SceneRenderer *renderer,Scene *scene,SimpleIdentity targetTexID);
@@ -63,11 +63,11 @@ public:
     void setTargetTexture(TextureBase *tex);
         
     /// OpenGL ES Name for the frame buffer
-    GLuint framebuffer;
+    GLuint framebuffer = 0;
     /// OpenGL ES Name for the color buffer
-    GLuint colorbuffer;
+    GLuint colorbuffer = 0;
     /// OpenGL ES Name for the depth buffer
-    GLuint depthbuffer;
+    GLuint depthbuffer = 0;
     
 protected:
     void init();

@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by jmnavarro
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -94,19 +94,17 @@ public:
 typedef std::shared_ptr<BillboardInfo> BillboardInfoRef;
 
 /// Used internally to track billboard geometry
-class BillboardSceneRep : public Identifiable
+struct BillboardSceneRep : public Identifiable
 {
-public:
-    BillboardSceneRep();
-    BillboardSceneRep(SimpleIdentity inId);
-    ~BillboardSceneRep();
+    BillboardSceneRep() = default;
+    BillboardSceneRep(SimpleIdentity inId) : Identifiable(inId) {}
 
     // Clear the contents out of the scene
     void clearContents(SelectionManagerRef &selectManager,ChangeSet &changes,TimeInterval when);
 
     SimpleIDSet drawIDs;  // Drawables created for this
     SimpleIDSet selectIDs;  // IDs used for selection
-    float fade;  // Time to fade away for removal
+    float fadeOut = 0.0;  // Time to fade away for removal
 };
 
 typedef std::set<BillboardSceneRep *,IdentifiableSorter> BillboardSceneRepSet;
@@ -115,10 +113,14 @@ typedef std::set<BillboardSceneRep *,IdentifiableSorter> BillboardSceneRepSet;
 class BillboardBuilder
 {
 public:
-    BillboardBuilder(Scene *scene,SceneRenderer *sceneRender,ChangeSet &changes,BillboardSceneRep *sceneRep,const BillboardInfo &billInfo,SimpleIdentity billboardProgram,SimpleIdentity texId);
+    BillboardBuilder(Scene *scene,SceneRenderer *sceneRender,ChangeSet &changes,
+                     BillboardSceneRep *sceneRep,const BillboardInfo &billInfo,
+                     SimpleIdentity billboardProgram,SimpleIdentity texId);
     ~BillboardBuilder();
 
-    void addBillboard(Point3d center,const Point2dVector &pts,const std::vector<WhirlyKit::TexCoord> &texCoords, const RGBAColor *inColor,const SingleVertexAttributeSet &vertAttrs);
+    void addBillboard(const Point3d &center,const Point2dVector &pts,
+                      const std::vector<WhirlyKit::TexCoord> &texCoords,
+                      const RGBAColor *inColor,const SingleVertexAttributeSet &vertAttrs);
 
     void flush();
 
@@ -143,17 +145,17 @@ This object is thread safe except for deletion.
 class BillboardManager : public SceneManager
 {
 public:
-    BillboardManager();
+    BillboardManager() = default;
     virtual ~BillboardManager();
 
     /// Add billboards for display
-    SimpleIdentity addBillboards(std::vector<Billboard*> billboards,const BillboardInfo &billboardInfo,ChangeSet &changes);
+    SimpleIdentity addBillboards(const std::vector<Billboard*> &billboards,const BillboardInfo &billboardInfo,ChangeSet &changes);
 
     /// Enable/disable active billboards
-    void enableBillboards(SimpleIDSet &billIDs,bool enable,ChangeSet &changes);
+    void enableBillboards(const SimpleIDSet &billIDs,bool enable,ChangeSet &changes);
 
     /// Remove a group of billboards named by the given ID
-    void removeBillboards(SimpleIDSet &billIDs,ChangeSet &changes);
+    void removeBillboards(const SimpleIDSet &billIDs,ChangeSet &changes);
 
 protected:
     BillboardSceneRepSet sceneReps;

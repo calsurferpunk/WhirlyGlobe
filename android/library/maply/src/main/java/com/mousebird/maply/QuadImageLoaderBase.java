@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 3/22/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -46,8 +46,12 @@ public class QuadImageLoaderBase extends QuadLoaderBase
 
     protected QuadImageLoaderBase(BaseController control,SamplingParams params,int numFrames)
     {
-        super(control,params,numFrames,(numFrames <= 1 ? Mode.SingleFrame : Mode.MultiFrame));
+        this(control,params,numFrames,(numFrames <= 1 ? Mode.SingleFrame : Mode.MultiFrame));
+    }
 
+    protected QuadImageLoaderBase(BaseController control,SamplingParams params,int numFrames,Mode mode)
+    {
+        super(control,params,numFrames,mode);
         setBaseDrawPriority(BaseDrawPriorityDefault);
         setDrawPriorityPerLevel(DrawPriorityPerLevelDefault);
     }
@@ -56,18 +60,27 @@ public class QuadImageLoaderBase extends QuadLoaderBase
     // We want them to be able to modify settings before it starts
     public void delayedInit(final SamplingParams params)
     {
-        if (tileFetcher == null) {
-            tileFetcher = getController().addTileFetcher("Image Fetcher");
+        final BaseController controller = getController();
+        if (controller != null && tileFetcher == null) {
+            tileFetcher = controller.addTileFetcher("Image Fetcher");
         }
 
         if (loadInterp == null) {
             loadInterp = new ImageLoaderInterpreter();
         }
 
-        samplingLayer = new WeakReference<QuadSamplingLayer>(getController().findSamplingLayer(params,this));
+        if (controller != null) {
+            samplingLayer = new WeakReference<>(controller.findSamplingLayer(params, this));
+        }
+
         loadInterp.setLoader(this);
 
-        delayedInitNative(getController().getScene());
+        if (controller != null) {
+            final Scene scene = controller.getScene();
+            if (scene != null) {
+                delayedInitNative(scene);
+            }
+        }
     }
 
     protected native void delayedInitNative(Scene scene);
@@ -104,22 +117,31 @@ public class QuadImageLoaderBase extends QuadLoaderBase
      */
     public void setColor(final int color)
     {
-        if(samplingLayer.get() == null) {
+        QuadSamplingLayer sampleLayer = null;
+        if (samplingLayer != null)
+            sampleLayer = samplingLayer.get();
+
+        if(sampleLayer == null) {
             setColor(Color.red(color) / 255.f, Color.green(color) / 255.f, Color.blue(color) / 255.f, Color.alpha(color) / 255.f, null);
+            return;
         }
 
-        samplingLayer.get().layerThread.addTask(new Runnable() {
-            @Override
-            public void run() {
-                ChangeSet changes = new ChangeSet();
-                setColor(Color.red(color) / 255.f, Color.green(color) / 255.f, Color.blue(color) / 255.f, Color.alpha(color) / 255.f, changes);
-                BaseController control = getController();
-                if (control != null && control.renderControl != null) {
-                    changes.process(control.renderControl, control.getScene());
-                    changes.dispose();
+        LayerThread layerThread = sampleLayer.layerThread;
+
+        if (layerThread != null) {
+            layerThread.addTask(new Runnable() {
+                @Override
+                public void run() {
+                    ChangeSet changes = new ChangeSet();
+                    setColor(Color.red(color) / 255.f, Color.green(color) / 255.f, Color.blue(color) / 255.f, Color.alpha(color) / 255.f, changes);
+                    BaseController control = getController();
+                    if (control != null && control.renderControl != null) {
+                        changes.process(control.renderControl, control.getScene());
+                        changes.dispose();
+                    }
                 }
-            }
-        });
+            });
+        }
     }
 
     /**
@@ -148,7 +170,7 @@ public class QuadImageLoaderBase extends QuadLoaderBase
      *  If not set we'll pick the default visual shader.
      */
     public void setShader(Shader shader) {
-        setShaderID(shader.getID());
+        setShaderID((shader != null) ? shader.getID() : 0);
     }
 
     /**

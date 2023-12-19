@@ -1,9 +1,8 @@
-/*
-*  MapboxVectorStyleLayer.cpp
+/* MapboxVectorStyleLayer.cpp
 *  WhirlyGlobeLib
 *
 *  Created by Steve Gifford on 4/8/20.
-*  Copyright 2011-2020 mousebird consulting
+*  Copyright 2011-2022 mousebird consulting
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
 *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 *  See the License for the specific language governing permissions and
 *  limitations under the License.
-*
 */
 
 #import "MapboxVectorStyleLayer.h"
@@ -60,7 +58,14 @@ MapboxVectorStyleLayerRef MapboxVectorStyleLayer::VectorStyleLayer(PlatformThrea
     if (type == "fill") {
         layer = std::make_shared<MapboxVectorLayerFill>(styleSet);
     } else if (type == "fill-extrusion") {
-        wkLogLevel(Warn, "Treating fill-extrusion layer as fill");
+#if defined(DEBUG)
+        static bool warned = false;
+        if (!warned)
+        {
+            warned = true;
+            wkLogLevel(Warn, "Treating fill-extrusion layer as fill");
+        }
+#endif
         layer = std::make_shared<MapboxVectorLayerFill>(styleSet);
     } else if (type == "line") {
         layer = std::make_shared<MapboxVectorLayerLine>(styleSet);
@@ -92,7 +97,7 @@ MapboxVectorStyleLayerRef MapboxVectorStyleLayer::VectorStyleLayer(PlatformThrea
         layer->filter->parse(filterArray,styleSet);
     }
 
-    layer->visible = styleSet->boolValue("visibility", layerDict->getDict("layout"), "visible", true);
+    layer->visible = MapboxVectorStyleSetImpl::boolValue("visibility", layerDict->getDict("layout"), "visible", true);
     layer->selectable = styleSet->tileStyleSettings->selectable;
     layer->metadata = layerDict->getDict("metadata");
     layer->representation = layerDict->getString("X-Maply-Representation");
@@ -100,14 +105,26 @@ MapboxVectorStyleLayerRef MapboxVectorStyleLayer::VectorStyleLayer(PlatformThrea
     return layer;
 }
 
-MapboxVectorStyleLayer::MapboxVectorStyleLayer(MapboxVectorStyleSetImpl *styleSet)
-: visible(true), minzoom(0), maxzoom(0), drawPriority(0),
-selectable(false), uuid(0), geomAdditiveVal(false), styleSet(styleSet)
+MapboxVectorStyleLayer::MapboxVectorStyleLayer(MapboxVectorStyleSetImpl *styleSet) :
+    styleSet(styleSet)
 {
 }
 
-MapboxVectorStyleLayer::~MapboxVectorStyleLayer()
+MapboxVectorStyleLayerRef MapboxVectorStyleLayer::clone() const
 {
+#if defined(DEBUG)
+    assert(!"MapboxVectorStyleLayer::clone should be overridden");
+#else
+    return MapboxVectorStyleLayerRef();
+#endif
+}
+
+MapboxVectorStyleLayer& MapboxVectorStyleLayer::copy(const MapboxVectorStyleLayer& that)
+{
+    operator=(that);
+    // N.B.: metadata, filters share references to common objects
+    // If these properties need to be mutable, they should be deep-copied here
+    return *this;
 }
 
 bool MapboxVectorStyleLayer::parse(PlatformThreadInfo *inst,
@@ -124,34 +141,15 @@ bool MapboxVectorStyleLayer::parse(PlatformThreadInfo *inst,
     uuid = styleSet->generateID();
 
     ident = styleEntry->getString("id");
-    source = styleSet->stringValue("source", styleEntry, refLayer ? refLayer->source : std::string());
-    sourceLayer = styleSet->stringValue("source-layer", styleEntry, refLayer ? refLayer->sourceLayer : std::string());
+    source = MapboxVectorStyleSetImpl::stringValue("source", styleEntry, refLayer ? refLayer->source : std::string());
+    sourceLayer = MapboxVectorStyleSetImpl::stringValue("source-layer", styleEntry, refLayer ? refLayer->sourceLayer : std::string());
     
-    minzoom = styleSet->intValue("minzoom", styleEntry, 0);
-    maxzoom = styleSet->intValue("maxzoom", styleEntry, 1000);
+    minzoom = MapboxVectorStyleSetImpl::intValue("minzoom", styleEntry, 0);
+    maxzoom = MapboxVectorStyleSetImpl::intValue("maxzoom", styleEntry, 1000);
     
-    category = styleSet->stringValue("wkcategory", styleEntry, std::string());
+    category = MapboxVectorStyleSetImpl::stringValue("wkcategory", styleEntry, std::string());
     
     return true;
-}
-
-long long MapboxVectorStyleLayer::getUuid(PlatformThreadInfo *inst)
-{
-    return uuid;
-}
-
-std::string MapboxVectorStyleLayer::getCategory(PlatformThreadInfo *inst)
-{
-    return category;
-}
-
-bool MapboxVectorStyleLayer::geomAdditive(PlatformThreadInfo *inst)
-{
-    return geomAdditiveVal;
-}
-
-void MapboxVectorStyleLayer::cleanup(PlatformThreadInfo *inst,ChangeSet &changes)
-{
 }
 
 }

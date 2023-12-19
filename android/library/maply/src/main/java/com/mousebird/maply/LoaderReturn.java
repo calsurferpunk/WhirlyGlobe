@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by sjg
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -21,14 +21,15 @@
 package com.mousebird.maply;
 
 import java.util.ArrayList;
+import java.util.Collection;
 
 /**
  *  Passed in to and returned by the Loader Interpreter.
  *
- *  We pass this into the interpreter with the unparsed data.  It parses it and passes that
+ *  We pass this into the interpreter with the un-parsed data.  It parses it and passes that
  *  data back, possibly with an error.
  */
-public class LoaderReturn
+public class LoaderReturn implements Comparable<LoaderReturn>
 {
     protected LoaderReturn() {}
 
@@ -43,6 +44,11 @@ public class LoaderReturn
     public native void setTileID(int tileX,int tileY,int tileLevel);
 
     /**
+     * Set the tile ID at creation.
+     */
+    public void setTileID(TileID tileID) { setTileID(tileID.x, tileID.y, tileID.level); }
+
+    /**
      * Frames have unique 64 bit IDs as well as their location in the frame array.
      */
     public native void setFrame(long frameID,int frameIndex);
@@ -52,14 +58,11 @@ public class LoaderReturn
      */
     public TileID getTileID()
     {
-        TileID tileID = new TileID();
-
-        int[] tileInfo = getTileIDNative();
-        tileID.x = tileInfo[0];
-        tileID.y = tileInfo[1];
-        tileID.level = tileInfo[2];
-
-        return tileID;
+        final int[] tileInfo = getTileIDNative();
+        if (tileInfo != null && tileInfo.length > 2) {
+            return new TileID(tileInfo[0], tileInfo[1], tileInfo[2]);
+        }
+        return null;
     }
 
     private native int[] getTileIDNative();
@@ -70,15 +73,24 @@ public class LoaderReturn
      */
     public native int getFrame();
 
-    private ArrayList<byte[]> tileData = new ArrayList<byte[]>();
+    private final ArrayList<byte[]> tileData = new ArrayList<>();
 
     /**
-     * Data returned from a tile request.  Unparsed.
+     * Data returned from a tile request.  Un-parsed.
      * You can add multiple of these, but the interpreter should be expecting that.
      */
     public void addTileData(byte[] data)
     {
         tileData.add(data);
+    }
+
+    /**
+     * Data returned from a tile request.  Un-parsed.
+     * You can add multiple of these, but the interpreter should be expecting that.
+     */
+    public void addTileData(Collection<byte[]> data)
+    {
+        tileData.addAll(data);
     }
 
     /**
@@ -108,6 +120,16 @@ public class LoaderReturn
      * Return the generation this LoaderReturn has been given.
      */
     public native int getGeneration();
+
+    /**
+     * Stop whatever work is being done to load this result
+     */
+    public native void cancel();
+
+    /**
+     * Return true if the load has been canceled
+     */
+    public native boolean isCanceled();
 
     /**
      * Merge in the given changes requests to be handled upstream.
@@ -157,10 +179,16 @@ public class LoaderReturn
     private native void clearComponentObjectsNative(boolean isOverlay);
     public native void deleteComponentObjects(RenderController control,ComponentManager compManage,ChangeSet changes);
 
+    public native void discardChanges();
+
+    @Override public int compareTo(LoaderReturn o) { return (int)(id - o.id); }
+
     /**
      * If set, some part of the parser is letting us know about an error.
      */
     public String errorString = null;
+
+    private long id = Identifiable.genID();
 
     public void finalize()
     {

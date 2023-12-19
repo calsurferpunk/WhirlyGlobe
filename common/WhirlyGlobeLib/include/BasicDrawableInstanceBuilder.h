@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/9/19.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -43,7 +43,10 @@ public:
     
     /// Set the base draw ID and type
     void setMasterID(SimpleIdentity baseDrawID,BasicDrawableInstance::Style style);
-    
+
+    /// If this is using another drawable for its instance, point to that
+    void setInstID(SimpleIdentity instDrawID);
+
     /// True to turn it on, false to turn it off
     void setOnOff(bool onOff);
     
@@ -107,6 +110,9 @@ public:
     
     /// Set a block of uniforms (Metal only, at the moment)
     virtual void setUniBlock(const BasicDrawable::UniformBlock &uniBlock);
+    
+    /// Set whether we're doing continuous renders
+    void setContinuousUpdate(bool newVal);
     
     /// Set the texture ID for a specific slot.  You get this from the Texture object.
     virtual void setTexId(unsigned int which,SimpleIdentity inId);

@@ -1,9 +1,8 @@
-/*
- *  ShapeDrawableBuilder.h
+/*  ShapeDrawableBuilder.h
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 9/28/11.
- *  Copyright 2011-2019 mousebird consulting.
+ *  Copyright 2011-2022 mousebird consulting.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "Identifiable.h"
@@ -30,70 +28,80 @@ namespace WhirlyKit
 
 /// Used to pass shape info between the shape layer and the drawable builder
 ///  and within the threads of the shape layer
-class ShapeInfo : public BaseInfo
+struct ShapeInfo : public BaseInfo
 {
-public:
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
-    
     ShapeInfo();
     ShapeInfo(const Dictionary &);
+    ShapeInfo(const ShapeInfo &that);
     virtual ~ShapeInfo() = default;
 
-public:
-    RGBAColor color;
-    float lineWidth;
-    bool insideOut;
-    bool hasCenter;
-    WhirlyKit::Point3d center;
+    // Convert contents to a string for debugging
+    virtual std::string toString() const { return BaseInfo::toString() + " +ShapeInfo..."; }
+
+    RGBAColor color = RGBAColor::white();
+    float lineWidth = 1.0f;
+    bool insideOut = false;
+    bool hasCenter = false;
+    WhirlyKit::Point3d center = { 0, 0, 0 };
 };
 typedef std::shared_ptr<ShapeInfo> ShapeInfoRef;
 
 /** This drawable builder is associated with the shape layer.  It's
     exposed so it can be used by the active model version as well.
   */
-class ShapeDrawableBuilder
+struct ShapeDrawableBuilder
 {
-public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
     
     /// Construct the builder with the fade value for each created drawable and
     ///  whether we're doing lines or points
-    ShapeDrawableBuilder(WhirlyKit::CoordSystemDisplayAdapter *coordAdapter,SceneRenderer *sceneRender,const ShapeInfo &shapeInfo,bool linesOrPoints,const Point3d &center);
-    virtual ~ShapeDrawableBuilder();
+    ShapeDrawableBuilder(const CoordSystemDisplayAdapter *,
+                         SceneRenderer *,
+                         const ShapeInfo &,
+                         bool linesOrPoints,
+                         const Point3d &center);
+    virtual ~ShapeDrawableBuilder() = default;
+
+    void setClipCoords(bool newClipCoords);
 
     /// A group of points (in display space) all at once
-    void addPoints(Point3dVector &pts,RGBAColor color,Mbr mbr,float lineWidth,bool closed);
+    void addPoints(const Point3dVector &,RGBAColor,const Mbr &,float lineWidth,bool closed);
 
     /// Flush out the current drawable (if there is one) to the list of finished ones
     void flush();
 
     /// Retrieve the scene changes and the list of drawable IDs for later
-    void getChanges(WhirlyKit::ChangeSet &changeRequests,SimpleIDSet &drawIDs);
+    void getChanges(ChangeSet &,SimpleIDSet &drawIDs);
 
     const ShapeInfo *getShapeInfo() { return &shapeInfo; }
 
-public:
-    CoordSystemDisplayAdapter *coordAdapter;
+    const CoordSystemDisplayAdapter *coordAdapter;
     SceneRenderer *sceneRender;
+
+protected:
     GeometryType primType;
     const ShapeInfo &shapeInfo;
     Mbr drawMbr;
     BasicDrawableBuilderRef drawable;
     std::vector<BasicDrawableBuilderRef> drawables;
     Point3d center;
+    // Some special shapes are already in OpenGL clip space
+    bool clipCoords = false;
 };
 
 /** Drawable Builder (Triangle version) is used to build up shapes made out of triangles.
     It's intended for use by the shape layer and the active version of that.
  */
-class ShapeDrawableBuilderTri
+struct ShapeDrawableBuilderTri
 {
-public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
     
     /// Construct with the visual description
-    ShapeDrawableBuilderTri(WhirlyKit::CoordSystemDisplayAdapter *coordAdapter,SceneRenderer *sceneRender,const ShapeInfo &shapeInfo,const Point3d &center);
-    virtual ~ShapeDrawableBuilderTri();
+    ShapeDrawableBuilderTri(const CoordSystemDisplayAdapter *,
+                            SceneRenderer *,
+                            const ShapeInfo &,
+                            const Point3d &center);
+    virtual ~ShapeDrawableBuilderTri() = default;
 
     // If set the geometry is already in OpenGL clip coordinates, so we don't transform it
     void setClipCoords(bool newClipCoords);
@@ -133,19 +141,27 @@ public:
 
     const ShapeInfo *getShapeInfo() { return &shapeInfo; }
 
-public:
+    const std::vector<BasicDrawableBuilderRef> &getDrawables() const { return drawables; }
+
+    const CoordSystemDisplayAdapter *coordAdapter;
+    SceneRenderer *sceneRender;
+
+    /// The name set on generated drawables, for debugging
+    void setDrawableName(const char *name) { drawableName = name ? name : ""; }
+    void setDrawableName(std::string name) { drawableName = std::move(name); }
+
+protected:
     // Creates a new local drawable with all the appropriate settings
     void setupNewDrawable();
 
-    CoordSystemDisplayAdapter *coordAdapter;    
-    SceneRenderer *sceneRender;
     Mbr drawMbr;
     const ShapeInfo &shapeInfo;
     BasicDrawableBuilderRef drawable;
     std::vector<BasicDrawableBuilderRef> drawables;
     std::vector<SimpleIdentity> texIDs;
     Point3d center;
-    bool clipCoords;
+    std::string drawableName;
+    bool clipCoords = false;
 };
 
 }

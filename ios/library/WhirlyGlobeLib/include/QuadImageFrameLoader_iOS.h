@@ -1,9 +1,8 @@
-/*
- *  QuadImageFrameLoader_iOS.h
+/*  QuadImageFrameLoader_iOS.h
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 2/18/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "QuadImageFrameLoader.h"
@@ -27,7 +25,7 @@
 - (void)fetchRequestSuccess:(MaplyTileFetchRequest *)request tileID:(MaplyTileID)tileID frame:(int)frame data:(NSData *)data;
 // Called on a random dispatch queue
 - (void)fetchRequestFail:(MaplyTileFetchRequest *)request tileID:(MaplyTileID)tileID frame:(int)frame error:(NSError *)error;
-// Also called on a randomd ispatch queue
+// Also called on a random dispatch queue
 - (void)tileUnloaded:(MaplyTileID)tileID;
 @end
 
@@ -92,11 +90,17 @@ public:
         
     // Fetch the tile frames.  Just fetch them all for now if frameToLoad is set to -1
     // Otherwise, just fetch the specified frame
-    virtual void startFetching(PlatformThreadInfo *threadInfo,QuadImageFrameLoader *loader,QuadFrameInfoRef frameToLoad,QIFBatchOps *batchOps,ChangeSet &changes) override;
+    virtual void startFetching(PlatformThreadInfo *threadInfo,
+                               QuadImageFrameLoader *loader,
+                               const QuadFrameInfoRef &frameToLoad,
+                               QIFBatchOps *batchOps,
+                               ChangeSet &changes) override;
 
 protected:
     // Specialized frame asset
-    virtual QIFFrameAssetRef makeFrameAsset(PlatformThreadInfo *threadInfo,QuadFrameInfoRef frameInfo,QuadImageFrameLoader *loader) override;
+    virtual QIFFrameAssetRef makeFrameAsset(PlatformThreadInfo *threadInfo,
+                                            const QuadFrameInfoRef &frameInfo,
+                                            QuadImageFrameLoader *loader) override;
 };
     
 // iOS version of the QuadFrameLoader
@@ -105,10 +109,18 @@ class QuadImageFrameLoader_ios : public QuadImageFrameLoader
 {
 public:
     // Displaying a single frame
-    QuadImageFrameLoader_ios(const SamplingParams &params,NSObject<MaplyTileInfoNew> *inTileInfo,Mode mode);
+    QuadImageFrameLoader_ios(const SamplingParams &params,
+                             NSObject<MaplyTileInfoNew> *inTileInfo,
+                             Mode mode,
+                             FrameLoadMode frameMode = FrameLoadMode::All);
+
     // Displaying multiple animated frames (or one with multiple data sources)
-    QuadImageFrameLoader_ios(const SamplingParams &params,NSArray<NSObject<MaplyTileInfoNew> *> *inFrameInfos,Mode mode);
-    ~QuadImageFrameLoader_ios();
+    QuadImageFrameLoader_ios(const SamplingParams &params,
+                             NSArray<NSObject<MaplyTileInfoNew> *> *inFrameInfos,
+                             Mode mode,
+                             FrameLoadMode frameMode = FrameLoadMode::All);
+
+    virtual ~QuadImageFrameLoader_ios() = default;
         
     NSObject<MaplyTileFetcher> * __weak tileFetcher;
     NSArray<NSObject<MaplyTileInfoNew> *> *frameInfos;
@@ -117,9 +129,9 @@ public:
     NSObject<QuadImageFrameLoaderLayer> * __weak layer;
 
     /// Number of frames we're representing
-    virtual int getNumFrames() override;
+    virtual int getNumFrames() const override;
     
-    // Contruct a platform specific BatchOps for passing to tile fetcher
+    // Construct a platform specific BatchOps for passing to tile fetcher
     // (we don't know about tile fetchers down here)
     virtual QIFBatchOps *makeBatchOps(PlatformThreadInfo *threadInfo) override;
     

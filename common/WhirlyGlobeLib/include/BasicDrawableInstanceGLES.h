@@ -1,9 +1,8 @@
-/*
- *  BasicDrawableInstanceGLES.h
+/*  BasicDrawableInstanceGLES.h
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/10/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "BasicDrawableInstance.h"
@@ -26,10 +24,10 @@ namespace WhirlyKit
 {
 
 /// OpenGL variant of BasicDrawableInstance
-class BasicDrawableInstanceGLES : virtual public BasicDrawableInstance, virtual public DrawableGLES
+struct BasicDrawableInstanceGLES : virtual public BasicDrawableInstance, virtual public DrawableGLES
 {
-friend class BasicDrawableInstanceBuilderGLES;
-public:
+    friend class BasicDrawableInstanceBuilderGLES;
+
     BasicDrawableInstanceGLES(const std::string &name);
     
     /// Set up local rendering structures (e.g. VBOs)
@@ -47,9 +45,14 @@ public:
 protected:
     GLuint setupVAO(RendererFrameInfoGLES *frameInfo);
     
-    int centerSize,matSize,colorInstSize,colorSize,instSize,modelDirSize;
-    GLuint instBuffer;
-    GLuint vertArrayObj;
+    int centerSize = 0;
+    int matSize = 0;
+    int colorInstSize = 0;
+    int colorSize = 0;
+    int instSize = 0;
+    int modelDirSize = 0;
+    GLuint instBuffer = 0U;
+    GLuint vertArrayObj = 0U;
     std::vector<BasicDrawableGLES::VertAttrDefault> vertArrayDefaults;
 };
 

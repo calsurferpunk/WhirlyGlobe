@@ -2,7 +2,7 @@
  *  MaplyQuadImageFrameLoader.h
  *
  *  Created by Steve Gifford on 9/13/18.
- *  Copyright 2012-2018 mousebird consulting inc
+ *  Copyright 2012-2022 mousebird consulting inc
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
  *
  */
 
-#import "loading/MaplyQuadImageLoader.h"
-#import "control/MaplyActiveObject.h"
+#import <WhirlyGlobe/MaplyQuadImageLoader.h>
+#import <WhirlyGlobe/MaplyActiveObject.h>
 
 @class MaplyQuadImageFrameLoader;
 
@@ -92,11 +92,29 @@ typedef NS_ENUM(NSInteger, MaplyLoadFrameMode) {
  @param params The sampling parameters describing how to break down the data for projection onto a globe or map.
  @param tileInfos A list of tile info objects to fetch for each frame.
  @param viewC the View controller (or renderer) to add objects to.
+ @param loadAllFrames Whether we load frames not currently being displayed
  */
-- (nullable instancetype)initWithParams:(MaplySamplingParams *__nonnull)params tileInfos:(NSArray<NSObject<MaplyTileInfoNew> *> *__nonnull)tileInfos viewC:(MaplyBaseViewController * __nonnull)viewC;
+- (nullable instancetype)initWithParams:(MaplySamplingParams *__nonnull)params
+                              tileInfos:(NSArray<NSObject<MaplyTileInfoNew> *> *__nonnull)tileInfos
+                                  viewC:(NSObject<MaplyRenderControllerProtocol> *__nonnull)viewC
+                          loadAllFrames:(bool)loadAllFrames;
+
+/**
+ Initialize with multiple tile sources (one per frame).
+ 
+ @param params The sampling parameters describing how to break down the data for projection onto a globe or map.
+ @param tileInfos A list of tile info objects to fetch for each frame.
+ @param viewC the View controller (or renderer) to add objects to.
+ */
+- (nullable instancetype)initWithParams:(MaplySamplingParams *__nonnull)params
+                              tileInfos:(NSArray<NSObject<MaplyTileInfoNew> *> *__nonnull)tileInfos
+                                  viewC:(NSObject<MaplyRenderControllerProtocol> *__nonnull)viewC;
 
 /// How frames are loaded (top down vs broad)
 @property (nonatomic,assign) MaplyLoadFrameMode loadFrameMode;
+
+/// Whether we load frames not currently being displayed
+@property (nonatomic,assign) bool loadAllFrames;
 
 /**
   Add another rendering focus to the frame loader.

@@ -1,9 +1,8 @@
-/*
- *  QuadSamplingLayer.cpp
+/*  QuadSamplingLayer.cpp
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 3/28/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,16 +14,18 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 package com.mousebird.maply;
 
 import android.util.Log;
 
+import androidx.annotation.CallSuper;
+
+import org.jetbrains.annotations.NotNull;
+
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
-import java.util.logging.Handler;
 
 /**
  * The Quad Sampling Layer runs a quad tree which determines what
@@ -63,7 +64,7 @@ public class QuadSamplingLayer extends Layer implements LayerThread.ViewWatcherI
         layerThread.addChanges(changes);
     }
 
-    ArrayList<ClientInterface> clients = new ArrayList<ClientInterface>();
+    private final ArrayList<ClientInterface> clients = new ArrayList<>();
 
     /**
      * Client will stop getting updates from this sampling layer.
@@ -96,48 +97,66 @@ public class QuadSamplingLayer extends Layer implements LayerThread.ViewWatcherI
         layerThread.addChanges(changes);
     }
 
-    boolean isShuttingDown = false;
+    // Used for debugging
+//    public long ident = Identifiable.genID();
 
+
+    /**
+     * This method is called when the layer will soon be shut down,
+     * but outside any lock context and from another thread.
+     * This should not block or do any real work.
+     */
+    @Override
+    @CallSuper
+    public void preShutdown() {
+        super.preShutdown();
+        preShutdownNative();
+    }
+
+    @Override
+    @CallSuper
     public void shutdown()
     {
-        isShuttingDown = true;
         ChangeSet changes = new ChangeSet();
         shutdownNative(changes);
+
         layerThread.addChanges(changes);
+
+        super.shutdown();
     }
 
     // Used to sunset delayed view updates
-    int generation = 0;
+    private int generation = 0;
 
     /** --- View Updated Methods --- **/
     public void viewUpdated(final ViewState viewState)
     {
-        if (isShuttingDown)
+        if (isShuttingDown || layerThread.isShuttingDown)
             return;
 
-        generation++;
-        final int thisGeneration = generation;
+        final int thisGeneration = ++generation;
 
-        ChangeSet changes = new ChangeSet();
-        if (viewUpdatedNative(viewState,changes)) {
-            if (isShuttingDown)
+//        Log.d("Maply", "QuadSamplingLayer: pre-viewUpdatedNative + " + ident);
+        try (LayerThread.WorkWrapper wr = layerThread.startOfWorkWrapper()) {
+            if (wr == null) {
                 return;
+            }
 
-            // Have a few things left to process.  So come back in a bit and do them.
-            layerThread.addDelayedTask(new Runnable() {
-                @Override
-                public void run() {
-                    if (isShuttingDown)
-                        return;
-
-                    // If we've moved on, then cancel
-                    if (thisGeneration < generation)
-                        return;
-                    viewUpdated(viewState);
-                }
-            },LayerThread.UpdatePeriod);
+            ChangeSet changes = new ChangeSet();
+            if (viewUpdatedNative(viewState, changes)) {
+                // Have a few things left to process.  So come back in a bit and do them.
+                layerThread.addDelayedTask(() -> {
+                    // If we've moved on, then skip it
+                    if (thisGeneration >= generation) {
+                        viewUpdated(viewState);
+                    }
+                }, LayerThread.UpdatePeriod);
+            }
+            layerThread.addChanges(changes);
         }
-        layerThread.addChanges(changes);
+    }
+
+    public void tilesUnloaded(@NotNull TileID[] ids) {
     }
 
     // Called no more often than 1/10 of a second
@@ -158,14 +177,13 @@ public class QuadSamplingLayer extends Layer implements LayerThread.ViewWatcherI
     private native boolean viewUpdatedNative(ViewState viewState,ChangeSet changes);
     private native void startNative(SamplingParams params,Scene scene,RenderController render);
     private native void preSceneFlushNative(ChangeSet changes);
+    private native void preShutdownNative();
     private native void shutdownNative(ChangeSet changes);
 
-    public void finalize()
-    {
+    public void finalize() {
         dispose();
     }
-    static
-    {
+    static {
         nativeInit();
     }
     private static native void nativeInit();

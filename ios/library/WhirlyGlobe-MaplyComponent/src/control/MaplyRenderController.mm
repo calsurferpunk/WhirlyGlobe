@@ -1,9 +1,8 @@
-/*
- *  MaplyRenderController.mm
+/*  MaplyRenderController.mm
  *  WhirlyGlobeMaplyComponent
  *
  *  Created by Stephen Gifford on 1/19/18.
- *  Copyright 2012-2021 Saildrone Inc.
+ *  Copyright 2012-2023 Saildrone Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "MaplyRenderController_private.h"
@@ -31,6 +29,8 @@
 #import "MaplyActiveObject_private.h"
 #import "MaplyRenderTarget_private.h"
 #import "WorkRegion_private.h"
+#import "MaplyBaseInteractionLayer_private.h"
+#import "LayerThread.h"
 
 using namespace WhirlyKit;
 using namespace Eigen;
@@ -41,6 +41,7 @@ using namespace Eigen;
     // This view is used when we're not provided with a real view
     PassThroughCoordSystemRef coordSys;
     GeneralCoordSystemDisplayAdapterRef genCoordAdapter;
+    CoordSystemDisplayAdapterRef coordAdapterRef;
     Maply::FlatViewRef flatView;
 
     bool offlineMode;
@@ -48,12 +49,14 @@ using namespace Eigen;
     CGSize initialFramebufferSize;
 }
 
+@synthesize errorReportingDelegate;
+
 - (instancetype __nullable)init
 {
     self = [super init];
     mainThread = [NSThread currentThread];
 
-    tileFetcherConnections = 16;
+    _tileFetcherConnections = 16;
     userLayers = [NSMutableArray array];
 
     return self;
@@ -77,13 +80,13 @@ using namespace Eigen;
     // If the coordinate system hasn't been set up, we'll do a flat one
     if (!coordAdapter) {
         // Coordinate system and view that just pass coordinates through
-        coordSys = PassThroughCoordSystemRef(new PassThroughCoordSystem());
+        coordSys = std::make_shared<PassThroughCoordSystem>();
         Point3d ll(0.0,0.0,0.0),ur(size.width,size.height,0.0);
         Point3d scale(1.0,1.0,1.0);
         Point3d center = (ll+ur)/2.0;
-        genCoordAdapter = GeneralCoordSystemDisplayAdapterRef(new GeneralCoordSystemDisplayAdapter(coordSys.get(),ll,ur,center,scale));
+        genCoordAdapter = std::make_shared<GeneralCoordSystemDisplayAdapter>(coordSys.get(),ll,ur,center,scale);
         coordAdapter = genCoordAdapter.get();
-        flatView = Maply::FlatViewRef(new Maply::FlatView(coordAdapter));
+        flatView = std::make_shared<Maply::FlatView>(coordAdapter);
         visualView = flatView;
         Mbr extents;
         extents.addPoint(Point2f(ll.x(),ll.y()));
@@ -91,12 +94,40 @@ using namespace Eigen;
         flatView->setExtents(extents);
         flatView->setWindow(Point2d(size.width,size.height),Point2d(0.0,0.0));
     }
-    
+
     [self loadSetup];
-    
+
     [self loadSetup_scene:[[MaplyBaseInteractionLayer alloc] initWithView:visualView]];
-    [self setupShaders];
-        
+
+    return self;
+}
+
+- (instancetype)initWithSize:(CGSize)size mode:(MaplyRenderType)renderType mapView:(int)_
+{
+    const auto originLon = 0.0;
+    const auto ll = GeoCoord::CoordFromDegrees(-180.0,-90.0);
+    const auto ur = GeoCoord::CoordFromDegrees(180.0,90.0);
+    coordAdapterRef = std::make_shared<SphericalMercatorDisplayAdapter>(originLon, ll, ur);
+    coordAdapter = coordAdapterRef.get();
+    auto mapView = std::make_shared<Maply::MapView>(coordAdapter);
+    visualView = mapView;
+    mapView->setContinuousZoom(true);
+    //mapView->setWrap(_viewWrap);
+    //mapView->addWatcher(&animWrapper);
+
+    if (!(self = [self initWithSize:size mode:renderType]))
+    {
+        return nil;
+    }
+
+    if (auto sr = dynamic_cast<SceneRendererMTL*>(sceneRenderer.get()))
+    {
+        sr->offscreenBlendEnable = true;
+        sr->getRenderTargets().front()->blendEnable = true;
+    }
+
+    [self setHints:@{kMaplyRendererLightingMode: @"none"}];
+
     return self;
 }
 
@@ -115,13 +146,21 @@ using namespace Eigen;
         [tileFetcher shutdown];
     tileFetchers.clear();
     
+    for (MaplyActiveObject *theObj in activeObjects)
+    {
+        [theObj removeFromScene];
+    }
+    [activeObjects removeAllObjects];
+
     // This stuff is our responsibility if we created it
     if (offlineMode) {
         if (interactLayer)
             [interactLayer teardown];
     }
     
+#if !MAPLY_MINIMAL
     defaultClusterGenerator = nil;
+#endif //!MAPLY_MINIMAL
 
     if (baseLayerThread)
     {
@@ -155,10 +194,13 @@ using namespace Eigen;
     sceneRenderer = nil;
     
     layerThreads = nil;
-    //    NSLog(@"BaseViewController: Layers shut down");
+#if !MAPLY_MINIMAL
     fontTexManager = NULL;
+#endif //!MAPLY_MINIMAL
     baseLayerThread = nil;
+#if !MAPLY_MINIMAL
     layoutLayer = nil;
+#endif //!MAPLY_MINIMAL
 
     activeObjects = nil;
     
@@ -179,6 +221,11 @@ using namespace Eigen;
     theClearColor = nil;
 }
 
+- (TimeInterval)baseTime
+{
+    return scene ? scene->getBaseTime() : 0.0;
+}
+
 - (void)loadSetup
 {
     screenDrawPriorityOffset = 1000000;
@@ -189,7 +236,7 @@ using namespace Eigen;
     if (err) {
         NSLog(@"Failed to set up default Metal library in MaplyRenderController::loadSetup.  Things will be missing.");
     }
-    SceneRendererMTLRef sceneRendererMTL = SceneRendererMTLRef(new SceneRendererMTL(mtlDevice,mtlLib,1.0));
+    SceneRendererMTLRef sceneRendererMTL = std::make_shared<SceneRendererMTL>(self,mtlDevice,mtlLib,1.0);
     if (offlineMode)
         sceneRendererMTL->setup((int)initialFramebufferSize.width,(int)initialFramebufferSize.height, true);
     sceneRenderer = sceneRendererMTL;
@@ -208,23 +255,32 @@ using namespace Eigen;
 
 - (void)loadSetup_scene:(MaplyBaseInteractionLayer *)newInteractLayer
 {
-    scene = new SceneMTL(visualView->coordAdapter);
+    auto adapter = const_cast<CoordSystemDisplayAdapter*>(visualView->getCoordAdapter());
+    scene = new SceneMTL(adapter);
     sceneRenderer->setScene(scene);
 
     // Set up a Font Texture Manager
+#if !MAPLY_MINIMAL
     fontTexManager = std::make_shared<FontTextureManager_iOS>(sceneRenderer.get(),scene);
     scene->setFontTextureManager(fontTexManager);
-    
+#endif //!MAPLY_MINIMAL
+
     layerThreads = [NSMutableArray array];
     
     // Need a layer thread to manage the layers
-    baseLayerThread = [[WhirlyKitLayerThread alloc] initWithScene:scene view:visualView.get() renderer:sceneRenderer.get() mainLayerThread:true];
+    baseLayerThread = [[WhirlyKitLayerThread alloc] initWithScene:scene
+                                                             view:visualView.get()
+                                                         renderer:sceneRenderer.get()
+                                                  mainLayerThread:true
+                                                    renderControl:self];
     [layerThreads addObject:baseLayerThread];
     
     // Layout still needs a layer to kick it off
+#if !MAPLY_MINIMAL
     layoutLayer = [[WhirlyKitLayoutLayer alloc] initWithRenderer:sceneRenderer.get()];
     [baseLayerThread addLayer:layoutLayer];
-    
+#endif //!MAPLY_MINIMAL
+
     if (newInteractLayer) {
         interactLayer = newInteractLayer;
         interactLayer.screenObjectDrawPriorityOffset = [self screenObjectDrawPriorityOffset];
@@ -240,8 +296,10 @@ using namespace Eigen;
     [baseLayerThread start];
     
     // Default cluster generator
+#if !MAPLY_MINIMAL
     defaultClusterGenerator = [[MaplyBasicClusterGenerator alloc] initWithColors:@[[UIColor orangeColor]] clusterNumber:0 size:CGSizeMake(32,32) viewC:self];
     [self addClusterGenerator:defaultClusterGenerator];
+#endif //!MAPLY_MINIMAL
 
     interactLayer->layerThreads = layerThreads;
     [baseLayerThread addLayer:interactLayer];
@@ -257,6 +315,28 @@ using namespace Eigen;
 - (int)screenObjectDrawPriorityOffset
 {
     return screenDrawPriorityOffset;
+}
+
+- (void)setPosition:(MaplyCoordinate)newPos height:(float)height
+{
+    visualView->cancelAnimation();
+
+    const auto geo = GeoCoord(newPos.x, newPos.y);
+
+    if (auto mv = dynamic_cast<Maply::MapView*>(visualView.get()))
+    {
+        const auto adapter = visualView->getCoordAdapter();
+        Point3d loc = adapter->getCoordSystem()->geographicToLocal3d(geo);
+        loc.z() = height;
+        mv->setLoc(loc);
+    }
+#if !MAPLY_MINIMAL
+    else if (auto gv = dynamic_cast<WhirlyGlobe::GlobeView*>(visualView.get()))
+    {
+        gv->setRotQuat(gv->makeRotationToGeoCoord(geo, true));
+        gv->setHeightAboveGlobe(height);
+    }
+#endif //!MAPLY_MINIMAL
 }
 
 - (UIImage *)renderToImage
@@ -280,7 +360,7 @@ using namespace Eigen;
     SceneRendererMTLRef sceneRendererMTL = std::dynamic_pointer_cast<SceneRendererMTL>(sceneRenderer);
     
     sceneRendererMTL->forceDrawNextFrame();
-    sceneRendererMTL->render(1.0/60.0,nil,nil);
+    sceneRendererMTL->render(1.0/60.0,nil);
     RawDataRef dataRef = sceneRendererMTL->getSnapshot(EmptyIdentity);
     RawNSDataReaderRef rawData = std::dynamic_pointer_cast<RawNSDataReader>(dataRef);
     if (rawData)
@@ -289,6 +369,7 @@ using namespace Eigen;
     return toRet;
 }
 
+#if !MAPLY_MINIMAL
 - (void)clearLights
 {
     lights = nil;
@@ -339,17 +420,20 @@ using namespace Eigen;
 - (void)updateLights
 {
     std::vector<DirectionalLight> newLights;
+    newLights.reserve(lights.count);
+
     for (MaplyLight *light in lights)
     {
-        DirectionalLight theLight;
-        theLight.pos = Vector3f(light.pos.x,light.pos.y,light.pos.z);
-        theLight.ambient = [light.ambient asVec4];
-        theLight.diffuse = [light.diffuse asVec4];
-        theLight.viewDependent = light.viewDependent;
-        newLights.push_back(theLight);
+        newLights.emplace_back();
+        DirectionalLight &theLight = newLights.back();
+        theLight.setPos({light.pos.x,light.pos.y,light.pos.z});
+        theLight.setAmbient([light.ambient asVec4]);
+        theLight.setDiffuse([light.diffuse asVec4]);
+        theLight.setViewDependent(light.viewDependent);
     }
     sceneRenderer->replaceLights(newLights);
 }
+#endif //!MAPLY_MINIMAL
 
 - (void)addShaderProgram:(MaplyShader *__nonnull)shader
 {
@@ -393,18 +477,9 @@ using namespace Eigen;
         scene->removeProgram(shaderToRemove.program->getId(),NULL);
 }
 
-- (MaplyShader *__nullable)getShaderByName:(NSString *__nonnull)name
+- (MaplyShader *__nullable)getShaderByName:(const NSString *__nonnull)name
 {
-    if (!interactLayer)
-        return nil;
-
-    @synchronized (interactLayer->shaders) {
-        for (MaplyShader *shader in interactLayer->shaders)
-            if (![shader.name compare:name])
-                return shader;
-    }
-    
-    return nil;
+    return [interactLayer getProgramByName:name];
 }
 
 // Merge the two dictionaries, add taking precidence into account, and then look for NSNulls
@@ -439,6 +514,9 @@ using namespace Eigen;
 
 - (MaplyComponentObject *__nullable)addScreenMarkers:(NSArray *__nonnull)markers desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode
 {
+    if ([markers count] == 0)
+        return nil;
+
     if (auto wr = WorkRegion(interactLayer)) {
         return [interactLayer addScreenMarkers:markers desc:desc mode:threadMode];
     }
@@ -447,6 +525,9 @@ using namespace Eigen;
 
 - (MaplyComponentObject *__nullable)addMarkers:(NSArray *__nonnull)markers desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode
 {
+    if ([markers count] == 0)
+        return nil;
+
     if (auto wr = WorkRegion(interactLayer)) {
         return [interactLayer addMarkers:markers desc:desc mode:threadMode];
     }
@@ -455,6 +536,9 @@ using namespace Eigen;
 
 - (MaplyComponentObject *__nullable)addScreenLabels:(NSArray *__nonnull)labels desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode
 {
+    if ([labels count] == 0)
+        return nil;
+    
     if (auto wr = WorkRegion(interactLayer)) {
         return [interactLayer addScreenLabels:labels desc:desc mode:threadMode];
     }
@@ -463,6 +547,9 @@ using namespace Eigen;
 
 - (MaplyComponentObject *__nullable)addLabels:(NSArray *__nonnull)labels desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode
 {
+    if ([labels count] == 0)
+        return nil;
+
     if (auto wr = WorkRegion(interactLayer)) {
         return [interactLayer addLabels:labels desc:desc mode:threadMode];
     }
@@ -471,6 +558,9 @@ using namespace Eigen;
 
 - (MaplyComponentObject *__nullable)addVectors:(NSArray *__nonnull)vectors desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode
 {
+    if ([vectors count] == 0)
+        return nil;
+
     if (auto wr = WorkRegion(interactLayer)) {
         return [interactLayer addVectors:vectors desc:desc mode:threadMode];
     }
@@ -479,6 +569,9 @@ using namespace Eigen;
 
 - (MaplyComponentObject *__nullable)instanceVectors:(MaplyComponentObject *__nonnull)baseObj desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode
 {
+    if (!baseObj)
+        return nil;
+    
     if (auto wr = WorkRegion(interactLayer)) {
         return [interactLayer instanceVectors:baseObj desc:desc mode:threadMode];
     }
@@ -487,6 +580,9 @@ using namespace Eigen;
 
 - (MaplyComponentObject *__nullable)addWideVectors:(NSArray *__nonnull)vectors desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode
 {
+    if ([vectors count] == 0)
+        return nil;
+
     if (auto wr = WorkRegion(interactLayer)) {
         return [interactLayer addWideVectors:vectors desc:desc mode:threadMode];
     }
@@ -495,6 +591,9 @@ using namespace Eigen;
 
 - (MaplyComponentObject *__nullable)addModelInstances:(NSArray *__nonnull)modelInstances desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode
 {
+    if ([modelInstances count] == 0)
+        return nil;
+
     if (auto wr = WorkRegion(interactLayer)) {
         return [interactLayer addModelInstances:modelInstances desc:desc mode:threadMode];
     }
@@ -503,6 +602,9 @@ using namespace Eigen;
 
 - (MaplyComponentObject *__nullable)addGeometry:(NSArray *__nonnull)geom desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode
 {
+    if ([geom count] == 0)
+        return nil;
+
     if (auto wr = WorkRegion(interactLayer)) {
         return [interactLayer addGeometry:geom desc:desc mode:threadMode];
     }
@@ -511,6 +613,9 @@ using namespace Eigen;
 
 - (void)changeVector:(MaplyComponentObject *__nonnull)compObj desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode
 {
+    if (!compObj)
+        return;
+
     if (auto wr = WorkRegion(interactLayer)) {
         [interactLayer changeVectors:compObj desc:desc mode:threadMode];
     }
@@ -518,14 +623,31 @@ using namespace Eigen;
 
 - (MaplyComponentObject *__nullable)addShapes:(NSArray *__nonnull)shapes desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode
 {
+    if ([shapes count] == 0)
+        return nil;
+
     if (auto wr = WorkRegion(interactLayer)) {
         return [interactLayer addShapes:shapes desc:desc mode:threadMode];
     }
     return nil;
 }
 
+- (MaplyComponentObject *__nullable)addShapes:(NSArray *__nonnull)shapes info:(ShapeInfo &)shapeInfo desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode
+{
+    if ([shapes count] == 0)
+        return nil;
+
+    if (auto wr = WorkRegion(interactLayer)) {
+        return [interactLayer addShapes:shapes info:shapeInfo desc:desc mode:threadMode];
+    }
+    return nil;
+}
+
 - (MaplyComponentObject *__nullable)addStickers:(NSArray *__nonnull)stickers desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode
 {
+    if ([stickers count] == 0)
+        return nil;
+
     if (auto wr = WorkRegion(interactLayer)) {
         return [interactLayer addStickers:stickers desc:desc mode:threadMode];
     }
@@ -534,6 +656,9 @@ using namespace Eigen;
 
 - (void)changeSticker:(MaplyComponentObject *__nonnull)compObj desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode
 {
+    if (!compObj)
+        return;
+
     if (auto wr = WorkRegion(interactLayer)) {
         [interactLayer changeSticker:compObj desc:desc mode:threadMode];
     }
@@ -541,6 +666,9 @@ using namespace Eigen;
 
 - (MaplyComponentObject *__nullable)addBillboards:(NSArray *__nonnull)billboards desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode
 {
+    if ([billboards count] == 0)
+        return nil;
+
     if (auto wr = WorkRegion(interactLayer)) {
         return [interactLayer addBillboards:billboards desc:desc mode:threadMode];
     }
@@ -549,6 +677,9 @@ using namespace Eigen;
 
 - (MaplyComponentObject *)addParticleSystem:(MaplyParticleSystem *)partSys desc:(NSDictionary *)desc mode:(MaplyThreadMode)threadMode
 {
+    if (!partSys)
+        return nil;
+
     if (auto wr = WorkRegion(interactLayer)) {
         return [interactLayer addParticleSystem:partSys desc:desc mode:threadMode];
     }
@@ -557,6 +688,9 @@ using namespace Eigen;
 
 - (void)changeParticleSystem:(MaplyComponentObject *__nonnull)compObj renderTarget:(MaplyRenderTarget *__nullable)target
 {
+    if (!compObj)
+        return;
+
     if ([NSThread currentThread] != mainThread) {
         NSLog(@"MaplyBaseViewController: changeParticleSystem:renderTarget: must be called on main thread");
         return;
@@ -579,6 +713,9 @@ using namespace Eigen;
 
 - (MaplyComponentObject *__nullable)addLoftedPolys:(NSArray *__nonnull)polys desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode
 {
+    if ([polys count] == 0)
+        return nil;
+    
     if (auto wr = WorkRegion(interactLayer)) {
         return [interactLayer addLoftedPolys:polys desc:desc mode:threadMode];
     }
@@ -587,6 +724,9 @@ using namespace Eigen;
 
 - (MaplyComponentObject *__nullable)addPoints:(NSArray * __nonnull)points desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode
 {
+    if ([points count] == 0)
+        return nil;
+
     if (auto wr = WorkRegion(interactLayer)) {
         return [interactLayer addPoints:points desc:desc mode:threadMode];
     }
@@ -595,6 +735,9 @@ using namespace Eigen;
 
 - (MaplyTexture *__nullable)addTexture:(UIImage *__nonnull)image desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode
 {
+    if (!image)
+        return nil;
+    
     if (auto wr = WorkRegion(interactLayer)) {
         return [interactLayer addTexture:image desc:desc mode:threadMode];
     }
@@ -603,6 +746,9 @@ using namespace Eigen;
 
 - (MaplyTexture *__nullable)addSubTexture:(MaplyTexture *__nonnull)tex xOffset:(int)x yOffset:(int)y width:(int)width height:(int)height mode:(MaplyThreadMode)threadMode
 {
+    if (!tex)
+        return nil;
+    
     if (auto wr = WorkRegion(interactLayer)) {
         return [interactLayer addSubTexture:tex xOffset:x yOffset:y width:width height:height mode:threadMode];
     }
@@ -623,6 +769,9 @@ using namespace Eigen;
 
 - (void)removeTextures:(NSArray *__nonnull)textures mode:(MaplyThreadMode)threadMode
 {
+    if ([textures count] == 0)
+        return;
+
     if (auto wr = WorkRegion(interactLayer)) {
         [interactLayer removeTextures:textures mode:threadMode];
     }
@@ -694,6 +843,9 @@ using namespace Eigen;
     if (Program *prog = scene->findProgramByName(MaplyDefaultWideVectorShader)) {
         scene->addChangeRequest(new ShaderAddTextureReq(prog->getId(),0,maskTex.texID,0));
     }
+    if (Program *prog = scene->findProgramByName(MaplyWideVectorPerformanceShader)) {
+        scene->addChangeRequest(new ShaderAddTextureReq(prog->getId(),0,maskTex.texID,0));
+    }
 }
 
 - (void)stopMaskTarget
@@ -762,6 +914,22 @@ using namespace Eigen;
     }
 }
 
+- (int)retainZoomSlotMinZoom:(double)minZoom
+                   maxHeight:(double)maxHeight
+                     maxZoom:(double)maxZoom
+                   minHeight:(double)minHeight
+{
+    return sceneRenderer ? sceneRenderer->retainZoomSlot(minZoom, maxHeight, maxZoom, minHeight) : -1;
+}
+
+- (void)releaseZoomSlotIndex:(int)index
+{
+    if (sceneRenderer)
+    {
+        sceneRenderer->releaseZoomSlot(index);
+    }
+}
+
 - (void)setUniformBlock:(NSData *__nonnull)uniBlock buffer:(int)bufferID forObjects:(NSArray<MaplyComponentObject *> *__nonnull)compObjs mode:(MaplyThreadMode)threadMode
 {
     if (auto wr = WorkRegion(interactLayer)) {
@@ -801,7 +969,8 @@ using namespace Eigen;
     if (!sceneRenderer)
         return CGSizeZero;
     
-    return CGSizeMake(sceneRenderer->framebufferWidth,sceneRenderer->framebufferHeight);
+    const Point2f size = sceneRenderer->getFramebufferSize();
+    return CGSizeMake(size.x(),size.y());
 }
 
 // MARK: Snapshot protocol
@@ -828,12 +997,11 @@ using namespace Eigen;
     if (!interactLayer)
         return;
     
-    if (!program) {
+    if (!program || !program->isValid()) {
         NSLog(@"Default shader setup:  Failed to create %@",inName);
         return;
     }
-    
-    std::string name = [inName cStringUsingEncoding:NSASCIIStringEncoding];
+
     MaplyShader *shader = [[MaplyShader alloc] initWithProgram:program viewC:self];
     shader.name = inName;
     @synchronized (interactLayer->shaders) {
@@ -862,7 +1030,7 @@ using namespace Eigen;
     if (!interactLayer)
         return;
     
-    bool isGlobe = !scene->getCoordAdapter()->isFlat();
+    const bool isGlobe = !scene->getCoordAdapter()->isFlat();
 
     // Get the default library.  This should be bundled with WhirlyGlobe-Maply
     SceneRendererMTL *sceneRenderMTL = (SceneRendererMTL *)sceneRenderer.get();
@@ -870,105 +1038,110 @@ using namespace Eigen;
     NSError *err = nil;
     id<MTLLibrary> mtlLib = [mtlDevice newDefaultLibraryWithBundle:[NSBundle bundleForClass:[MaplyRenderController class]] error:&err];
     
-    ProgramRef defaultLineShader = ProgramRef(new ProgramMTL([kMaplyShaderDefaultLine cStringUsingEncoding:NSASCIIStringEncoding],
-                                                             [mtlLib newFunctionWithName:@"vertexLineOnly_globe"],
-                                                             [mtlLib newFunctionWithName:@"fragmentLineOnly_globe"]));
-    ProgramRef defaultLineShaderNoBack = ProgramRef(new ProgramMTL([kMaplyShaderDefaultLineNoBackface cStringUsingEncoding:NSASCIIStringEncoding],
-                                                             [mtlLib newFunctionWithName:@"vertexLineOnly_flat"],
-                                                             [mtlLib newFunctionWithName:@"fragmentLineOnly_flat"]));
-    if (isGlobe)
-        [self addShader:kMaplyShaderDefaultLine program:defaultLineShader];
-    else
-        [self addShader:kMaplyShaderDefaultLine program:defaultLineShaderNoBack];
+    auto defaultLineShader = std::make_shared<ProgramMTL>(
+        [kMaplyShaderDefaultLine cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
+        [mtlLib newFunctionWithName:@"vertexLineOnly_globe"],
+        [mtlLib newFunctionWithName:@"fragmentLineOnly_globe"]);
+    auto defaultLineShaderNoBack = std::make_shared<ProgramMTL>(
+        [kMaplyShaderDefaultLineNoBackface cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
+        [mtlLib newFunctionWithName:@"vertexLineOnly_flat"],
+        [mtlLib newFunctionWithName:@"fragmentLineOnly_flat"]);
+
+    [self addShader:kMaplyShaderDefaultLine program:isGlobe ? defaultLineShader : defaultLineShaderNoBack];
     [self addShader:kMaplyShaderDefaultLineNoBackface program:defaultLineShaderNoBack];
 
     // Default triangle shaders
-    [self addShader:kMaplyShaderDefaultTri
-            program:ProgramRef(new ProgramMTL([kMaplyShaderDefaultTri cStringUsingEncoding:NSASCIIStringEncoding],
-                                              [mtlLib newFunctionWithName:@"vertexTri_light"],
-                                              [mtlLib newFunctionWithName:@"fragmentTri_basic"]))];
-    [self addShader:kMaplyShaderTriExp
-            program:ProgramRef(new ProgramMTL([kMaplyShaderTriExp cStringUsingEncoding:NSASCIIStringEncoding],
-                                              [mtlLib newFunctionWithName:@"vertexTri_lightExp"],
-                                              [mtlLib newFunctionWithName:@"fragmentTri_basic"]))];
-    [self addShader:kMaplyShaderDefaultTriNoLighting
-            program:ProgramRef(new ProgramMTL([kMaplyShaderDefaultTriNoLighting cStringUsingEncoding:NSASCIIStringEncoding],
-                                              [mtlLib newFunctionWithName:@"vertexTri_noLight"],
-                                              [mtlLib newFunctionWithName:@"fragmentTri_basic"]))];
-    [self addShader:kMaplyShaderNoLightTriangleExp
-            program:ProgramRef(new ProgramMTL([kMaplyShaderNoLightTriangleExp cStringUsingEncoding:NSASCIIStringEncoding],
-                                              [mtlLib newFunctionWithName:@"vertexTri_noLightExp"],
-                                              [mtlLib newFunctionWithName:@"fragmentTri_basic"]))];
+    [self addShader:kMaplyShaderDefaultTri program: std::make_shared<ProgramMTL>(
+        [kMaplyShaderDefaultTri cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
+        [mtlLib newFunctionWithName:@"vertexTri_light"],
+        [mtlLib newFunctionWithName:@"fragmentTri_basic"])];
+    [self addShader:kMaplyShaderTriExp program: std::make_shared<ProgramMTL>(
+        [kMaplyShaderTriExp cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
+        [mtlLib newFunctionWithName:@"vertexTri_lightExp"],
+        [mtlLib newFunctionWithName:@"fragmentTri_basic"])];
+    [self addShader:kMaplyShaderDefaultTriNoLighting program: std::make_shared<ProgramMTL>(
+        [kMaplyShaderDefaultTriNoLighting cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
+        [mtlLib newFunctionWithName:@"vertexTri_noLight"],
+        [mtlLib newFunctionWithName:@"fragmentTri_basic"])];
+    [self addShader:kMaplyShaderNoLightTriangleExp program: std::make_shared<ProgramMTL>(
+        [kMaplyShaderNoLightTriangleExp cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
+        [mtlLib newFunctionWithName:@"vertexTri_noLightExp"],
+        [mtlLib newFunctionWithName:@"fragmentTri_basic"])];
 
     // TODO: Screen Space Texture application
 
     // Multitexture shader - Used for animation
-    [self addShader:kMaplyShaderDefaultTriMultiTex
-            program:ProgramRef(new ProgramMTL([kMaplyShaderDefaultTriMultiTex cStringUsingEncoding:NSASCIIStringEncoding],
-                                              [mtlLib newFunctionWithName:@"vertexTri_multiTex"],
-                                              [mtlLib newFunctionWithName:@"fragmentTri_multiTex"]))];
+    [self addShader:kMaplyShaderDefaultTriMultiTex program: std::make_shared<ProgramMTL>(
+        [kMaplyShaderDefaultTriMultiTex cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
+        [mtlLib newFunctionWithName:@"vertexTri_multiTex"],
+        [mtlLib newFunctionWithName:@"fragmentTri_multiTex"])];
     
     // Multitexture ramp shader - Very simple implementation of animated color lookup
-    [self addShader:kMaplyShaderDefaultTriMultiTexRamp
-            program:ProgramRef(new ProgramMTL([kMaplyShaderDefaultTriMultiTexRamp cStringUsingEncoding:NSASCIIStringEncoding],
-                                              [mtlLib newFunctionWithName:@"vertexTri_multiTex"],
-                                              [mtlLib newFunctionWithName:@"fragmentTri_multiTexRamp"]))];
+    [self addShader:kMaplyShaderDefaultTriMultiTexRamp program: std::make_shared<ProgramMTL>(
+        [kMaplyShaderDefaultTriMultiTexRamp cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
+        [mtlLib newFunctionWithName:@"vertexTri_multiTex"],
+        [mtlLib newFunctionWithName:@"fragmentTri_multiTexRamp"])];
     
     // MultiTexture for Markers
-    [self addShader:kMaplyShaderDefaultMarker
-            program:ProgramRef(new ProgramMTL([kMaplyShaderDefaultTriMultiTex cStringUsingEncoding:NSASCIIStringEncoding],
-                                              [mtlLib newFunctionWithName:@"vertexTri_multiTex"],
-                                              [mtlLib newFunctionWithName:@"fragmentTri_multiTex"]))];
+    [self addShader:kMaplyShaderDefaultMarker program: std::make_shared<ProgramMTL>(
+        [kMaplyShaderDefaultTriMultiTex cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
+        [mtlLib newFunctionWithName:@"vertexTri_multiTex"],
+        [mtlLib newFunctionWithName:@"fragmentTri_multiTex"])];
 
     // Model Instancing
-    [self addShader:kMaplyShaderDefaultModelTri
-            program:ProgramRef(new ProgramMTL([kMaplyShaderDefaultModelTri cStringUsingEncoding:NSASCIIStringEncoding],
-                                              [mtlLib newFunctionWithName:@"vertexTri_model"],
-                                              [mtlLib newFunctionWithName:@"fragmentTri_multiTex"]))];
+    [self addShader:kMaplyShaderDefaultModelTri program: std::make_shared<ProgramMTL>(
+        [kMaplyShaderDefaultModelTri cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
+        [mtlLib newFunctionWithName:@"vertexTri_model"],
+        [mtlLib newFunctionWithName:@"fragmentTri_multiTex"])];
 
-    // TODO: Night/Day Shader
+    // Night/Day Shader
+    [self addShader:kMaplyShaderDefaultTriNightDay program: std::make_shared<ProgramMTL>(
+        [kMaplyShaderDefaultTriNightDay cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
+        [mtlLib newFunctionWithName:@"vertexTri_multiTex_nightDay"],
+        [mtlLib newFunctionWithName:@"fragmentTri_multiTex_nightDay"])];
 
     // Billboards
-    ProgramRef billboardProg(new ProgramMTL([kMaplyShaderBillboardGround cStringUsingEncoding:NSASCIIStringEncoding],
-                                            [mtlLib newFunctionWithName:@"vertexTri_billboard"],
-                                            [mtlLib newFunctionWithName:@"fragmentTri_basic"]));
+    auto billboardProg = std::make_shared<ProgramMTL>(
+        [kMaplyShaderBillboardGround cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
+        [mtlLib newFunctionWithName:@"vertexTri_billboard"],
+        [mtlLib newFunctionWithName:@"fragmentTri_basic"]);
     [self addShader:kMaplyShaderBillboardGround program:billboardProg];
     [self addShader:kMaplyShaderBillboardEye program:billboardProg];
 
     // Wide vectors
-    [self addShader:kMaplyShaderDefaultWideVector
-            program:ProgramRef(new ProgramMTL([kMaplyShaderDefaultWideVector cStringUsingEncoding:NSASCIIStringEncoding],
-                                        [mtlLib newFunctionWithName:@"vertexTri_wideVec"],
-                                        [mtlLib newFunctionWithName:@"fragmentTri_wideVec"]))];
-    [self addShader:kMaplyShaderWideVectorExp
-            program:ProgramRef(new ProgramMTL([kMaplyShaderWideVectorExp cStringUsingEncoding:NSASCIIStringEncoding],
-                                        [mtlLib newFunctionWithName:@"vertexTri_wideVecExp"],
-                                        [mtlLib newFunctionWithName:@"fragmentTri_wideVec"]))];
-    [self addShader:kMaplyShaderWideVectorPerformance
-            program:ProgramRef(new ProgramMTL([kMaplyShaderWideVectorPerformance cStringUsingEncoding:NSASCIIStringEncoding],
-                                        [mtlLib newFunctionWithName:@"vertexTri_wideVecPerf"],
-                                        [mtlLib newFunctionWithName:@"fragmentTri_wideVecPerf"]))];
+    [self addShader:kMaplyShaderDefaultWideVector program: std::make_shared<ProgramMTL>(
+        [kMaplyShaderDefaultWideVector cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
+        [mtlLib newFunctionWithName:@"vertexTri_wideVec"],
+        [mtlLib newFunctionWithName:@"fragmentTri_wideVec"])];
+    [self addShader:kMaplyShaderWideVectorExp program: std::make_shared<ProgramMTL>(
+        [kMaplyShaderWideVectorExp cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
+        [mtlLib newFunctionWithName:@"vertexTri_wideVecExp"],
+        [mtlLib newFunctionWithName:@"fragmentTri_wideVec"])];
+    [self addShader:kMaplyShaderWideVectorPerformance program: std::make_shared<ProgramMTL>(
+        [kMaplyShaderWideVectorPerformance cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
+        [mtlLib newFunctionWithName:@"vertexTri_wideVecPerf"],
+        [mtlLib newFunctionWithName:@"fragmentTri_wideVecPerf"])];
     
     // Screen Space (motion and regular are the same)
-    ProgramRef screenSpace = ProgramRef(new
-            ProgramMTL([kMaplyScreenSpaceDefaultProgram cStringUsingEncoding:NSASCIIStringEncoding],
-                       [mtlLib newFunctionWithName:@"vertexTri_screenSpace"],
-                       [mtlLib newFunctionWithName:@"fragmentTri_basic"]));
+    auto screenSpace = std::make_shared<ProgramMTL>(
+        [kMaplyScreenSpaceDefaultProgram cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
+        [mtlLib newFunctionWithName:@"vertexTri_screenSpace"],
+        [mtlLib newFunctionWithName:@"fragmentTri_basic"]);
     [self addShader:kMaplyScreenSpaceDefaultProgram program:screenSpace];
     [self addShader:kMaplyScreenSpaceDefaultMotionProgram program:screenSpace];
     
     // Renders the mask ID to the screen
-    ProgramRef screenSpaceMask = ProgramRef(new
-            ProgramMTL(MaplyScreenSpaceMaskShader,
-                       [mtlLib newFunctionWithName:@"vertexTri_screenSpace"],
-                       [mtlLib newFunctionWithName:@"fragmentTri_mask"]));
+    auto screenSpaceMask = std::make_shared<ProgramMTL>(
+        MaplyScreenSpaceMaskShader,
+        [mtlLib newFunctionWithName:@"vertexTri_screenSpace"],
+        [mtlLib newFunctionWithName:@"fragmentTri_mask"]);
     [self addShader:kMaplyScreenSpaceMaskProgram program:screenSpaceMask];
     
     // Screen Space that handles expressions
-    ProgramRef screenSpaceExp = ProgramRef(new
-            ProgramMTL([kMaplyScreenSpaceExpProgram cStringUsingEncoding:NSASCIIStringEncoding],
-                       [mtlLib newFunctionWithName:@"vertexTri_screenSpaceExp"],
-                       [mtlLib newFunctionWithName:@"fragmentTri_basic"]));
+    auto screenSpaceExp = std::make_shared<ProgramMTL>(
+        [kMaplyScreenSpaceExpProgram cStringUsingEncoding:NSASCIIStringEncoding withDefault:""],
+        [mtlLib newFunctionWithName:@"vertexTri_screenSpaceExp"],
+        [mtlLib newFunctionWithName:@"fragmentTri_basic"]);
     [self addShader:kMaplyScreenSpaceExpProgram program:screenSpaceExp];
 
     // TODO: Particles
@@ -1027,7 +1200,11 @@ using namespace Eigen;
         WhirlyKitLayerThread *layerThread = baseLayerThread;
         if ([newLayer isKindOfClass:[MaplyQuadSamplingLayer class]])
         {
-            layerThread = [[WhirlyKitLayerThread alloc] initWithScene:scene view:visualView.get() renderer:sceneRenderer.get() mainLayerThread:false];
+            layerThread = [[WhirlyKitLayerThread alloc] initWithScene:scene
+                                                                 view:visualView.get()
+                                                             renderer:sceneRenderer.get()
+                                                      mainLayerThread:false
+                                                        renderControl:self];
             [layerThreads addObject:layerThread];
             [layerThread start];
         }
@@ -1122,7 +1299,7 @@ using namespace Eigen;
 {
     if ([NSThread currentThread] != mainThread)
     {
-        NSLog(@"Caller called findSamplerLayer:forUser: off of main thread.");
+        NSLog(@"Caller called findSamplingLayer:forUser: off of main thread.");
         return nil;
     }
 
@@ -1147,7 +1324,7 @@ using namespace Eigen;
 {
     if ([NSThread currentThread] != mainThread)
     {
-        NSLog(@"Caller called findSamplerLayer:forUser: off of main thread.");
+        NSLog(@"Caller called releaseSamplingLayer:forUser: off of main thread.");
         return;
     }
 
@@ -1161,14 +1338,36 @@ using namespace Eigen;
     }
 }
 
+- (MaplyRemoteTileFetcher * __nullable)getTileFetcher:(NSString * __nonnull)name
+{
+    for (const auto &tileFetcher : tileFetchers)
+    {
+        if ([tileFetcher.name isEqualToString:name])
+        {
+            return tileFetcher;
+        }
+    }
+    return nil;
+}
+
 - (MaplyRemoteTileFetcher *)addTileFetcher:(NSString *)name
 {
-    for (auto tileFetcher : tileFetchers)
-        if ([tileFetcher.name isEqualToString:name])
-            return tileFetcher;
-    
-    MaplyRemoteTileFetcher *tileFetcher = [[MaplyRemoteTileFetcher alloc] initWithName:name connections:tileFetcherConnections];
-    tileFetchers.push_back(tileFetcher);
+    return [self addTileFetcher:name withMaxConnections:_tileFetcherConnections];
+}
+
+- (MaplyRemoteTileFetcher *)addTileFetcher:(NSString *)name
+                        withMaxConnections:(int)maxConnections
+{
+    if (MaplyRemoteTileFetcher *existingFetcher = [self getTileFetcher:name])
+    {
+        return existingFetcher;
+    }
+
+    MaplyRemoteTileFetcher *tileFetcher = [[MaplyRemoteTileFetcher alloc] initWithName:name connections:maxConnections];
+    if (tileFetcher)
+    {
+        tileFetchers.push_back(tileFetcher);
+    }
     
     return tileFetcher;
 }
@@ -1180,7 +1379,9 @@ using namespace Eigen;
 
 - (void)runLayout
 {
+#if !MAPLY_MINIMAL
     [layoutLayer scheduleUpdateNow];
+#endif //!MAPLY_MINIMAL
 }
 
 - (id<MTLDevice>)getMetalDevice
@@ -1202,6 +1403,26 @@ using namespace Eigen;
     id<MTLLibrary> mtlLib = [renderMTL->setupInfo.mtlDevice newDefaultLibraryWithBundle:[NSBundle bundleForClass:[MaplyRenderController class]] error:&err];
     return mtlLib;
 
+}
+
+- (void)report:(NSString * __nonnull)tag error:(NSError * __nonnull)error
+{
+    if (self && tag && error)
+    if (__strong NSObject<MaplyErrorReportingDelegate> * delegate = self.errorReportingDelegate)
+    if ([delegate respondsToSelector:@selector(onError:withTag:viewC:)])
+    {
+        [delegate onError:error withTag:tag viewC:self];
+    }
+}
+
+- (void)report:(NSString * __nonnull)tag exception:(NSException * __nonnull)error
+{
+    if (self && tag && error)
+    if (__strong NSObject<MaplyErrorReportingDelegate> * delegate = self.errorReportingDelegate)
+    if ([delegate respondsToSelector:@selector(onException:withTag:viewC:)])
+    {
+        [delegate onException:error withTag:tag viewC:self];
+    }
 }
 
 @end

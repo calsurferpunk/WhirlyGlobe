@@ -1,9 +1,8 @@
-/*
- *  MapboxVectorStyleSpritesImpl.cpp
+/*  MapboxVectorStyleSpritesImpl.cpp
  *  WhirlyGlobe-MaplyComponent
  *
  *  Created by Steve Gifford on 7/28/20.
- *  Copyright 2011-2020 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "MapboxVectorStyleSpritesImpl.h"
@@ -26,19 +24,17 @@
 namespace WhirlyKit
 {
 
-MapboxSpriteEntry::MapboxSpriteEntry()
-: width(0), height(0), pixelRatio(0), x(0), y(0)
-{ }
-
-MapboxVectorStyleSprites::MapboxVectorStyleSprites(SimpleIdentity wholeTexID,int texWidth,int texHeight)
-: wholeTexID(wholeTexID), texWidth(texWidth), texHeight(texHeight)
-{    
+MapboxVectorStyleSprites::MapboxVectorStyleSprites(SimpleIdentity wholeTexID,int texWidth,int texHeight) :
+    texWidth(texWidth),
+    texHeight(texHeight),
+    wholeTexID(wholeTexID)
+{
 }
 
-bool MapboxVectorStyleSprites::parse(MapboxVectorStyleSetImplRef styleSet,DictionaryRef spriteDict)
+bool MapboxVectorStyleSprites::parse(const MapboxVectorStyleSetImplRef &styleSet,
+                                     const DictionaryRef &spriteDict)
 {
-    auto keys = spriteDict->getKeys();
-    for (auto key : keys) {
+    for (const auto &key : spriteDict->getKeys()) {
         auto entry = spriteDict->getDict(key);
         if (entry) {
             MapboxSpriteEntry sprite;

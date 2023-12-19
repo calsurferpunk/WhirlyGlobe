@@ -3,7 +3,7 @@
  *  WhirlyGlobe-MaplyComponent
  *
  *  Created by Steve Gifford on 5/13/13.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -20,22 +20,23 @@
 
 #import "math/MaplyCoordinateSystem.h"
 #import "math/MaplyCoordinate.h"
-#import "WhirlyGlobe.h"
+#import "WhirlyGlobeLib.h"
 
 @interface MaplyCoordinateSystem()
 {
 @public
     WhirlyKit::CoordSystemRef coordSystem;
-    MaplyCoordinateD ll,ur;
 }
+
+@property(nonatomic,readonly) MaplyCoordinate ll;
+@property(nonatomic,readonly) MaplyCoordinate ur;
+@property(nonatomic,readonly) MaplyCoordinateD llD;
+@property(nonatomic,readonly) MaplyCoordinateD urD;
 
 - (instancetype)initWithCoordSystem:(WhirlyKit::CoordSystemRef)newCoordSystem;
 
 /// Return the low level Maply Coordinate system that represents this one.
 /// The object owns this and must clean it up.
 - (WhirlyKit::CoordSystemRef)getCoordSystem;
-
-/// Bounding box we're working within
-- (void)getBoundsLL:(MaplyCoordinate *)ll ur:(MaplyCoordinate *)ur;
 
 @end

@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 3/22/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -36,9 +36,7 @@ import java.io.File;
 public class AnimatedBaseMapTestCase extends MaplyTestCase {
 
 	public AnimatedBaseMapTestCase(Activity activity) {
-		super(activity);
-		setTestName("Animated basemap");
-		this.implementation = TestExecutionImplementation.Both;
+		super(activity, "Animated basemap", TestExecutionImplementation.Both);
 	}
 
 	QuadImageFrameLoader loader = null;
@@ -113,7 +111,8 @@ public class AnimatedBaseMapTestCase extends MaplyTestCase {
 					Log.v("Maply", String.format("  Loading %d out of %d tiles",stats.frameStats[ii].tilesToLoad,stats.frameStats[ii].totalTiles));
 				}
 
-				timeHandler.postDelayed(timeRun, 3000);
+				if (controller != null && controller.isRunning())
+					timeHandler.postDelayed(timeRun, 3000);
 			}
 		};
 		timeHandler.postDelayed(timeRun,1000);

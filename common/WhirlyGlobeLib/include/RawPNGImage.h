@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 12/3/20.
- *  Copyright 2011-2020 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -27,10 +27,14 @@ namespace WhirlyKit
  Pulls the raw data out of a PNG image.
  Returns NULL on failure, check the err value.
  */
-extern unsigned char *RawPNGImageLoaderInterpreter(unsigned int &width,unsigned int &height,
-                                                   const unsigned char *data,size_t length,
-                                                   const std::vector<int> &valueMap,
-                                                   int &byteWidth,
-                                                   unsigned int &err);
+extern unsigned char *RawPNGImageLoaderInterpreter(unsigned int &width,
+                                                   unsigned int &height,
+                                                   const unsigned char *data,
+                                                   size_t length,
+                                                   const int valueMap[256],
+                                                   unsigned *outDepth,
+                                                   unsigned *outComponents,
+                                                   unsigned int *outErr,
+                                                   std::string *outErrStr);
 
 }

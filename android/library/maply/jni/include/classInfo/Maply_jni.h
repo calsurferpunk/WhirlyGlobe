@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 6/2/14.
- *  Copyright 2011-2016 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,11 +19,20 @@
 #ifndef Maply_JNI_h_
 #define Maply_JNI_h_
 
-#include <stdlib.h>
+#import <stdlib.h>
 #import <vector>
 #import <android/log.h>
 #import <jni.h>
-#import "WhirlyGlobe.h"
+#import <WhirlyGlobeLib.h>
+#import <WhirlyKitLog.h>
+#import <Exceptions_jni.h>
+
+#if !defined(MAPLY_STD_JNI_CATCH)
+# define MAPLY_STD_JNI_CATCH_IN(name) catch (const std::exception &ex) { \
+	__android_log_print(ANDROID_LOG_ERROR, "Maply", "Crash in %s: %s", (name), ex.what()); \
+	} catch (...) { __android_log_print(ANDROID_LOG_ERROR, "Maply", "Crash in %s", (name)); }
+# define MAPLY_STD_JNI_CATCH() MAPLY_STD_JNI_CATCH_IN(__func__)
+#endif
 
 /* Java Class Info
  * This tracks JNI info about classes we implement.
@@ -40,6 +49,10 @@ public:
 		nativeHandleField(nullptr)
 	{
 		initMethodID = env->GetMethodID(theClass, "<init>", "()V");
+		if (!initMethodID) {
+			wkLogLevel(Warn, "No-argument constructor missing from %s", typeid(T).name());
+		}
+		WhirlyKit::logAndClearJVMException(env);
 	}
 	virtual ~JavaClassInfo() {
 	    if (theClass) {
@@ -57,6 +70,9 @@ public:
 	// Make an object of the type and point it to the C++ object given
 	virtual jobject makeWrapperObject(JNIEnv *env,T *cObj)
 	{
+		if (!initMethodID) {
+			return nullptr;
+		}
 		jobject obj = env->NewObject(theClass,initMethodID);
 		T *oldRef = getObject(env,obj);
 		setHandle(env, obj, cObj);
@@ -67,8 +83,7 @@ public:
 
 	// Make a wrapper object, but don't set the handle
 	virtual jobject makeWrapperObject(JNIEnv *env) {
-		jobject obj = env->NewObject(theClass,initMethodID);
-		return obj;
+		return initMethodID ? env->NewObject(theClass,initMethodID) : nullptr;
 	}
 
 	// Return the field ID for the handle we use
@@ -77,6 +92,7 @@ public:
 		if (!nativeHandleField)
 		{
 			nativeHandleField = env->GetFieldID(theClass, "nativeHandle", "J");
+			WhirlyKit::logAndClearJVMException(env);
 		}
 		return nativeHandleField;
 	}
@@ -97,6 +113,11 @@ public:
 	static T* get(JNIEnv *env,jobject obj)
 	{
 		return getClassInfo()->getObject(env,obj);
+	}
+
+	static void set(JNIEnv *env,jobject obj,T* val)
+	{
+		return getClassInfo()->setHandle(env,obj,val);
 	}
 
 	// Set the handle for a Java wrapper to its C++ object
@@ -209,8 +230,8 @@ private:
 	{
 		jclass longLocalClass = env->FindClass("java/lang/Long");
 		longClass = (jclass)env->NewGlobalRef(longLocalClass);
-	    longClassInitID = env->GetMethodID(longClass, "<init>", "(L)V");
-	    longGetID = env->GetMethodID(longClass,"longValue","()L");
+	    longClassInitID = env->GetMethodID(longClass, "<init>", "(J)V");
+	    longGetID = env->GetMethodID(longClass,"longValue","()J");
         env->DeleteLocalRef(longLocalClass);
 	}
 
@@ -265,8 +286,8 @@ private:
 
 public:
 	// Make a Double with the given value
-	jobject makeDouble(JNIEnv *env,int iVal) { return env->NewObject(doubleClass, doubleClassInitID, iVal); }
-	static jobject make(JNIEnv *env,int iVal) { return getClassInfo(env)->makeDouble(env,iVal); }
+	jobject makeDouble(JNIEnv *env,double iVal) { return env->NewObject(doubleClass, doubleClassInitID, iVal); }
+	static jobject make(JNIEnv *env,double iVal) { return getClassInfo(env)->makeDouble(env,iVal); }
 
 	// Return the value of an Double object
 	double getDouble(JNIEnv *env,jobject dblObj) { return env->CallDoubleMethod(dblObj,doubleGetID); }
@@ -309,7 +330,7 @@ private:
 
 public:
 	// Create a new hash map
-	jobject makeHashMap(JNIEnv *env) { return env->NewObject(mapClass, mapInitMethodID, 1); }
+	jobject makeHashMap(JNIEnv *env) const { return env->NewObject(mapClass, mapInitMethodID, 1); }
 	static jobject make(JNIEnv *env) { return getClassInfo(env)->makeHashMap(env); }
 
 	void teardown(JNIEnv *env) {
@@ -411,6 +432,7 @@ struct JavaString
     operator bool() const { return cStr != nullptr; }
 
     const char *getCString() const { return cStr; }
+    std::string getString() const { return cStr ? cStr : std::string(); }
 
 private:
 	const char *cStr;
@@ -422,65 +444,70 @@ private:
 class JavaBooleanArray
 {
 public:
-    JavaBooleanArray(JNIEnv *env,jbooleanArray &array);
+    JavaBooleanArray(JNIEnv *env,jbooleanArray &array,bool save);
     ~JavaBooleanArray();
     
     JNIEnv *env;
     jbooleanArray &array;
     int len;
     jboolean *rawBool;
+	bool save;
 };
 
 // Wrapper for Java int array.  Destructor cleans up.
 class JavaIntArray
 {
 public:
-    JavaIntArray(JNIEnv *env,jintArray &array);
+    JavaIntArray(JNIEnv *env,jintArray &array,bool save);
     ~JavaIntArray();
     
     JNIEnv *env;
     jintArray &array;
     int len;
     jint *rawInt;
+	bool save;
 };
 
 // Wrapper for Java long array.  Destructor cleans up.
 class JavaLongArray
 {
 public:
-    JavaLongArray(JNIEnv *env,jlongArray &array);
+    JavaLongArray(JNIEnv *env,jlongArray &array,bool save);
     ~JavaLongArray();
     
     JNIEnv *env;
     jlongArray &array;
     int len;
     jlong *rawLong;
+	bool save;
 };
 
 // Wrapper for Java float array.  Destructor cleans up.
 class JavaFloatArray
 {
 public:
-    JavaFloatArray(JNIEnv *env,jfloatArray &array);
+    JavaFloatArray(JNIEnv *env,jfloatArray &array,bool save);
     ~JavaFloatArray();
     
     JNIEnv *env;
     jfloatArray &array;
     int len;
     jfloat *rawFloat;
+	bool save;
 };
 
 // Wrapper for Java double array.  Destructor cleans up.
 class JavaDoubleArray
 {
 public:
-    JavaDoubleArray(JNIEnv *env,jdoubleArray &array);
+    JavaDoubleArray(JNIEnv *env,jdoubleArray &array,bool save);
     ~JavaDoubleArray();
     
     JNIEnv *env;
     jdoubleArray &array;
     int len;
     jdouble *rawDouble;
+	bool save;
 };
 
 /**
@@ -520,6 +547,7 @@ protected:
 };
 
 namespace WhirlyKit {
+
 /**
  * For more complex parts of the system we need the JNIEnv associated
  * with the thread we're current on.  But we really like to reuse
@@ -530,7 +558,8 @@ public:
     PlatformInfo_Android(JNIEnv *env) : env(env) {}
 	JNIEnv *env;
 };
-}
+
+}	// namespace WhirlyKit
 
 // Convert a Java int array into a std::vector of ints
 void ConvertIntArray(JNIEnv *env,jintArray &intArray,std::vector<int> &intVec);
@@ -538,6 +567,11 @@ void ConvertIntArray(JNIEnv *env,jintArray &intArray,std::vector<int> &intVec);
 void ConvertLongLongArray(JNIEnv *env,jlongArray &longArray,std::vector<WhirlyKit::SimpleIdentity> &longVec);
 // Convert a Java float array into a std::vector of floats
 void ConvertFloatArray(JNIEnv *env,jfloatArray &floatArray,std::vector<float> &floatVec);
+
+/// Convert a Java array of Float (not float) to native floats, using the default for null or invalid entries
+void ConvertFloatObjArray(JNIEnv *,jobjectArray,std::vector<float> &, float defVal);
+std::vector<float> ConvertFloatObjArray(JNIEnv *, jobjectArray, float defVal);
+
 // Convert a Java double array into a std::vector of doubles
 void ConvertDoubleArray(JNIEnv *env,jdoubleArray &doubleArray,std::vector<double> &doubleVec);
 // Convert a Java boolean array into a std::vector of bools
@@ -551,16 +585,20 @@ void ConvertFloat3dArray(JNIEnv *env,jdoubleArray &floatArray,WhirlyKit::Point3d
 // Convert a Java float array into a std::vector of Point4f
 void ConvertFloat4fArray(JNIEnv *env,jfloatArray &floatArray,WhirlyKit::Vector4fVector &ptVec);
 // Convert a Java long long array into a set of SimpleIdentity values
-void ConvertLongArrayToSet(JNIEnv *env,jlongArray &longArray,std::set<WhirlyKit::SimpleIdentity> &intSet);
+std::set<WhirlyKit::SimpleIdentity> ConvertLongArrayToSet(JNIEnv *env,const jlongArray &idArrayObj);
+void ConvertLongArrayToSet(JNIEnv *env,const jlongArray &longArray,std::set<WhirlyKit::SimpleIdentity> &intSet);
+void ConvertLongArrayToSet(JNIEnv *env,const jlongArray &longArray,std::unordered_set<WhirlyKit::SimpleIdentity> &intSet);
 // Convert a Java String object array into a std::vector of std::strings
 void ConvertStringArray(JNIEnv *env,jobjectArray &objArray,std::vector<std::string> &strVec);
+std::vector<std::string> ConvertStringArray(JNIEnv *env,jobjectArray &objArray);
 
 // Return a Java long array
 jlongArray BuildLongArray(JNIEnv *env,const std::vector<WhirlyKit::SimpleIdentity> &longVec);
 // Return a Java double array
 jdoubleArray BuildDoubleArray(JNIEnv *env,const std::vector<double> &doubleVec);
 // Return a Java int array
-jintArray BuildIntArray(JNIEnv *env,const std::vector<int> &longVec);
+jintArray BuildIntArray(JNIEnv *env, const int* intVec, int size);
+jintArray BuildIntArray(JNIEnv *env, const std::vector<int> &intVec);
 // Return a new Java object array
 jobjectArray BuildObjectArray(JNIEnv *env,jclass cls,jobject singleObj);
 jobjectArray BuildObjectArray(JNIEnv *env,jclass cls,const std::vector<jobject> &objVec);

@@ -3,7 +3,7 @@
  *  WhirlyGlobe-MaplyComponent
  *
  *  Created by Steve Gifford on 7/21/12.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ typedef struct
 } MaplyCoordinate;
 
 
-static const MaplyCoordinate kMaplyNullCoordinate = {.x = FLT_MIN, .y = FLT_MIN};
+extern const MaplyCoordinate kMaplyNullCoordinate;
 
 
 /** 
@@ -49,7 +49,7 @@ typedef struct
     double x,y;
 } MaplyCoordinateD;
 
-static const MaplyCoordinateD kMaplyNullCoordinateD = {.x = DBL_MIN, .y = DBL_MIN};
+extern const MaplyCoordinateD kMaplyNullCoordinateD;
 
 
 /** 
@@ -63,6 +63,8 @@ typedef struct
 {
     float x,y,z;
 } MaplyCoordinate3d;
+
+extern const MaplyCoordinate3d kMaplyNullCoordinate3d;
 
 /** 
     An NSObject based wrapper for 3D coordinates.
@@ -84,7 +86,7 @@ typedef struct
     double x,y,z;
 } MaplyCoordinate3dD;
 
-static const MaplyCoordinate3dD kMaplyNullCoordinate3dD = {.x = DBL_MIN, .y = DBL_MIN, .z = DBL_MIN};
+extern const MaplyCoordinate3dD kMaplyNullCoordinate3dD;
 
 /** 
     An NSObject based wrapper for 3D coordinates.
@@ -112,10 +114,7 @@ typedef struct
     MaplyCoordinate ur;
 } MaplyBoundingBox;
 
-static const MaplyBoundingBox kMaplyNullBoundingBox = {
-	.ll = {.x = FLT_MIN, .y = FLT_MIN},
-	.ur = {.x = FLT_MIN, .y = FLT_MIN}
-};
+extern const MaplyBoundingBox kMaplyNullBoundingBox;
 
 /**
     A category that uses NSValue to store MaplyCoordinate data
@@ -152,10 +151,7 @@ typedef struct
 	MaplyCoordinateD ur;
 } MaplyBoundingBoxD;
 
-static const MaplyBoundingBoxD kMaplyNullBoundingBoxD = {
-	.ll = {.x = DBL_MIN, .y = DBL_MIN},
-	.ur = {.x = DBL_MIN, .y = DBL_MIN}
-};
+extern const MaplyBoundingBoxD kMaplyNullBoundingBoxD;
 
 #if __cplusplus
 extern "C" {
@@ -215,8 +211,19 @@ MaplyCoordinateD MaplyCoordinateDMakeWithDegrees(double degLon,double degLat);
     @return A 2D MaplyCoordinateD in radians (if representing a lon/lat value).
   */
 MaplyCoordinateD MaplyCoordinateDMakeWithMaplyCoordinate(MaplyCoordinate c);
+
+/**
+    Construct a MaplyCoordinate with a MaplyCoordinateD.
     
-/** 
+    This function constructs a MaplyCoordinate with the component values of the input MaplyCoordinateD.
+    
+    @param c The input MaplyCoordinateD value.
+    
+    @return A 2D MaplyCoordinate in radians (if representing a lon/lat value).
+  */
+MaplyCoordinate MaplyCoordinateMakeWithMaplyCoordinateD(MaplyCoordinateD c);
+
+/**
     Construct a MaplyCoordinat3d from the values given.
     
     @param x The x value, or longitude in radians if we're making geo coordinates.
@@ -243,6 +250,17 @@ MaplyCoordinate3d MaplyCoordinate3dMake(float x,float y,float z);
     @return A 3D MaplyCoordinate3d in radians + other (if representing a lon/lat value).
  */
 MaplyCoordinate3dD MaplyCoordinate3dDMake(double x,double y,double z);
+
+/**
+    Construct a float bounding box from a double bounding box
+ */
+MaplyBoundingBox MaplyBoundingBoxMakeFromBoundingBoxD(MaplyBoundingBoxD mbr);
+
+/**
+    Construct a double bounding box from a float bounding box
+ */
+MaplyBoundingBoxD MaplyBoundingBoxDMakeFromBoundingBox(MaplyBoundingBox mbr);
+
 
 /** 
     Construct a MaplyBoundingBox from the values given.

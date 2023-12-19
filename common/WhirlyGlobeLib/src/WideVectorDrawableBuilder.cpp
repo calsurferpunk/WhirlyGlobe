@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/29/14.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -28,35 +28,35 @@ namespace WhirlyKit
     
 WideVectorDrawableBuilder::WideVectorDrawableBuilder(std::string name,
                                                      const SceneRenderer *sceneRenderer,
-                                                     Scene *scene)
-    : name(std::move(name)), renderer(sceneRenderer), scene(scene),
-      implType(WideVecImplBasic), basicDrawable(nullptr), instDrawable(nullptr),
-      lineWidth(1.0), lineOffset(0.0), globeMode(false),
-      texRepeat(1.0), edgeSize(1.0),
-      p1_index(-1), n0_index(-1), offset_index(-1), c0_index(-1), tex_index(-1)
+                                                     Scene *scene) :
+    name(std::move(name)),
+    scene(scene),
+    renderer(sceneRenderer)
 {
 }
-    
-WideVectorDrawableBuilder::~WideVectorDrawableBuilder()
-{
-}
-    
+
 void WideVectorDrawableBuilder::Init(unsigned int numVert,
                                      unsigned int numTri,
                                      unsigned int numCenterline,
-                                     WideVecImplType implType,
+                                     WideVecImplType inImplType,
                                      bool inGlobeMode,
                                      const WideVectorInfo *vecInfo)
 {
     globeMode = inGlobeMode;
-    this->implType = implType;
-    
+    implType = inImplType;
+
     basicDrawable = renderer->makeBasicDrawableBuilder(name);
     basicDrawable->Init();
     basicDrawable->setupStandardAttributes();
     basicDrawable->setType(Triangles);
-    basicDrawable->points.reserve(numVert);
-    basicDrawable->tris.reserve(numTri);
+    if (numVert > 0)
+    {
+        basicDrawable->points.reserve(numVert);
+    }
+    if (numTri > 0)
+    {
+        basicDrawable->tris.reserve(numTri);
+    }
     
     if (implType == WideVecImplPerf) {
         instDrawable = renderer->makeBasicDrawableInstanceBuilder(name);
@@ -79,6 +79,13 @@ void WideVectorDrawableBuilder::Init(unsigned int numVert,
         c0_index = addAttribute(BDFloatType, StringIndexer::getStringID("a_c0"),numVert);
     }
 }
+
+void WideVectorDrawableBuilder::setValues(const WideVectorInfo &vecInfo)
+{
+    lineWidth = vecInfo.width;
+    lineOffset = vecInfo.offset;
+    edgeSize = vecInfo.edgeSize;
+}
     
 void WideVectorDrawableBuilder::setLineWidth(float inWidth)
 {
@@ -91,12 +98,6 @@ void WideVectorDrawableBuilder::setLineOffset(float inOffset)
     lineOffsetSet = true;
 }
  
-void WideVectorDrawableBuilder::setTexRepeat(float inTexRepeat)
-    { texRepeat = inTexRepeat; }
-
-void WideVectorDrawableBuilder::setEdgeSize(float inEdgeSize)
-    { edgeSize = inEdgeSize; }
-
 unsigned int WideVectorDrawableBuilder::addPoint(const Point3f &pt)
 {
 #ifdef WIDEVECDEBUG
@@ -131,9 +132,9 @@ void WideVectorDrawableBuilder::add_p1(const Point3f &pt)
 #endif
 }
 
-void WideVectorDrawableBuilder::add_texInfo(float texX,float texYmin,float texYmax,float texOffset)
+void WideVectorDrawableBuilder::add_texInfo(float texX,float texYmin,float texYmax,float inTexOffset)
 {
-    addAttributeValue(tex_index, Vector4f(texX,texYmin,texYmax,texOffset));
+    addAttributeValue(tex_index, Vector4f(texX,texYmin,texYmax,inTexOffset));
 #ifdef WIDEVECDEBUG
 #endif
 }
@@ -159,14 +160,22 @@ void WideVectorDrawableBuilder::add_c0(float val)
 #endif
 }
 
-void WideVectorDrawableBuilder::setColorExpression(ColorExpressionInfoRef colorExp)
+void WideVectorDrawableBuilder::setColorExpression(ColorExpressionInfoRef inColorExp)
 {
-    this->colorExp = std::move(colorExp);
+    colorExp = std::move(inColorExp);
+    if (basicDrawable)
+    {
+        basicDrawable->setColorExpression(colorExp);
+    }
 }
 
-void WideVectorDrawableBuilder::setOpacityExpression(FloatExpressionInfoRef opacityExp)
+void WideVectorDrawableBuilder::setOpacityExpression(FloatExpressionInfoRef inOpacityExp)
 {
-    this->opacityExp = std::move(opacityExp);
+    opacityExp = std::move(inOpacityExp);
+    if (basicDrawable)
+    {
+        basicDrawable->setOpacityExpression(opacityExp);
+    }
 }
 
 void WideVectorDrawableBuilder::setWidthExpression(FloatExpressionInfoRef inWidthExp)
@@ -190,7 +199,9 @@ void WideVectorDrawableBuilder::setupTweaker(BasicDrawable &theDraw) const
 
 void WideVectorDrawableBuilder::setupTweaker(const DrawableTweakerRef &inTweaker) const
 {
+    // Basic drawable sets color, opacity,
     basicDrawable->setupTweaker(inTweaker);
+
     if (auto tweak = dynamic_cast<WideVectorTweaker*>(inTweaker.get()))
     {
         tweak->edgeSize = edgeSize;
@@ -200,7 +211,6 @@ void WideVectorDrawableBuilder::setupTweaker(const DrawableTweakerRef &inTweaker
         tweak->offset = lineOffset;
         tweak->offsetSet = lineOffsetSet;
         tweak->offsetExp = offsetExp;
-        tweak->color = color;
     }
 }
 
@@ -212,12 +222,13 @@ void WideVectorDrawableBuilder::addCenterLine(const Point3d &centerPt,
                                               int prev,int next)
 {
     CenterPoint pt;
-    pt.center = Point3f(centerPt.x(),centerPt.y(),centerPt.z());
-    pt.up = Point3f(up.x(),up.y(),up.z());
-    pt.len = (float)len;
+    pt.center = centerPt.cast<float>();
+    pt.up = up.cast<float>();
+    pt.segLen = (float)len;
+    pt.totalLen = centerline.empty() ? 0.0f : (centerline.back().totalLen + centerline.back().segLen);
     pt.color = inColor;
     pt.maskIDs[0] = maskIDs.empty() ? 0 : (int)maskIDs[0];
-    pt.maskIDs[1] = maskIDs.size() > 1 ? (int)maskIDs[1] : 0;
+    pt.maskIDs[1] = (maskIDs.size() > 1) ? (int)maskIDs[1] : 0;
     pt.prev = prev;
     pt.next = next;
     centerline.push_back(pt);
@@ -237,7 +248,7 @@ unsigned int WideVectorDrawableBuilder::getNumTris()
 
 int WideVectorDrawableBuilder::getCenterLineCount()
 {
-    return centerline.size();
+    return (int)centerline.size();
 }
 
 SimpleIdentity WideVectorDrawableBuilder::getBasicDrawableID()

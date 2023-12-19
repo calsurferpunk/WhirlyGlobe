@@ -3,10 +3,11 @@
 //  AutoTester
 //
 //  Created by Tim Sylvester on 9 Feb. 2021
-//  Copyright © 2021 mousebird consulting.
+//  Copyright 2021-2022 mousebird consulting.
 //
 
 import Foundation
+import WhirlyGlobe
 
 class MovingScreenMarkersTestCase: MaplyTestCase {
     
@@ -22,6 +23,8 @@ class MovingScreenMarkersTestCase: MaplyTestCase {
     override func setUpWithGlobe(_ globeVC: WhirlyGlobeViewController) {
         baseCase.setUpWithGlobe(globeVC)
         setUp(globeVC)
+        globeVC.height = 2
+        globeVC.heading = -Float.pi/2
         globeVC.animate(toPosition: MaplyCoordinateMakeWithDegrees(0, 10), height:0.5, heading:0, time:0.5)
     }
     

@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by sjg on 3/25/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -95,7 +95,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_QuadImageLoaderBase_setColor
         if (!loader)
             return;
         RGBAColor color(red*255,green*255,blue*255,alpha*255);
-        (*loader)->setColor(color,(changeSet->get()));
+        (*loader)->setColor(color,changeSet ? changeSet->get() : nullptr);
     }
     catch (...)
     {

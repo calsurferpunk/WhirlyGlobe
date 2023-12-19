@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 2/14/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -33,9 +33,9 @@ namespace WhirlyKit
 class ImageTile
 {
 public:
-    ImageTile();
-    ImageTile(const std::string &name);
-    virtual ~ImageTile();
+    ImageTile() = default;
+    ImageTile(std::string name) : name(std::move(name)) { }
+    virtual ~ImageTile() = default;
     
     /// Construct and return a texture, if possible.
     virtual Texture *buildTexture() = 0;
@@ -46,9 +46,13 @@ public:
 public:
     // Optional name.  Not always set.
     std::string name;
-    int borderSize;
-    int width,height,components;
-    int targetWidth,targetHeight;
+    int borderSize = 0;
+    int width = 0;
+    int height = 0;
+    int depth = 8;
+    int components = 0;
+    int targetWidth = 0;
+    int targetHeight = 0;
 };
 
 typedef std::shared_ptr<ImageTile> ImageTileRef;

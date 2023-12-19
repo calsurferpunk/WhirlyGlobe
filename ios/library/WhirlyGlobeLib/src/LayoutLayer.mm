@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 12/4/12.
- *  Copyright 2011-2019 mousebird consulting.
+ *  Copyright 2011-2022 mousebird consulting.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -158,12 +158,39 @@ static const float MaxDelay = 1.0;
         return;
     lastUpdate = scene->getCurrentTime();
 
-    LayoutManagerRef layoutManager = std::dynamic_pointer_cast<LayoutManager>(scene->getManager(kWKLayoutManager));
-    if (layoutManager)
+    if (const auto layoutManager = scene->getManager<LayoutManager>(kWKLayoutManager))
     {
         ChangeSet changes;
-        layoutManager->updateLayout(nullptr,viewState,changes);
-        [layerThread addChangeRequests:changes];
+        try
+        {
+            layoutManager->updateLayout(nullptr,viewState,changes);
+        }
+        catch (const std::exception &ex)
+        {
+            NSLog(@"Exception in updateLayout: %s", ex.what());
+            discardChanges(changes);
+        }
+        catch (NSException *ex)
+        {
+            NSLog(@"Exception in updateLayout: %@", ex.description);
+            discardChanges(changes);
+        }
+        catch (...)
+        {
+            NSLog(@"Exception in updateLayout");
+            discardChanges(changes);
+        }
+
+        if (!changes.empty())
+        {
+            if (auto __strong thread = layerThread)
+            {
+                [thread addChangeRequests:changes];
+                // These requests are likely time-sensitive, so flush them immediately
+                // instead of posting to the thread queue and flushing them later.
+                [thread flushChangeRequests];
+            }
+        }
     }
 }
 

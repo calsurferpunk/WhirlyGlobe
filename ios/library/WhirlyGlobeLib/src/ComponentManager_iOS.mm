@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 2/15/19.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -32,7 +32,11 @@ ComponentObject_iOS::ComponentObject_iOS()
 }
 
 ComponentObject_iOS::ComponentObject_iOS(bool enable, bool isSelectable, const NSDictionary *_Nullable desc) :
-    ComponentObject(enable, isSelectable, iosDictionary(desc))
+    ComponentObject(enable, isSelectable
+#if !MAPLY_MINIMAL
+                    ,iosDictionary(desc)
+#endif //!MAPLY_MINIMAL
+                    )
 {
 }
 
@@ -68,7 +72,11 @@ NSObject *ComponentManager_iOS::getSelectObject(SimpleIdentity selID)
     
 ComponentObjectRef ComponentManager_iOS::makeComponentObject(const Dictionary *desc)
 {
-    NSDictionary *nsDesc = desc ? [NSMutableDictionary fromDictionaryCPointer:desc] : nil;
+    NSDictionary *nsDesc =
+#if !MAPLY_MINIMAL
+        desc ? [NSMutableDictionary fromDictionaryCPointer:desc] :
+#endif //!MAPLY_MINIMAL
+        nil;
     return std::make_shared<ComponentObject_iOS>(/*enabled=*/false, /*isSelectable=*/false, nsDesc);
 }
     
@@ -90,7 +98,10 @@ void ComponentManager_iOS::removeSelectObjects(SimpleIDSet selIDs)
     }
 }
     
-void ComponentManager_iOS::removeComponentObjects(PlatformThreadInfo *threadInfo,const SimpleIDSet &compIDs,ChangeSet &changes)
+void ComponentManager_iOS::removeComponentObjects(PlatformThreadInfo *threadInfo,
+                                                  const SimpleIDSet &compIDs,
+                                                  ChangeSet &changes,
+                                                  bool disposeAfterRemove)
 {
     // Lock around all component objects
     {
@@ -110,7 +121,7 @@ void ComponentManager_iOS::removeComponentObjects(PlatformThreadInfo *threadInfo
         removeSelectObjects(selectIDs);
     }
 
-    ComponentManager::removeComponentObjects(threadInfo,compIDs, changes);
+    ComponentManager::removeComponentObjects(threadInfo,compIDs, changes, disposeAfterRemove);
 }
 
 void ComponentManager_iOS::clear()

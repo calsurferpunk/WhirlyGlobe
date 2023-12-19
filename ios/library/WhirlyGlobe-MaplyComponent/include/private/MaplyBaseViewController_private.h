@@ -3,7 +3,7 @@
  *  MaplyComponent
  *
  *  Created by Steve Gifford on 12/14/12.
- *  Copyright 2012-2019 mousebird consulting
+ *  Copyright 2012-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -22,28 +22,33 @@
 
 #import "control/MaplyBaseViewController.h"
 #import "MaplyControllerLayer_private.h"
-#import "MaplyComponentObject_private.h"
 #import "WGInteractionLayer_private.h"
 #import "MaplyBaseInteractionLayer_private.h"
-#import "MaplyVectorObject_private.h"
 #import "MaplyShader_private.h"
 #import "MaplyActiveObject_private.h"
 #import "MaplyCoordinateSystem_private.h"
-#import "visual_objects/MaplyCluster.h"
-#import "SMCalloutView.h"
-#import "gestures/Maply3dTouchPreviewDelegate.h"
 #import "MaplyRenderController_private.h"
 #import "ViewPlacementActiveModel.h"
-#import "FontTextureManager_iOS.h"
 #import "ViewWrapper.h"
+#import "SMCalloutView.h"
 
-@interface MaplyBaseViewController() <SMCalloutViewDelegate>
+#if !MAPLY_MINIMAL
+# import "MaplyComponentObject_private.h"
+# import "MaplyVectorObject_private.h"
+# import "visual_objects/MaplyCluster.h"
+# import "gestures/Maply3dTouchPreviewDelegate.h"
+# import "FontTextureManager_iOS.h"
+#endif //!MAPLY_MINIMAL
+
+
+@interface MaplyBaseViewController() <SMCalloutViewDelegate, ViewWrapperDelegateProtocol>
 {
 @public
     MaplyRenderController *renderControl;
     
     UIView<WhirlyKitViewWrapper> *wrapView;
         
+#if !MAPLY_MINIMAL
     // List of views we're tracking for location
     NSMutableArray *viewTrackers;
     
@@ -52,7 +57,8 @@
     
     /// View Placement logic used to move annotations around
     WhirlyKit::ViewPlacementActiveModelRef viewPlacementModel;
-                
+#endif //!MAPLY_MINIMAL
+
     /// Set if we're dumping out performance output
     bool _performanceOutput;
     
@@ -65,9 +71,16 @@
     /// 3dtouch preview context, so we can remove it.
     id <UIViewControllerPreviewing> previewingContext;
   
+#if !MAPLY_MINIMAL
     /// Need to keep a ref to this because the system keeps a weak ref
     Maply3dTouchPreviewDelegate *previewTouchDelegate;
+#endif //!MAPLY_MINIMAL
 }
+
+/// Indicates when the view position has been explicitly set since the last frame.
+@property bool posChanged;
+/// Indicates when the view height has been explicitly set since the last frame.
+@property bool heightChanged;
 
 /// This is called by the subclasses.  Don't call it yourself.
 - (void) clear;
@@ -88,5 +101,14 @@
 
 /// The base classes fill this in to return their own interaction layer subclass
 - (MaplyBaseInteractionLayer *) loadSetup_interactionLayer;
+
+/// Called when starting gesture, animation
+- (void)handleStartMoving:(bool)userMotion;
+
+/// Called when ending gesture, animation
+- (void)handleStopMoving:(bool)userMotion;
+
+- (void)report:(NSString * __nonnull)tag error:(NSError * __nonnull)error;
+- (void)report:(NSString * __nonnull)tag exception:(NSException * __nonnull)error;
 
 @end

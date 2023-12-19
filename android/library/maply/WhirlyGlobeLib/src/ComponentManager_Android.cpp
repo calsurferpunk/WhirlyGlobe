@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 3/4/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ void ComponentManager_Android::setupJNI(JNIEnv *env,jobject inCompManagerObj)
 {
     compManagerObj = env->NewGlobalRef(inCompManagerObj);
     jclass compManagerClass =  env->GetObjectClass(compManagerObj);
-    objectsRemovedMethod = env->GetMethodID(compManagerClass, "objectsRemoved", "([J)V");
+    objectsRemovedMethod = env->GetMethodID(compManagerClass, "objectsRemoved", "([JZ)V");
 }
 
 void ComponentManager_Android::clearJNI(JNIEnv *env)
@@ -60,7 +60,10 @@ ComponentManager_Android::~ComponentManager_Android()
     }
 }
 
-void ComponentManager_Android::removeComponentObjects(PlatformThreadInfo *inThreadInfo,const SimpleIDSet &compIDs,ChangeSet &changes)
+void ComponentManager_Android::removeComponentObjects(PlatformThreadInfo *inThreadInfo,
+                                                      const SimpleIDSet &compIDs,
+                                                      ChangeSet &changes,
+                                                      bool disposeAfterRemoval)
 {
     if (compIDs.empty())
         return;
@@ -69,13 +72,11 @@ void ComponentManager_Android::removeComponentObjects(PlatformThreadInfo *inThre
 
     ComponentManager::removeComponentObjects(threadInfo,compIDs,changes);
 
-    std::vector<SimpleIdentity> idsVec;
-    for (auto id: compIDs)
-        idsVec.push_back(id);
-    jlongArray idsArray = BuildLongArray(threadInfo->env,idsVec);
+    const std::vector<SimpleIdentity> idsVec(compIDs.begin(), compIDs.end());
+    const jlongArray idsArray = BuildLongArray(threadInfo->env,idsVec);
 
     // Tell the Java side about the IDs we just deleted
-    threadInfo->env->CallVoidMethod(compManagerObj,objectsRemovedMethod,idsArray);
+    threadInfo->env->CallVoidMethod(compManagerObj,objectsRemovedMethod,idsArray,disposeAfterRemoval);
     threadInfo->env->DeleteLocalRef(idsArray);
 }
 

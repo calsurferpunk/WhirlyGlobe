@@ -2,7 +2,7 @@
  *  MaplyQuadImageLoader.h
  *
  *  Created by Steve Gifford on 4/10/18.
- *  Copyright 2012-2018 Saildrone Inc
+ *  Copyright 2012-2022 Saildrone Inc
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@
  *
  */
 
-#import "control/MaplyControllerLayer.h"
-#import "math/MaplyCoordinateSystem.h"
-#import "loading/MaplyTileSourceNew.h"
-#import "control/MaplyRenderController.h"
-#import "loading/MaplyQuadSampler.h"
-#import "loading/MaplyRemoteTileFetcher.h"
-#import "loading/MaplyQuadLoader.h"
+#import <WhirlyGlobe/MaplyControllerLayer.h>
+#import <WhirlyGlobe/MaplyCoordinateSystem.h>
+#import <WhirlyGlobe/MaplyTileSourceNew.h>
+#import <WhirlyGlobe/MaplyRenderController.h>
+#import <WhirlyGlobe/MaplyQuadSampler.h>
+#import <WhirlyGlobe/MaplyRemoteTileFetcher.h>
+#import <WhirlyGlobe/MaplyQuadLoader.h>
 
 /**
  This version of the loader return is used by the MaplyImageLoaderInterpreter.
@@ -140,6 +140,9 @@ extern NSString * _Nonnull const MaplyQuadImageLoaderFetcherName;
 
 // Read from the z buffer when rendering.  Off by default
 @property (nonatomic,assign) bool zBufferRead;
+
+// Turn display of loader on or off.  Will still load, though.
+@property bool enable;
 
 /**
  Shader to use for rendering the image frames.

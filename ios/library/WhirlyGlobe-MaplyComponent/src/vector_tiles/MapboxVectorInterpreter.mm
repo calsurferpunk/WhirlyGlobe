@@ -1,9 +1,8 @@
-/*
- *  MapboxVectorTilesImageDelegate.h
+/*  MapboxVectorTilesImageDelegate.h
  *  WhirlyGlobe-MaplyComponent
  *
  *  Created by Steve Gifford on January 24 2018
- *  Copyright 2011-2019 Saildrone
+ *  Copyright 2011-2023 Saildrone
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "vector_tiles/MapboxVectorInterpreter.h"
@@ -35,7 +33,7 @@
 #include <set>
 #import <Accelerate/Accelerate.h>
 
-#import "WhirlyGlobe.h"
+#import "WhirlyGlobeLib.h"
 #import "vector_styles/MaplyVectorStyle.h"
 #import "private/MaplyVectorStyle_private.h"
 #import "MaplyVectorObject_private.h"
@@ -71,48 +69,106 @@ static int BackImageWidth = 16, BackImageHeight = 16;
                         vectorStyle:(NSObject<MaplyVectorStyleDelegate> *)inVectorStyle
                               viewC:(NSObject<MaplyRenderControllerProtocol> *)inViewC
 {
-    self = [super init];
-    offlineRender = inOfflineRender;
-    viewC = inViewC;
-    coordSys = [[MaplySphericalMercator alloc] initWebStandard];
+    if (!(self = [super init]))
+    {
+        return nil;
+    }
 
-    offlineRender.clearColor = [UIColor blueColor];
-    
-    // If the vector style is backed with the C++ implementation, just grab that
-    NSObject<MaplyVectorStyleDelegateSecret> *testImageStyle = (NSObject<MaplyVectorStyleDelegateSecret> *)inImageStyle;
-    if ([testImageStyle respondsToSelector:@selector(getVectorStyleImpl)]) {
-        imageStyle = [testImageStyle getVectorStyleImpl];
-    } else
-        imageStyle = std::make_shared<VectorStyleDelegateWrapper>(inViewC,inImageStyle);
-    
-    // Same for the vector, uh, vector styles
-    NSObject<MaplyVectorStyleDelegateSecret> *testVecStyle = (NSObject<MaplyVectorStyleDelegateSecret> *)inVectorStyle;
-    if ([testVecStyle respondsToSelector:@selector(getVectorStyleImpl)]) {
-        vecStyle = [testVecStyle getVectorStyleImpl];
-    } else
-        vecStyle = std::make_shared<VectorStyleDelegateWrapper>(inViewC,inVectorStyle);
+    try
+    {
+        offlineRender = inOfflineRender;
+        viewC = inViewC;
+        coordSys = [[MaplySphericalMercator alloc] initWebStandard];
+        
+        offlineRender.clearColor = [UIColor blueColor];
+        
+        // If the vector style is backed with the C++ implementation, just grab that
+        NSObject<MaplyVectorStyleDelegateSecret> *testImageStyle = (NSObject<MaplyVectorStyleDelegateSecret> *)inImageStyle;
+        if ([testImageStyle respondsToSelector:@selector(getVectorStyleImpl)]) {
+            imageStyle = [testImageStyle getVectorStyleImpl];
+        } else
+            imageStyle = std::make_shared<VectorStyleDelegateWrapper>(inViewC,inImageStyle);
+        
+        // Same for the vector, uh, vector styles
+        NSObject<MaplyVectorStyleDelegateSecret> *testVecStyle = (NSObject<MaplyVectorStyleDelegateSecret> *)inVectorStyle;
+        if ([testVecStyle respondsToSelector:@selector(getVectorStyleImpl)]) {
+            vecStyle = [testVecStyle getVectorStyleImpl];
+        } else
+            vecStyle = std::make_shared<VectorStyleDelegateWrapper>(inViewC,inVectorStyle);
+        
+        imageTileParser = std::make_shared<MapboxVectorTileParser>(nullptr,imageStyle);
+        imageTileParser->setLocalCoords();
+        vecTileParser = std::make_shared<MapboxVectorTileParser>(nullptr,vecStyle);
+    }
+    catch (const std::exception &ex)
+    {
+        NSLog(@"Exception in MapboxVectorInterpreter.initWithImageStyle: %s", ex.what());
+        [inViewC report:@"MapboxVectorInterpreter.initWithImageStyle"
+         exception:[[NSException alloc] initWithName:@"STL Exception"
+                                              reason:[NSString stringWithUTF8String:ex.what()]
+                                            userInfo:nil]];
+        return nil;
+    }
+    catch (NSException *ex)
+    {
+        NSLog(@"Exception in MapboxVectorInterpreter.initWithImageStyle: %@", ex.description);
+        [inViewC report:@"MapboxVectorInterpreter.initWithImageStyle" exception:ex];
+        return nil;
+    }
+    catch (...)
+    {
+        NSLog(@"Exception in MapboxVectorInterpreter.initWithImageStyle");
+        [inViewC report:@"MapboxVectorInterpreter.initWithImageStyle"
+         exception:[[NSException alloc] initWithName:@"C++ Exception" reason:@"Unknown" userInfo:nil]];
+        return nil;
+    }
 
-    imageTileParser = std::make_shared<MapboxVectorTileParser>(nullptr,imageStyle);
-    imageTileParser->setLocalCoords();
-    vecTileParser = std::make_shared<MapboxVectorTileParser>(nullptr,vecStyle);
-    
     return self;
 }
 
 - (instancetype) initWithVectorStyle:(NSObject<MaplyVectorStyleDelegate> *)inVectorStyle
                                viewC:(NSObject<MaplyRenderControllerProtocol> *)inViewC
 {
-    self = [super init];
+    if (!(self = [super init]))
+    {
+        return nil;
+    }
+
     viewC = inViewC;
 
-    // Same for the vector, uh, vector styles
-    NSObject<MaplyVectorStyleDelegateSecret> *testVecStyle = (NSObject<MaplyVectorStyleDelegateSecret> *)inVectorStyle;
-    if ([testVecStyle respondsToSelector:@selector(getVectorStyleImpl)]) {
-        vecStyle = [testVecStyle getVectorStyleImpl];
-    } else
-        vecStyle = std::make_shared<VectorStyleDelegateWrapper>(inViewC,inVectorStyle);
-
-    vecTileParser = std::make_shared<MapboxVectorTileParser>(nullptr,vecStyle);
+    try
+    {
+        // Same for the vector, uh, vector styles
+        NSObject<MaplyVectorStyleDelegateSecret> *testVecStyle = (NSObject<MaplyVectorStyleDelegateSecret> *)inVectorStyle;
+        if ([testVecStyle respondsToSelector:@selector(getVectorStyleImpl)]) {
+            vecStyle = [testVecStyle getVectorStyleImpl];
+        } else
+            vecStyle = std::make_shared<VectorStyleDelegateWrapper>(inViewC,inVectorStyle);
+        
+        vecTileParser = std::make_shared<MapboxVectorTileParser>(nullptr,vecStyle);
+    }
+    catch (const std::exception &ex)
+    {
+        NSLog(@"Exception in MapboxVectorInterpreter.initWithVectorStyle: %s", ex.what());
+        [inViewC report:@"MapboxVectorInterpreter.initWithVectorStyle"
+         exception:[[NSException alloc] initWithName:@"STL Exception"
+                                              reason:[NSString stringWithUTF8String:ex.what()]
+                                            userInfo:nil]];
+        return nil;
+    }
+    catch (NSException *ex)
+    {
+        NSLog(@"Exception in MapboxVectorInterpreter.initWithVectorStyle: %@", ex.description);
+        [inViewC report:@"MapboxVectorInterpreter.initWithVectorStyle" exception:ex];
+        return nil;
+    }
+    catch (...)
+    {
+        NSLog(@"Exception in MapboxVectorInterpreter.initWithVectorStyle");
+        [inViewC report:@"MapboxVectorInterpreter.initWithVectorStyle"
+         exception:[[NSException alloc] initWithName:@"C++ Exception" reason:@"Unknown" userInfo:nil]];
+        return nil;
+    }
 
     return self;
 }
@@ -121,11 +177,14 @@ static int BackImageWidth = 16, BackImageHeight = 16;
 {
     if (imageTileParser || vecTileParser)
     {
-        std::string uuidName = [inUuidName cStringUsingEncoding:NSUTF8StringEncoding];
+        const std::string uuidName = [inUuidName asStdString];
         std::set<std::string> uuidValues;
         for (NSString *uuid in uuids)
         {
-            uuidValues.emplace([uuid cStringUsingEncoding:NSUTF8StringEncoding]);
+            if (auto cstr = [uuid cStringUsingEncoding:NSUTF8StringEncoding])
+            {
+                uuidValues.emplace(cstr);
+            }
         }
 
         if (imageTileParser)
@@ -185,6 +244,9 @@ static int BackImageWidth = 16, BackImageHeight = 16;
     // Uncompress any of the data we recieved
     NSArray *tileData = [loadReturn getTileData];
     for (unsigned int ii=0;ii<[tileData count];ii++) {
+        if (loadReturn.isCancelled) {
+            return;
+        }
         NSData *thisTileData = [tileData objectAtIndex:ii];
         if(thisTileData) {
           if([thisTileData isCompressed]) {
@@ -279,21 +341,30 @@ static int BackImageWidth = 16, BackImageHeight = 16;
     // Parse everything else and turn into vectors
     std::vector<ComponentObjectRef> compObjs,ovlCompObjs;
     for (NSData *thisTileData : pbfDatas) {
+        if (loadReturn.isCancelled) {
+            break;
+        }
+
         // Use a separate work item for each tile, so that we react quickly if told to shut down
         WorkRegion wr(vc);
         if (!wr) {
-            return;
+            break;
         }
 
         RawNSDataReader thisTileDataWrap(thisTileData);
         MaplyVectorTileData *vecTileReturn = [[MaplyVectorTileData alloc] initWithID:tileID bbox:spherMercBBox geoBBox:geoBBox];
         // Parse the vector features and then merge them into the change set in the load return
         vecTileParser->parse(NULL, &thisTileDataWrap, vecTileReturn->data.get(), &loadReturn->loadReturn->cancel);
-        loadReturn->loadReturn->changes.insert(loadReturn->loadReturn->changes.end(),vecTileReturn->data->changes.begin(),vecTileReturn->data->changes.end());
+        loadReturn->loadReturn->changes.insert(loadReturn->loadReturn->changes.end(),
+                                               vecTileReturn->data->changes.begin(),
+                                               vecTileReturn->data->changes.end());
+        vecTileReturn->data->changes.clear();
         
-        if (!vecTileReturn->data->compObjs.empty())
-            compObjs.insert(compObjs.end(),vecTileReturn->data->compObjs.begin(),vecTileReturn->data->compObjs.end());
-        
+        compObjs.insert(compObjs.end(),
+                        std::make_move_iterator(vecTileReturn->data->compObjs.begin()),
+                        std::make_move_iterator(vecTileReturn->data->compObjs.end()));
+        vecTileReturn->data->compObjs.clear();
+
         const auto it = vecTileReturn->data->categories.find("overlay");
         if (it != vecTileReturn->data->categories.end()) {
             auto const &ids = it->second;
@@ -301,11 +372,18 @@ static int BackImageWidth = 16, BackImageHeight = 16;
         }
     }
 
-    if ([loadReturn isKindOfClass:[MaplyImageLoaderReturn class]]) {
+    if ([loadReturn isKindOfClass:[MaplyImageLoaderReturn class]] && !loadReturn.isCancelled) {
         if (auto wr = WorkRegion(vc)) {
             if (offlineRender) {
                 // Rendered image goes in first
-                auto tileImage = [[MaplyImageTile alloc] initWithRawImage:imageData width:offlineRender.getFramebufferSize.width height:offlineRender.getFramebufferSize.height viewC:vc];
+                auto tileImage = [[MaplyImageTile alloc] initWithRawImage:imageData
+                                                                    width:offlineRender.getFramebufferSize.width
+                                                                   height:offlineRender.getFramebufferSize.height
+                                                                    viewC:vc];
+#if DEBUG
+                tileImage.label = [NSString stringWithFormat:@"%@ offline %d:(%d,%d) %d",
+                                   loader.label, tileID.level, tileID.x, tileID.y, loadReturn.frame];
+#endif
                 [loadReturn addImageTile:tileImage];
             } else if (images.empty()) {
                 // Make a single color background image
@@ -318,18 +396,24 @@ static int BackImageWidth = 16, BackImageHeight = 16;
                 UIColor *thisBackColor = backColor ? [UIColor colorFromRGBA:*backColor] : [UIColor blackColor];
                 [thisBackColor getRed:&red green:&green blue:&blue alpha:&alpha];
                 unsigned int pixel = 0xff << 24 | (int)(blue * 255) << 16 | (int)(green * 255) << 8 | (int)(red * 255);
-                for (unsigned int pix=0;pix<BackImageWidth*BackImageHeight;pix++) {
-                    *data = pixel;
-                    data++;
-                }
+                std::fill(&data[0], &data[BackImageWidth*BackImageHeight], pixel);
 
                 auto tileImage = [[MaplyImageTile alloc] initWithRawImage:backImageData width:BackImageWidth height:BackImageHeight viewC:vc];
+#if DEBUG
+                tileImage.label = [NSString stringWithFormat:@"%@ bg %d:(%d,%d) %d",
+                                   loader.label, tileID.level, tileID.x, tileID.y, loadReturn.frame];
+#endif
                 [loadReturn addImageTile:tileImage];
             }
 
             // Any additional images are tacked on
+            int n = 0;
             for (UIImage *image : images) {
                 MaplyImageTile *tileData = [[MaplyImageTile alloc] initWithImage:image viewC:vc];
+#if DEBUG
+                tileData.label = [NSString stringWithFormat:@"%@ img%d %d:(%d,%d) %d",
+                                  loader.label, n++, tileID.level, tileID.x, tileID.y, loadReturn.frame];
+#endif
                 [loadReturn addImageTile:tileData];
             }
         }

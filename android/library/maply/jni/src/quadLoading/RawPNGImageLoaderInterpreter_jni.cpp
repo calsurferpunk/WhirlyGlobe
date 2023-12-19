@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by sjg on 3/20/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -95,11 +95,25 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_RawPNGImageLoaderInterpreter_dat
 
         unsigned int width=0,height=0;
         unsigned int err = 0;
-        int byteWidth = -1;
+		unsigned int depth = 0;
+		unsigned int components = 0;
         unsigned char *outData = RawPNGImageLoaderInterpreter(width,height,
                 (const unsigned char *)bytes,len,
-		        rawImage->valueMap,
-                byteWidth, err);
+		        &rawImage->valueMap[0],
+				&depth,
+                &components,
+				&err,
+				/*errStr=*/nullptr);
+		int byteWidth = components * depth / 8;
+		extern unsigned char *RawPNGImageLoaderInterpreter(unsigned int &width,
+														   unsigned int &height,
+														   const unsigned char *data,
+														   size_t length,
+														   const int valueMap[256],
+														   unsigned *outDepth,
+														   unsigned *outComponents,
+														   unsigned int *outErr,
+														   std::string *outErrStr);
 
 		env->ReleaseByteArrayElements(inImage,bytes, 0);
 

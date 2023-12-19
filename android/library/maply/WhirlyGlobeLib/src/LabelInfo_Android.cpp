@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 6/2/14.
- *  Copyright 2011-2016 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -60,8 +60,14 @@ void LabelInfoAndroid::clearRefs(PlatformInfo_Android *threadInfo)
 bool LabelInfoAndroid::typefaceIsSame(PlatformInfo_Android *threadInfo,const jobject inTypeface) const
 {
 	// Obviously true here
-	if (inTypeface == typefaceObj)
+	if (threadInfo->env->IsSameObject(inTypeface, typefaceObj))
+	{
 		return true;
+	}
+	if (!inTypeface || !typefaceObj)
+	{
+		return false;
+	}
 
 	// Now for a deeper comparison
 	jclass typefaceClass = threadInfo->env->GetObjectClass(inTypeface);

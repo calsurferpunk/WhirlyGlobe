@@ -1,9 +1,8 @@
-/*
- *  MaplyCoordinate.m
+/*  MaplyCoordinate.mm
  *  WhirlyGlobeComponent
  *
  *  Created by Steve Gifford on 7/21/12.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "math/MaplyCoordinate.h"
@@ -23,11 +21,19 @@
 
 using namespace WhirlyKit;
 
+const MaplyCoordinate kMaplyNullCoordinate = {.x = FLT_MIN, .y = FLT_MIN};
+const MaplyCoordinateD kMaplyNullCoordinateD = {.x = DBL_MIN, .y = DBL_MIN};
+const MaplyCoordinate3d kMaplyNullCoordinate3d = {.x = FLT_MIN, .y = FLT_MIN, .z = FLT_MIN };
+const MaplyCoordinate3dD kMaplyNullCoordinate3dD = {.x = DBL_MIN, .y = DBL_MIN, .z = DBL_MIN};
+const MaplyBoundingBox kMaplyNullBoundingBox = { .ll = {.x = FLT_MIN, .y = FLT_MIN}, .ur = {.x = FLT_MIN, .y = FLT_MIN} };
+const MaplyBoundingBoxD kMaplyNullBoundingBoxD = { .ll = {.x = DBL_MIN, .y = DBL_MIN}, .ur = {.x = DBL_MIN, .y = DBL_MIN} };
+
 MaplyCoordinate MaplyCoordinateMake(float radLon,float radLat) { return { radLon, radLat }; }
 MaplyCoordinateD MaplyCoordinateDMake(double radLon,double radLat) { return { radLon, radLat }; }
 MaplyCoordinate MaplyCoordinateMakeWithDegrees(float degLon,float degLat) { return { DegToRad(degLon), DegToRad(degLat) }; }
 MaplyCoordinateD MaplyCoordinateDMakeWithDegrees(double degLon, double degLat) { return { DegToRad(degLon), DegToRad(degLat) }; }
 MaplyCoordinateD MaplyCoordinateDMakeWithMaplyCoordinate(MaplyCoordinate c) { return { c.x, c.y }; }
+MaplyCoordinate MaplyCoordinateMakeWithMaplyCoordinateD(MaplyCoordinateD c) { return { (float)c.x, (float)c.y }; }
 MaplyCoordinate3d MaplyCoordinate3dMake(float x, float y, float z) { return { x, y, z}; }
 MaplyCoordinate3dD MaplyCoordinate3dDMake(double x, double y, double z) { return { x, y, z }; }
 
@@ -42,6 +48,13 @@ inline MaplyBoundingBoxD MaplyBoundingBoxDMakeFromMbr(Mbr mbr) {
 }
 inline MaplyBoundingBoxD MaplyBoundingBoxDMakeFromMbrD(MbrD mbr) {
     return { MaplyCoordinateDMake(mbr.ll().x(), mbr.ll().y()), MaplyCoordinateDMake(mbr.ur().x(), mbr.ur().y()) };
+}
+
+MaplyBoundingBox MaplyBoundingBoxMakeFromBoundingBoxD(MaplyBoundingBoxD mbr) {
+    return { MaplyCoordinateMakeWithMaplyCoordinateD(mbr.ll), MaplyCoordinateMakeWithMaplyCoordinateD(mbr.ur) };
+}
+MaplyBoundingBoxD MaplyBoundingBoxDMakeFromBoundingBox(MaplyBoundingBox mbr) {
+    return { MaplyCoordinateDMakeWithMaplyCoordinate(mbr.ll), MaplyCoordinateDMakeWithMaplyCoordinate(mbr.ur) };
 }
 
 MaplyBoundingBox MaplyBoundingBoxMakeWithDegrees(float degLon0,float degLat0,float degLon1,float degLat1)

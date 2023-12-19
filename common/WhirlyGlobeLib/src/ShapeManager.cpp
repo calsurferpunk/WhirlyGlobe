@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by jmnavarro
- *  Copyright 2011-2021 mousebird consulting.
+ *  Copyright 2011-2023 mousebird consulting.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 #import "ShapeManager.h"
 #import "GlobeMath.h"
 #import "ShapeDrawableBuilder.h"
-#import "SelectionManager.h"
 #import <set>
 #import <vector>
 #import "Identifiable.h"
@@ -28,37 +27,53 @@
 #import "FlatMath.h"
 #import "WhirlyKitLog.h"
 
+#if !MAPLY_MINIMAL
+# import "SelectionManager.h"
+#endif //!MAPLY_MINIMAL
+
 using namespace Eigen;
 using namespace WhirlyKit;
 
 namespace WhirlyKit {
 
-void ShapeSceneRep::enableContents(WhirlyKit::SelectionManagerRef &selectManager, bool enable, ChangeSet &changes)
+static const Point3d north(0,0,1);  // nolint
+
+void ShapeSceneRep::enableContents(const SelectionManagerRef &selectManager, bool enable, ChangeSet &changes)
 {
-    for (const SimpleIdentity idIt : drawIDs){
+    for (const SimpleIdentity idIt : drawIDs)
+    {
         changes.push_back(new OnOffChangeRequest(idIt, enable));
-        if (selectManager)
-            for (const SimpleIdentity it : selectIDs)
-                selectManager->enableSelectable(it, enable);
     }
+#if !MAPLY_MINIMAL
+    if (selectManager)
+    {
+        for (const SimpleIdentity it : selectIDs)
+        {
+            selectManager->enableSelectable(it, enable);
+        }
+    }
+#endif //!MAPLY_MINIMAL
 }
 
-void ShapeSceneRep::clearContents(SelectionManagerRef &selectManager, ChangeSet &changes,TimeInterval when)
+void ShapeSceneRep::clearContents(const SelectionManagerRef &selectManager, ChangeSet &changes,TimeInterval when)
 {
-    for (const SimpleIdentity idIt : drawIDs){
+    for (const SimpleIdentity idIt : drawIDs)
+    {
         changes.push_back(new RemDrawableReq(idIt,when));
-        if (selectManager)
-            for (const SimpleIdentity it : selectIDs)
-                selectManager->removeSelectable(it);
     }
+#if !MAPLY_MINIMAL
+    if (selectManager)
+    {
+        for (const SimpleIdentity it : selectIDs)
+        {
+            selectManager->removeSelectable(it);
+        }
+    }
+#endif //!MAPLY_MINIMAL
 }
 
 Shape::Shape()
     : isSelectable(false), selectID(EmptyIdentity), useColor(false), color(255,255,255,255), clipCoords(false)
-{
-}
-
-Shape::~Shape()
 {
 }
 
@@ -69,27 +84,23 @@ void Shape::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder,
 
 Point3d Shape::displayCenter(WhirlyKit::CoordSystemDisplayAdapter *coordAdapter, const ShapeInfo &shapeInfo)
 {
-	return Point3d(0,0,0);
+	return {0.0,0.0,0.0 };
 }
+
+#if !MAPLY_MINIMAL
 
 Circle::Circle()
     : loc(0,0), radius(0.0), height(0.0), sampleX(10)
 {
 }
-    
-Circle::~Circle()
-{
-}
-    
+
 Point3d Circle::displayCenter(WhirlyKit::CoordSystemDisplayAdapter *coordAdapter, const ShapeInfo &shapeInfo)
 {
     if (shapeInfo.hasCenter)
         return shapeInfo.center;
     
     const Point3d localPt = coordAdapter->getCoordSystem()->geographicToLocal3d(loc);
-    const Point3d dispPt = coordAdapter->localToDisplay(localPt);
-    
-    return dispPt;
+    return coordAdapter->localToDisplay(localPt);
 }
 
 static const float sqrt2 = M_SQRT2;
@@ -110,14 +121,13 @@ void Circle::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder
     Point3d norm = coordAdapter->normalForLocal(localPt);
     
     // Construct a set of axes to build the circle around
-    Point3d up = norm;
+    const Point3d& up = norm;
     Point3d xAxis,yAxis;
     if (coordAdapter->isFlat())
     {
         xAxis = Point3d(1,0,0);
         yAxis = Point3d(0,1,0);
     } else {
-        Point3d north(0,0,1);
         // Note: Also check if we're at a pole
         xAxis = north.cross(up);  xAxis.normalize();
         yAxis = up.cross(xAxis);  yAxis.normalize();
@@ -127,7 +137,8 @@ void Circle::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder
     Point3dVector samples;
     samples.resize(sampleX);
     for (unsigned int ii=0;ii<sampleX;ii++)
-        samples[ii] =  xAxis * radius * sinf(2*M_PI*ii/(float)(sampleX-1)) + radius * yAxis * cosf(2*M_PI*ii/(float)(sampleX-1)) + dispPt;
+        samples[ii] = xAxis * radius * std::sin(2*M_PI*ii/(double)(sampleX-1)) +
+                      yAxis * radius * std::cos(2*M_PI*ii/(double)(sampleX-1)) + dispPt;
     
     // We need the bounding box in the local coordinate system
     Point3d bot {0,0,0},top {0,0,0};
@@ -164,17 +175,16 @@ void Circle::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder
         pts[5] = Point3d(top.x(),bot.y(),top.z());
         pts[6] = Point3d(top.x(),top.y(),top.z());
         pts[7] = Point3d(bot.x(),top.y(),top.z());
-        selectManager->addSelectableRectSolid(selectID,pts,triBuilder->getShapeInfo()->minVis,triBuilder->getShapeInfo()->maxVis,regBuilder->getShapeInfo()->enable);
+        selectManager->addSelectableRectSolid(selectID,pts,
+                                              (float)triBuilder->getShapeInfo()->minVis,
+                                              (float)triBuilder->getShapeInfo()->maxVis,
+                                              regBuilder->getShapeInfo()->enable);
         sceneRep->selectIDs.insert(selectID);
     }
 }
-    
+
 Sphere::Sphere()
     : loc(0,0), height(0.0), radius(0.0), sampleX(10), sampleY(10)
-{
-}
-
-Sphere::~Sphere()
 {
 }
 
@@ -203,7 +213,7 @@ void Sphere::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder
     // Run it up a bit by the height
     dispPt = dispPt + norm * height;
 
-    // It's lame, but we'll use lat/lon coordinates to tesselate the sphere
+    // It's lame, but we'll use lat/lon coordinates to tessellate the sphere
     Point3dVector locs,norms;
     locs.reserve((sampleX+1)*(sampleY+1));
     norms.reserve((sampleX+1)*(sampleY+1));
@@ -212,7 +222,8 @@ void Sphere::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder
     Point2f geoIncr(2*M_PI/sampleX,M_PI/sampleY);
 	for (unsigned int iy=0;iy<sampleY+1;iy++) {
         for (unsigned int ix=0;ix<sampleX+1;ix++) {
-            GeoCoord geoLoc(-M_PI+ix*geoIncr.x(),-M_PI/2.0 + iy*geoIncr.y());
+            GeoCoord geoLoc((float)(-M_PI + (double)ix * geoIncr.x()),
+                            (float)(-M_PI_2 + (double)iy * geoIncr.y()));
             if (geoLoc.x() < -M_PI)  geoLoc.x() = -M_PI;
             if (geoLoc.x() > M_PI) geoLoc.x() = M_PI;
             if (geoLoc.y() < -M_PI/2.0)  geoLoc.y() = -M_PI/2.0;
@@ -230,10 +241,13 @@ void Sphere::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder
     // Two triangles per cell
     std::vector<BasicDrawable::Triangle> tris;
     tris.reserve(2*sampleX*sampleY);
-	for (unsigned int iy=0;iy<sampleY;iy++) {
-        for (unsigned int ix=0;ix<sampleX;ix++) {
+    for (unsigned int iy=0;iy<sampleY;iy++)
+    {
+        for (unsigned int ix=0;ix<sampleX;ix++)
+        {
             BasicDrawable::Triangle triA,triB;
-            if (regBuilder->shapeInfo.insideOut) {
+            if (regBuilder->getShapeInfo()->insideOut)
+            {
                 // Flip the triangles
                 triA.verts[0] = iy*(sampleX+1)+ix;
                 triA.verts[2] = iy*(sampleX+1)+(ix+1);
@@ -242,7 +256,8 @@ void Sphere::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder
                 triB.verts[2] = triA.verts[1];
                 triB.verts[1] = (iy+1)*(sampleX+1)+ix;
             }
-			else {
+            else
+                {
                 triA.verts[0] = iy*(sampleX+1)+ix;
                 triA.verts[1] = iy*(sampleX+1)+(ix+1);
                 triA.verts[2] = (iy+1)*(sampleX+1)+(ix+1);
@@ -258,9 +273,10 @@ void Sphere::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder
     triBuilder->addTriangles(locs,norms,colors,tris);
 
     // Add a selection region
-    if (isSelectable && selectManager && sceneRep) {
+    if (isSelectable && selectManager && sceneRep)
+    {
         Point3d pts[8];
-        float dist = radius * sqrt2;
+        const float dist = radius * sqrt2;
         pts[0] = dispPt + dist * Point3d(-1,-1,-1);
         pts[1] = dispPt + dist * Point3d(1,-1,-1);
         pts[2] = dispPt + dist * Point3d(1,1,-1);
@@ -269,7 +285,10 @@ void Sphere::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder
         pts[5] = dispPt + dist * Point3d(1,-1,1);
         pts[6] = dispPt + dist * Point3d(1,1,1);
         pts[7] = dispPt + dist * Point3d(-1,1,1);
-        selectManager->addSelectableRectSolid(selectID,pts,triBuilder->getShapeInfo()->minVis,triBuilder->getShapeInfo()->maxVis,regBuilder->getShapeInfo()->enable);
+        selectManager->addSelectableRectSolid(selectID,pts,
+                                              (float)triBuilder->getShapeInfo()->minVis,
+                                              (float)triBuilder->getShapeInfo()->maxVis,
+                                              regBuilder->getShapeInfo()->enable);
         sceneRep->selectIDs.insert(selectID);
     }
 }
@@ -279,10 +298,6 @@ Cylinder::Cylinder()
 {
 }
 
-Cylinder::~Cylinder()
-{
-}
-    
 Point3d Cylinder::displayCenter(WhirlyKit::CoordSystemDisplayAdapter *coordAdapter, const ShapeInfo &shapeInfo)
 {
     if (shapeInfo.hasCenter)
@@ -296,26 +311,27 @@ Point3d Cylinder::displayCenter(WhirlyKit::CoordSystemDisplayAdapter *coordAdapt
 
 void Cylinder::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder, WhirlyKit::ShapeDrawableBuilderTri *triBuilder, WhirlyKit::Scene *scene, WhirlyKit::SelectionManagerRef &selectManager, WhirlyKit::ShapeSceneRep *sceneRep)
 {
-    CoordSystemDisplayAdapter *coordAdapter = scene->getCoordAdapter();
-    
-    auto theColor = useColor ? color : regBuilder->getShapeInfo()->color;
+    const CoordSystemDisplayAdapter *coordAdapter = scene->getCoordAdapter();
 
-    Point3d localPt = coordAdapter->getCoordSystem()->geographicToLocal3d(loc);
+    const auto theColor = useColor ? color : regBuilder->getShapeInfo()->color;
+
+    const Point3d localPt = coordAdapter->getCoordSystem()->geographicToLocal3d(loc);
     Point3d dispPt = coordAdapter->localToDisplay(localPt);
-    Point3d norm = coordAdapter->normalForLocal(localPt);
+    const Point3d norm = coordAdapter->normalForLocal(localPt);
     
     // Move up by baseHeight
     dispPt += norm * baseHeight;
     
     // Construct a set of axes to build the circle around
-    Point3d up = norm;
+    const Point3d& up = norm;
     Point3d xAxis,yAxis;
     if (coordAdapter->isFlat())
     {
         xAxis = Point3d(1,0,0);
         yAxis = Point3d(0,1,0);
-    } else {
-        Point3d north(0,0,1);
+    }
+    else
+    {
         // Note: Also check if we're at a pole
         xAxis = north.cross(up);  xAxis.normalize();
         yAxis = up.cross(xAxis);  yAxis.normalize();
@@ -324,29 +340,33 @@ void Cylinder::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuild
     // Generate the circle based on the axes
     Point3dVector circleSamples(sampleX);
     for (unsigned int ii=0;ii<sampleX;ii++)
-        circleSamples[ii] = xAxis * sinf(2*M_PI*ii/(float)(sampleX-1)) + yAxis * cosf(2*M_PI*ii/(float)(sampleX-1));
-    
+    {
+        circleSamples[ii] = xAxis * std::sin(2*M_PI*ii/(double)(sampleX-1)) +
+                            yAxis * std::cos(2*M_PI*ii/(double)(sampleX-1));
+    }
+
     // Calculate samples around the bottom
     Point3dVector samples;
     samples.resize(sampleX);
     for (unsigned int ii=0;ii<sampleX;ii++)
+    {
         samples[ii] =  radius * circleSamples[ii] + dispPt;
+    }
     
     // We need the bounding box in the local coordinate system
     // Note: This is not handling height correctly
     Mbr shapeMbr;
-    for (unsigned int ii=0;ii<samples.size();ii++)
+    for (auto & sample : samples)
     {
-        Point3d thisLocalPt = coordAdapter->displayToLocal(samples[ii]);
+        const Point3d thisLocalPt = coordAdapter->displayToLocal(sample);
         // Note: If this shape has height, this is insufficient
         shapeMbr.addPoint(Point2f(thisLocalPt.x(),thisLocalPt.y()));
     }
     
     // For the top we just offset
     Point3dVector top = samples;
-    for (unsigned int ii=0;ii<top.size();ii++)
+    for (auto & pt : top)
     {
-        Point3d &pt = top[ii];
         pt = pt + height * norm;
     }
     triBuilder->addConvexOutline(top,norm,theColor,shapeMbr);
@@ -370,7 +390,7 @@ void Cylinder::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuild
     if (isSelectable && selectManager && sceneRep)
     {
         Point3d pts[8];
-        float dist1 = radius * sqrt2;
+        const auto dist1 = radius * sqrt2;
         pts[0] = dispPt - dist1 * xAxis - dist1 * yAxis;
         pts[1] = dispPt + dist1 * xAxis - dist1 * yAxis;
         pts[2] = dispPt + dist1 * xAxis + dist1 * yAxis;
@@ -379,17 +399,16 @@ void Cylinder::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuild
         pts[5] = pts[1] + height * norm;
         pts[6] = pts[2] + height * norm;
         pts[7] = pts[3] + height * norm;
-        selectManager->addSelectableRectSolid(selectID,pts,triBuilder->getShapeInfo()->minVis,triBuilder->getShapeInfo()->maxVis,triBuilder->getShapeInfo()->enable);
+        selectManager->addSelectableRectSolid(selectID,pts,
+                                              (float)triBuilder->getShapeInfo()->minVis,
+                                              (float)triBuilder->getShapeInfo()->maxVis,
+                                              triBuilder->getShapeInfo()->enable);
         sceneRep->selectIDs.insert(selectID);
     }
 }
-    
+
 Linear::Linear()
 : lineWidth(0.0)
-{
-}
-
-Linear::~Linear()
 {
 }
 
@@ -397,13 +416,7 @@ Point3d Linear::displayCenter(WhirlyKit::CoordSystemDisplayAdapter *coordAdapter
 {
     if (shapeInfo.hasCenter)
         return shapeInfo.center;
-    
-    if (!pts.empty())
-    {
-        const Point3d &pt = pts[pts.size()/2];
-        return Point3d(pt.x(),pt.y(),pt.z());
-    } else
-        return Point3d(0,0,0);
+    return !pts.empty() ? pts[pts.size()/2] : Point3d { 0.0,0.0,0.0 };
 }
 
 void Linear::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder, WhirlyKit::ShapeDrawableBuilderTri *triBuilder, WhirlyKit::Scene *scene, WhirlyKit::SelectionManagerRef &selectManager, WhirlyKit::ShapeSceneRep *sceneRep)
@@ -412,10 +425,13 @@ void Linear::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder
 
     if (isSelectable)
     {
-        selectManager->addSelectableLinear(selectID,pts,regBuilder->getShapeInfo()->minVis,regBuilder->getShapeInfo()->maxVis,regBuilder->getShapeInfo()->enable);
+        selectManager->addSelectableLinear(selectID,pts,
+                                           (float)regBuilder->getShapeInfo()->minVis,
+                                           (float)regBuilder->getShapeInfo()->maxVis,
+                                           regBuilder->getShapeInfo()->enable);
         sceneRep->selectIDs.insert(selectID);
     }
-    
+
     regBuilder->addPoints(pts, theColor, mbr, lineWidth, false);
 }
     
@@ -425,19 +441,13 @@ Extruded::Extruded()
     transform = Eigen::Matrix4d::Identity();
 }
 
-Extruded::~Extruded()
-{
-}
-
 Point3d Extruded::displayCenter(WhirlyKit::CoordSystemDisplayAdapter *coordAdapter, const ShapeInfo &shapeInfo)
 {
     if (shapeInfo.hasCenter)
         return shapeInfo.center;
     
-    Point3d localPt = coordAdapter->getCoordSystem()->geographicToLocal3d(GeoCoord(loc.x(),loc.y()));
-    Point3d dispPt = coordAdapter->localToDisplay(localPt);
-    
-    return dispPt;
+    const Point3d localPt = coordAdapter->getCoordSystem()->geographicToLocal3d(GeoCoord(loc.x(),loc.y()));
+    return coordAdapter->localToDisplay(localPt);
 }
 
 void Extruded::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder, WhirlyKit::ShapeDrawableBuilderTri *triBuilder, WhirlyKit::Scene *scene, WhirlyKit::SelectionManagerRef &selectManager, WhirlyKit::ShapeSceneRep *sceneRep)
@@ -457,7 +467,6 @@ void Extruded::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuild
         xAxis = Point3d(1,0,0);
         yAxis = Point3d(0,1,0);
     } else {
-        Point3d north(0,0,1);
         // Note: Also check if we're at a pole
         xAxis = north.cross(norm);  xAxis.normalize();
         yAxis = norm.cross(xAxis);  yAxis.normalize();
@@ -502,7 +511,7 @@ void Extruded::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuild
     }
     VectorTrianglesRef trisRef = VectorTriangles::createTriangles();
     TesselateRing(ring,trisRef);
-    
+
     std::vector<Point3dVector> polytope;
     double z = loc.z()*scale;
     double theThickness = thickness*scale;
@@ -549,29 +558,27 @@ void Extruded::makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuild
     // Add a selection region
     if (isSelectable && selectManager && sceneRep)
     {
-        selectManager->addPolytope(selectID,polytope,triBuilder->getShapeInfo()->minVis,triBuilder->getShapeInfo()->maxVis,triBuilder->getShapeInfo()->enable);
+        selectManager->addPolytope(selectID,polytope,
+                                   (float)triBuilder->getShapeInfo()->minVis,
+                                   (float)triBuilder->getShapeInfo()->maxVis,
+                                   triBuilder->getShapeInfo()->enable);
         sceneRep->selectIDs.insert(selectID);
     }
-
 }
+
+#endif //!MAPLY_MINIMAL
 
 Rectangle::Rectangle()
 : ll(0,0,0), ur(0,0,0)
 {
 }
     
-Rectangle::~Rectangle()
-{    
-}
-
 Point3d Rectangle::displayCenter(CoordSystemDisplayAdapter *coordAdapter,const ShapeInfo &shapeInfo)
 {
     if (shapeInfo.hasCenter)
         return shapeInfo.center;
-
     // Note: Do a proper center at some point
-    
-    return Point3d(0,0,0);
+    return { 0.0, 0.0, 0.0 };
 }
 
 // Build the geometry for a circle in display space
@@ -579,7 +586,7 @@ void Rectangle::makeGeometryWithBuilder(ShapeDrawableBuilder *regBuilder,ShapeDr
 {
     CoordSystemDisplayAdapter *coordAdapter = scene->getCoordAdapter();
     
-    auto theColor = useColor ? color : regBuilder->getShapeInfo()->color;
+    const auto theColor = useColor ? color : regBuilder->getShapeInfo()->color;
 
     triBuilder->setTexIDs(texIDs);
 
@@ -626,20 +633,22 @@ void Rectangle::makeGeometryWithBuilder(ShapeDrawableBuilder *regBuilder,ShapeDr
     // Note: Should do selection too
 }
 
-ShapeManager::ShapeManager()
-{
-}
-
 ShapeManager::~ShapeManager()
 {
-    std::lock_guard<std::mutex> guardLock(lock);
-
-    for (ShapeSceneRepSet::iterator it = shapeReps.begin(); it != shapeReps.end(); ++it)
-        delete *it;
-
-    shapeReps.clear();
+    try
+    {
+        std::lock_guard<std::mutex> guardLock(lock);
+        
+        for (auto shapeRep : shapeReps)
+        {
+            delete shapeRep;
+        }
+        shapeReps.clear();
+    }
+    WK_STD_DTOR_CATCH()
 }
-    
+
+#if !MAPLY_MINIMAL
 void ShapeManager::convertShape(Shape &shape,std::vector<WhirlyKit::GeometryRaw> &rawGeom)
 {
     ShapeInfo shapeInfo;
@@ -648,20 +657,15 @@ void ShapeManager::convertShape(Shape &shape,std::vector<WhirlyKit::GeometryRaw>
     ShapeDrawableBuilderTri drawBuildTri(scene->getCoordAdapter(),renderer,shapeInfo,center);
     ShapeDrawableBuilder drawBuildReg(scene->getCoordAdapter(),renderer,shapeInfo,true,center);
     
-    // Some special shapes are already in OpenGL clip space
-    if (shape.clipCoords)
-    {
-        drawBuildTri.clipCoords = true;
-    }
     auto selectManage = SelectionManagerRef();
-    shape.makeGeometryWithBuilder(&drawBuildReg,&drawBuildTri,scene,selectManage,NULL);
+    shape.makeGeometryWithBuilder(&drawBuildReg,&drawBuildTri,scene,selectManage,nullptr);
     
     // Scrape out the triangles
     drawBuildTri.flush();
     rawGeom.resize(1);
     GeometryRaw &outGeom = rawGeom.front();
     outGeom.type = WhirlyKitGeometryTriangles;
-    for (const BasicDrawableBuilderRef &draw : drawBuildTri.drawables)
+    for (const BasicDrawableBuilderRef &draw : drawBuildTri.getDrawables())
     {
         int basePts = (int)outGeom.pts.size();
         outGeom.pts.reserve(draw->points.size());
@@ -669,14 +673,14 @@ void ShapeManager::convertShape(Shape &shape,std::vector<WhirlyKit::GeometryRaw>
             outGeom.pts.push_back(Point3d(pt.x(),pt.y(),pt.z()));
         outGeom.triangles.reserve(draw->tris.size());
         for (const BasicDrawable::Triangle &tri : draw->tris)
-            outGeom.triangles.push_back(GeometryRaw::RawTriangle(tri.verts[0]+basePts,tri.verts[1]+basePts,tri.verts[2]+basePts));
+            outGeom.triangles.emplace_back(tri.verts[0]+basePts,tri.verts[1]+basePts,tri.verts[2]+basePts);
         if (draw->basicDraw->colorEntry >= 0)
         {
             outGeom.colors.reserve(draw->points.size());
             VertexAttribute *vertAttr = draw->basicDraw->vertexAttributes[draw->basicDraw->colorEntry];
             for (int ii=0;ii<vertAttr->numElements();ii++)
             {
-                RGBAColor *color = (RGBAColor *)vertAttr->addressForElement(ii);
+                const auto *color = (RGBAColor *)vertAttr->addressForElement(ii);
                 outGeom.colors.push_back(*color);
             }
         }
@@ -686,20 +690,21 @@ void ShapeManager::convertShape(Shape &shape,std::vector<WhirlyKit::GeometryRaw>
             VertexAttribute *vertAttr = draw->basicDraw->vertexAttributes[draw->basicDraw->normalEntry];
             for (int ii=0;ii<vertAttr->numElements();ii++)
             {
-                Point3f *norm = (Point3f *)vertAttr->addressForElement(ii);
+                const auto *norm = (Point3f *)vertAttr->addressForElement(ii);
                 outGeom.norms.push_back(Point3d(norm->x(),norm->y(),norm->z()));
             }
         }
     }
 }
+#endif //!MAPLY_MINIMAL
 
 /// Add an array of shapes.  The returned ID can be used to remove or modify the group of shapes.
-SimpleIdentity ShapeManager::addShapes(std::vector<Shape*> shapes, const ShapeInfo &shapeInfo, ChangeSet &changes)
+SimpleIdentity ShapeManager::addShapes(const std::vector<Shape*> &shapes, const ShapeInfo &shapeInfo, ChangeSet &changes)
 {
     auto selectManager = scene->getManager<SelectionManager>(kWKSelectionManager);
 
     auto sceneRep = std::make_unique<ShapeSceneRep>();
-    sceneRep->fade = shapeInfo.fade;
+    sceneRep->fadeOut = (float)shapeInfo.fadeOut;
 
     // Figure out a good center
     Point3d center(0,0,0);
@@ -718,10 +723,9 @@ SimpleIdentity ShapeManager::addShapes(std::vector<Shape*> shapes, const ShapeIn
     // Work through the shapes
     for (auto shape : shapes)
     {
-        if (shape->clipCoords)
-            drawBuildTri.setClipCoords(true);
-        else
-            drawBuildTri.setClipCoords(false);
+        drawBuildReg.setClipCoords(shape->clipCoords);
+        drawBuildTri.setClipCoords(shape->clipCoords);
+        drawBuildTri.setDrawableName(shape->label);
         shape->makeGeometryWithBuilder(&drawBuildReg, &drawBuildTri, getScene(), selectManager, sceneRep.get());
     }
 
@@ -731,7 +735,7 @@ SimpleIdentity ShapeManager::addShapes(std::vector<Shape*> shapes, const ShapeIn
     drawBuildTri.flush();
     drawBuildTri.getChanges(changes, sceneRep->drawIDs);
 
-    SimpleIdentity shapeID = sceneRep->getId();
+    const SimpleIdentity shapeID = sceneRep->getId();
     {
         std::lock_guard<std::mutex> guardLock(lock);
         shapeReps.insert(sceneRep.release());   // transfer ownership
@@ -740,7 +744,7 @@ SimpleIdentity ShapeManager::addShapes(std::vector<Shape*> shapes, const ShapeIn
     return shapeID;
 }
 
-void ShapeManager::enableShapes(SimpleIDSet &shapeIDs,bool enable,ChangeSet &changes)
+void ShapeManager::enableShapes(const SimpleIDSet &shapeIDs,bool enable,ChangeSet &changes)
 {
     SelectionManagerRef selectManager = std::dynamic_pointer_cast<SelectionManager>(scene->getManager(kWKSelectionManager));
 
@@ -757,23 +761,27 @@ void ShapeManager::enableShapes(SimpleIDSet &shapeIDs,bool enable,ChangeSet &cha
 }
 
 /// Remove a group of shapes named by the given ID
-void ShapeManager::removeShapes(SimpleIDSet &shapeIDs,ChangeSet &changes)
+void ShapeManager::removeShapes(const SimpleIDSet &shapeIDs,ChangeSet &changes)
 {
-    SelectionManagerRef selectManager = std::dynamic_pointer_cast<SelectionManager>(scene->getManager(kWKSelectionManager));
+    const auto selectManager = scene->getManager<SelectionManager>(kWKSelectionManager);
 
     std::lock_guard<std::mutex> guardLock(lock);
 
-    TimeInterval curTime = scene->getCurrentTime();
-    for (auto shapeID : shapeIDs) {
+    const TimeInterval curTime = scene->getCurrentTime();
+    for (auto shapeID : shapeIDs)
+    {
         ShapeSceneRep dummyRep(shapeID);
         auto sit = shapeReps.find(&dummyRep);
-        if (sit != shapeReps.end()) {
+        if (sit != shapeReps.end())
+        {
             ShapeSceneRep *shapeRep = *sit;
-
             TimeInterval removeTime = 0.0;
-            if (shapeRep->fade > 0.0) {
-                for (SimpleIDSet::iterator idIt = shapeRep->drawIDs.begin(); idIt != shapeRep->drawIDs.end(); ++idIt)
-                    changes.push_back(new FadeChangeRequest(*idIt, curTime, curTime+shapeRep->fade));
+            if (shapeRep->fadeOut > 0.0)
+            {
+                for (auto id : shapeRep->drawIDs)
+                {
+                    changes.push_back(new FadeChangeRequest(id, curTime, curTime+shapeRep->fadeOut));
+                }
             }
             
 			shapeRep->clearContents(selectManager, changes, removeTime);

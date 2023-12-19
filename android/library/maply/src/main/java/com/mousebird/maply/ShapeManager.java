@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by jmnavarro
- *  Copyright 2011-2015 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -28,9 +28,10 @@ import java.util.List;
  */
 public class ShapeManager {
 
+    @SuppressWarnings("unused")     // Used by JNI
     private ShapeManager() {
-
     }
+
     public ShapeManager(Scene scene) {
         initialise(scene);
     }
@@ -55,12 +56,13 @@ public class ShapeManager {
      */
     public native void enableShapes (long[] shapesIDs, boolean enable, ChangeSet changes);
 
-    static
-    {
+    static {
         nativeInit();
     }
     private static native void nativeInit();
     native void initialise(Scene scene);
     native void dispose();
+
+    @SuppressWarnings("unused")     // Used by JNI
     private long nativeHandle;
 }

@@ -3,17 +3,18 @@
 //  AutoTester
 //
 //  Created by Stephen Gifford on 3/27/18.
-//  Copyright © 2018 mousebird consulting.
+//  Copyright 2018-2022 mousebird consulting.
 //
 
 import Foundation
+import WhirlyGlobe
 
 class GlobeSamplerTestCase: MaplyTestCase {
 
     override init() {
         super.init()
         
-        self.name = "GlobeSampler Test Case"
+        self.name = "GlobeSampler"
         self.implementations = [.globe,.map]
     }
 

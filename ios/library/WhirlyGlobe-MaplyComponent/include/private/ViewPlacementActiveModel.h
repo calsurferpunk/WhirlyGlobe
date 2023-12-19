@@ -1,9 +1,8 @@
-/*
- *  ViewPlacementGenerator.h
+/*  ViewPlacementGenerator.h
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 7/25/12.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,12 +14,10 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import <Foundation/Foundation.h>
 #import <math.h>
-#import "WhirlyVector.h"
 #import "Scene.h"
 #import "DataLayer.h"
 #import "LayerThread.h"
@@ -92,7 +89,7 @@ public:
     /// Print out stats for debugging
     void dumpStats();
     
-    bool getChangedSinceUpdate() { return changedSinceUpdate; }
+    bool getChangedSinceUpdate() const { return changedSinceUpdate; }
             
 protected:
     bool changedSinceUpdate;
@@ -108,22 +105,22 @@ namespace WhirlyKit
 class ViewPlacementActiveModel : public ActiveModel
 {
 public:
-    ViewPlacementActiveModel();
+    ViewPlacementActiveModel() = default;
     
-    ViewPlacementManager *getManager();
+    ViewPlacementManager *getManager() { return &manager; }
     
     /// Create the stuff you need to manipulate in the scene
-    void startWithScene(Scene *scene);
+    virtual void startWithScene(Scene *scene) override;
     
     /// Return true if you have an update that needs to be processed.
     /// Return false if you don't, otherwise we'll be constantly rendering.
-    bool hasUpdate();
+    virtual bool hasUpdate() const override;
     
     /// Update your stuff for display, but be quick!
-    void updateForFrame(RendererFrameInfo *frameInfo);
+    virtual void updateForFrame(RendererFrameInfo *frameInfo) override;
     
     /// Time to clean up your toys
-    void teardown();
+    virtual void teardown(PlatformThreadInfo *) override;
 
 protected:
     ViewPlacementManager manager;

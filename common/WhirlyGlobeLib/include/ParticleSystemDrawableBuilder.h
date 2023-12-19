@@ -1,9 +1,8 @@
-/*
- *  ParticleSystemDrawableBuilder.h
+/*  ParticleSystemDrawableBuilder.h
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/14/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "WhirlyVector.h"
@@ -29,8 +27,8 @@ namespace WhirlyKit
 class ParticleSystemDrawableBuilder
 {
 public:
-    ParticleSystemDrawableBuilder(const std::string &name,Scene *scene);
-    virtual ~ParticleSystemDrawableBuilder();
+    ParticleSystemDrawableBuilder(std::string name,Scene *scene);
+    virtual ~ParticleSystemDrawableBuilder() = default;
     
     // Set up our various attributes at once
     virtual void setup(const std::vector<SingleVertexAttributeInfo> &inVertAttrs,
@@ -48,7 +46,7 @@ public:
 protected:
     Scene *scene;
     std::string name;
-    ParticleSystemDrawable *draw;
+    ParticleSystemDrawable *draw = nullptr;
 };
     
 typedef std::shared_ptr<ParticleSystemDrawableBuilder> ParticleSystemDrawableBuilderRef;

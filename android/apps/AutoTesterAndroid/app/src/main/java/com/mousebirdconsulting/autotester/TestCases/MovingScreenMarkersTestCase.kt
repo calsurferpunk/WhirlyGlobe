@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Tim Sylvester on 9 Feb 2021.
- *  Copyright 2021 mousebird consulting
+ *  Copyright 2021-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -22,84 +22,79 @@ package com.mousebirdconsulting.autotester.TestCases
 
 import android.app.Activity
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.os.Handler
 import com.mousebird.maply.*
 import com.mousebirdconsulting.autotester.Framework.MaplyTestCase
 import com.mousebirdconsulting.autotester.R
 
-public class MovingScreenMarkersTestCase : MaplyTestCase {
-
-    constructor(activity: Activity) : super(activity) {
-        testName = "Moving Screen Markers"
-        implementation = TestExecutionImplementation.Both
-
-        baseCase = VectorsTestCase(activity)
-    }
-
-    override fun setUpWithGlobe(globeVC: GlobeController?): Boolean {
+class MovingScreenMarkersTestCase(activity: Activity) :
+        MaplyTestCase(activity, "Moving Screen Markers", TestExecutionImplementation.Both) {
+    
+    override fun setUpWithGlobe(globeVC: GlobeController): Boolean {
         if (!baseCase.setUpWithGlobe(globeVC)) {
             return false
         }
         setUp()
-        globeVC?.animatePositionGeo(0.1, 0.1, 0.5, 0.0, 0.5)
+        globeVC.animatePositionGeo(0.1, 0.1, 0.5, 0.0, 0.5)
         return true
     }
 
-    override fun setUpWithMap(mapVC: MapController?): Boolean {
+    override fun setUpWithMap(mapVC: MapController): Boolean {
         if (!baseCase.setUpWithMap(mapVC)) {
             return false
         }
         setUp()
-        mapVC?.animatePositionGeo(0.0, 0.1, 0.5, 0.0, 0.5)
+        mapVC.animatePositionGeo(0.0, 0.1, 0.5, 0.0, 0.5)
         return true
     }
 
     private fun setUp() {
-        val icon0 = BitmapFactory.decodeResource(getActivity().resources, R.drawable.teardrop)
-        val icon1 = BitmapFactory.decodeResource(getActivity().resources, R.drawable.teardrop_stroked)
+        val icon0 = BitmapFactory.decodeResource(activity.resources, R.drawable.teardrop)
+        val icon1 = BitmapFactory.decodeResource(activity.resources, R.drawable.teardrop_stroked)
         textures = arrayOf(
                 controller.addTexture(icon0, null, threadCurrent)!!,
                 controller.addTexture(icon1, null, threadCurrent)!!)
 
         timerRunnable = Runnable {
-            clearMarkers()
-            markerObj = makeMarkers()
-            if (timerRunnable != null) {
-                timerHandler.postDelayed(timerRunnable, (1000 * duration).toLong())
+            clear()
+            objs.addAll(makeMarkers())
+            timerRunnable?.let {
+                timerHandler.postDelayed(it, (1000 * duration).toLong())
             }
+        }.also {
+            timerHandler.postDelayed(it, 0)
         }
-        timerHandler.postDelayed(timerRunnable, 0)
     }
 
     override fun shutdown() {
-        timerRunnable.also {
+        timerRunnable?.also {
             timerRunnable = null
             timerHandler.removeCallbacks(it)
         }
+
+        clear()
 
         baseCase.shutdown()
         super.shutdown()
     }
 
-    private fun clearMarkers() {
-        markerObj?.also {
-            controller.removeObject(it, threadCurrent)
-            markerObj = null
-        }
+    private fun clear() {
+        controller.removeObjects(objs, threadCurrent)
+        objs.clear()
     }
 
-    private fun makeMarkers(): ComponentObject? {
+    private fun makeMarkers(): Collection<ComponentObject> {
         val pts = arrayOf(
                 Point2d.FromDegrees(0.0, 0.0),
                 Point2d.FromDegrees(10.0, 10.0),
                 Point2d.FromDegrees(0.0, 20.0),
                 Point2d.FromDegrees(-10.0, 10.0)
         )
-
         val markers = pts.indices.map {
             ScreenMovingMarker().apply {
-                duration = duration
-                period = duration / 2
+                duration = this@MovingScreenMarkersTestCase.duration
+                period = this@MovingScreenMarkersTestCase.duration / 2
                 loc = pts[it]
                 endLoc = pts[(it + 1) % pts.size]
                 size = Point2d(32.0, 32.0)
@@ -107,17 +102,35 @@ public class MovingScreenMarkersTestCase : MaplyTestCase {
                 layoutImportance = Float.MAX_VALUE
             }
         }
-        return controller.addScreenMovingMarkers(markers, MarkerInfo(), threadCurrent)
+        val labels = pts.indices.map {
+            ScreenMovingLabel().apply {
+                duration = this@MovingScreenMarkersTestCase.duration
+                //period = this@MovingScreenMarkersTestCase.duration / 2
+                loc = pts[it]
+                endLoc = pts[(it + 1) % pts.size]
+                layoutImportance = Float.MAX_VALUE
+                offset = Point2d(20.0, -10.0)
+                text = "<=="
+            }
+        }
+        val labelInfo = LabelInfo().apply {
+            textColor = Color.RED
+            fontSize = 20.0f
+        }
+        return listOfNotNull(
+            controller.addScreenMovingMarkers(markers, MarkerInfo(), threadCurrent),
+            controller.addScreenMovingLabels(labels, labelInfo, threadCurrent)
+        )
     }
+    
+    private val threadCurrent = ThreadMode.ThreadCurrent
 
-    private val threadCurrent = RenderControllerInterface.ThreadMode.ThreadCurrent
-
-    private var baseCase: VectorsTestCase
+    private var baseCase = VectorsTestCase(activity)
     private val duration = 5.0
 
     private var timerRunnable: Runnable? = null
     private val timerHandler = Handler()
 
     private var textures: Array<MaplyTexture>? = null
-    private var markerObj: ComponentObject? = null
+    private val objs = ArrayList<ComponentObject>()
 }

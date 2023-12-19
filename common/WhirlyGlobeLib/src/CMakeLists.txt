@@ -1,11 +1,13 @@
 cmake_minimum_required(VERSION 3.4.1)
+project(WhirlyGlobeLibCommon)
 
 target_include_directories(
         ${WGTARGET}
 
         PUBLIC
 
-        "${CMAKE_CURRENT_LIST_DIR}/../include/"
+        "${CMAKE_CURRENT_LIST_DIR}/../include"
+        "${CMAKE_CURRENT_LIST_DIR}../../local_libs/libjson"
 )
 
 target_sources(
@@ -36,6 +38,7 @@ target_sources(
         "${CMAKE_CURRENT_LIST_DIR}/../include/DynamicTextureAtlasGLES.h"
         "${CMAKE_CURRENT_LIST_DIR}/../include/FlatMath.h"
         "${CMAKE_CURRENT_LIST_DIR}/../include/FontTextureManager.h"
+        "${CMAKE_CURRENT_LIST_DIR}/../include/GeographicLib.h"
         "${CMAKE_CURRENT_LIST_DIR}/../include/GeometryManager.h"
         "${CMAKE_CURRENT_LIST_DIR}/../include/GeometryOBJReader.h"
         "${CMAKE_CURRENT_LIST_DIR}/../include/GlobeAnimateHeight.h"
@@ -84,6 +87,7 @@ target_sources(
         "${CMAKE_CURRENT_LIST_DIR}/../include/PerformanceTimer.h"
         "${CMAKE_CURRENT_LIST_DIR}/../include/Program.h"
         "${CMAKE_CURRENT_LIST_DIR}/../include/ProgramGLES.h"
+        "${CMAKE_CURRENT_LIST_DIR}/../include/ProfilingLockGuard.h"
         "${CMAKE_CURRENT_LIST_DIR}/../include/Proj4CoordSystem.h"
         "${CMAKE_CURRENT_LIST_DIR}/../include/QuadDisplayControllerNew.h"
         "${CMAKE_CURRENT_LIST_DIR}/../include/QuadImageFrameLoader.h"
@@ -158,6 +162,7 @@ target_sources(
         "${CMAKE_CURRENT_LIST_DIR}/DynamicTextureAtlasGLES.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/FlatMath.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/FontTextureManager.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/GeographicLib.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/GeometryManager.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/GeometryOBJReader.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/GlobeAnimateHeight.cpp"
@@ -206,6 +211,7 @@ target_sources(
         "${CMAKE_CURRENT_LIST_DIR}/PerformanceTimer.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/Program.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/ProgramGLES.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/ProfilingLockGuard.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/Proj4CoordSystem.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/QuadDisplayControllerNew.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/QuadImageFrameLoader.cpp"

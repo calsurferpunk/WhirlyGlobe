@@ -3,7 +3,7 @@
  *  WhirlyGlobe-MaplyComponent
  *
  *  Created by Steve Gifford on 3/27/18.
- *  Copyright 2011-2019 Saildrone Inc
+ *  Copyright 2011-2022 Saildrone Inc
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
  *
  */
 
-#import "control/MaplyControllerLayer.h"
-#import "math/MaplyCoordinateSystem.h"
-#import "loading/MaplyTileSourceNew.h"
-#import "control/MaplyRenderController.h"
+#import <WhirlyGlobe/MaplyControllerLayer.h>
+#import <WhirlyGlobe/MaplyCoordinateSystem.h>
+#import <WhirlyGlobe/MaplyTileSourceNew.h>
+#import <WhirlyGlobe/MaplyRenderController.h>
 
 /**
     Sampling parameters.
@@ -33,6 +33,10 @@
 
 /// The coordinate system we'll be sampling from.
 @property (nonatomic,nonnull,strong) MaplyCoordinateSystem *coordSys;
+
+/// The extent of valid coordinates for the tiles.
+/// Set automatically when assigning coordSys
+@property (nonatomic) MaplyBoundingBox coordBounds;
 
 /// Min zoom level for sampling.  Don't set this to anything other than 0 or 1
 @property (nonatomic) int minZoom;
@@ -52,6 +56,7 @@
 
 /// Normally we always load the lowest level
 /// If this is set we only load those lowest level tiles that pass this test
+/// Must be greater than zero and not equal to minImportance to take effect.
 @property (nonatomic) double minImportanceTop;
 
 /// Generate geometry to cover the north and south poles
@@ -64,8 +69,12 @@
 /// Tesselation values per level for breaking down the coordinate system (e.g. globe)
 @property (nonatomic) int tessX,tessY;
 
+/// If set, we'll scale the bounding boxes of individual tiles by this before evaluating
+@property (nonatomic) float boundScale;
+
 /// If set, we'll always load the lowest level first and then whatever the target level is
 /// Turn this off to get true single level loading
+/// `forceMinLevelHeight` must be greater than zero for this to have any effect.
 @property (nonatomic) bool forceMinLevel;
 
 /// If set, we'll turn on forceMinLevel and only use it when the viewer is above this height
@@ -77,6 +86,10 @@
 /// If set, the tiles are clipped to this boundary
 @property (nonatomic) MaplyBoundingBoxD clipBounds;
 @property (nonatomic,readonly) bool hasClipBounds;
+
+/// If set, we'll clip the tiles before we do importance calculations.
+/// This is off by default.  In many cases it would make really skinny tiles.  Use carefully
+@property (nonatomic) bool useClipBoundsForImportance;
 
 /**
  Detail the levels you want loaded in target level mode.

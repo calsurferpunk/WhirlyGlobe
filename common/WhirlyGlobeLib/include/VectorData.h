@@ -1,9 +1,8 @@
-/*
- *  VectorData.h
+/*  VectorData.h
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 3/7/11.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import <math.h>
@@ -42,7 +40,9 @@ public:
 	void setAttrDict(MutableDictionaryRef newDict);
 	
 	/// Return the attr dict
-	MutableDictionaryRef getAttrDict();
+    MutableDictionaryRef getAttrDict() const;
+    const MutableDictionaryRef &getAttrDictRef() const;
+
     /// Return the geoMbr
     virtual GeoMbr calcGeoMbr() = 0;
 	
@@ -107,27 +107,35 @@ struct VectorShapeRefHash : std::hash<VectorShape*>
 /// cast to get the specfic type.  Don't forget to use the std dynamic cast
 //typedef std::set<VectorShapeRef,VectorShapeRefLess> ShapeSet;
 typedef std::unordered_set<VectorShapeRef, VectorShapeRefHash, VectorShapeRefEqual> ShapeSet;
-    
+
+namespace detail {
+    using TDefaultIntermediate = long double;
+}
+
 /// Calculate area of a loop
-template <typename T> double CalcLoopArea(const std::vector<T,Eigen::aligned_allocator<T>>&);
+template <typename T, typename TRet = double, typename TInt = detail::TDefaultIntermediate>
+TRet CalcLoopArea(const std::vector<T,Eigen::aligned_allocator<T>>&);
 
 /// Calculate the centroid of a loop
-template <typename T> T CalcLoopCentroid(const std::vector<T,Eigen::aligned_allocator<T>>&);
+template <typename T, typename TInt = detail::TDefaultIntermediate>
+T CalcLoopCentroid(const std::vector<T,Eigen::aligned_allocator<T>>&);
 
 /// Calculate the centroid of a loop when the area is already known
-template <typename T> T CalcLoopCentroid(const std::vector<T,Eigen::aligned_allocator<T>>&, double loopArea);
+template <typename T, typename TInt = detail::TDefaultIntermediate>
+T CalcLoopCentroid(const std::vector<T,Eigen::aligned_allocator<T>>&, double loopArea);
 
 /// Calculate the center of mass of the points
-template <typename T> T CalcCenterOfMass(const std::vector<T,Eigen::aligned_allocator<T>> &loop);
+template <typename T, typename TInt = detail::TDefaultIntermediate>
+T CalcCenterOfMass(const std::vector<T,Eigen::aligned_allocator<T>> &loop);
 
-extern template double CalcLoopArea<Point2f>(const VectorRing&);
-extern template double CalcLoopArea<Point2d>(const Point2dVector&);
-extern template Point2f CalcLoopCentroid(const VectorRing&);
-extern template Point2d CalcLoopCentroid(const Point2dVector&);
-extern template Point2f CalcLoopCentroid(const VectorRing&, double);
-extern template Point2d CalcLoopCentroid(const Point2dVector&, double);
-extern template Point2f CalcCenterOfMass(const VectorRing&);
-extern template Point2d CalcCenterOfMass(const Point2dVector&);
+extern template double CalcLoopArea<Point2f,double,detail::TDefaultIntermediate>(const VectorRing&);
+extern template double CalcLoopArea<Point2d,double,detail::TDefaultIntermediate>(const Point2dVector&);
+extern template Point2f CalcLoopCentroid<typename VectorRing::value_type,detail::TDefaultIntermediate>(const VectorRing&);
+extern template Point2f CalcLoopCentroid<typename VectorRing::value_type,detail::TDefaultIntermediate>(const VectorRing&, double);
+extern template Point2d CalcLoopCentroid<typename Point2dVector::value_type,detail::TDefaultIntermediate>(const Point2dVector&);
+extern template Point2d CalcLoopCentroid<typename Point2dVector::value_type,detail::TDefaultIntermediate>(const Point2dVector&, double);
+extern template Point2f CalcCenterOfMass<typename VectorRing::value_type,detail::TDefaultIntermediate>(const VectorRing&);
+extern template Point2d CalcCenterOfMass<typename Point2dVector::value_type,detail::TDefaultIntermediate>(const Point2dVector&);
 
 /// Collection of triangles forming a mesh
 class VectorTriangles : public VectorShape
@@ -137,12 +145,11 @@ public:
     
     /// Creation function.  Use this instead of new.
     static VectorTrianglesRef createTriangles();
-    ~VectorTriangles();
+    ~VectorTriangles() = default;
     
     /// Simple triangle with three points (obviously)
-    typedef struct
+    typedef struct Triangle
     {
-    public:
         int pts[3];
     } Triangle;
     
@@ -150,25 +157,30 @@ public:
     void initGeoMbr();
     
     // Return the given triangle as a VectorRing
-    void getTriangle(int which,VectorRing &ring);
-    
+    bool getTriangle(int which,Point2f points[3]) const;
+    bool getTriangle(int which,VectorRing &ring) const;
+
     /// True if the given point is within one of the triangles
-    bool pointInside(GeoCoord coord);
+    bool pointInside(const GeoCoord &coord) const;
     
     // Bounding box in 2D
-	GeoMbr geoMbr;
+    GeoMbr geoMbr;
 
     // Shared points
     Point3fVector pts;
     // Triangles
     std::vector<Triangle> tris;
-    
+
+    /// Set to true if the coordinates have already been converted from geographic to local.
+    bool localCoords = false;
+
 protected:
-    VectorTriangles();
+    VectorTriangles() = default;
 };
 
 /// Look for a triangle/ray intersection in the mesh
-bool VectorTrianglesRayIntersect(const Point3d &org,const Point3d &dir,const VectorTriangles &mesh,double *outT,Point3d *iPt);
+bool VectorTrianglesRayIntersect(const Point3d &org,const Point3d &dir,
+                                 const VectorTriangles &mesh,double *outT,Point3d *iPt);
 
 /// Areal feature is a list of loops.  The first is an outer loop
 ///  and all the rest are inner loops
@@ -270,21 +282,24 @@ protected:
     
 /// A set of strings
 typedef std::set<std::string> StringSet;
-    
+
 /// Break any edge longer than the given length.
-/// Returns true if it broke anything
 void SubdivideEdges(const VectorRing &inPts,VectorRing &outPts,bool closed,float maxLen);
 void SubdivideEdges(const VectorRing3d &inPts,VectorRing3d &outPts,bool closed,float maxLen);
 
 /// Break any edge that deviates by the given epsilon from the surface described in
 /// the display adapter;
-void SubdivideEdgesToSurface(const VectorRing &inPts,VectorRing &outPts,bool closed,CoordSystemDisplayAdapter *adapter,float eps);
-void SubdivideEdgesToSurface(const VectorRing3d &inPts,VectorRing3d &outPts,bool closed,CoordSystemDisplayAdapter *adapter,float eps);
+void SubdivideEdgesToSurface(const VectorRing &inPts,VectorRing &outPts,bool closed,
+                             const CoordSystemDisplayAdapter *adapter,float eps);
+void SubdivideEdgesToSurface(const VectorRing3d &inPts,VectorRing3d &outPts,bool closed,
+                             const CoordSystemDisplayAdapter *adapter,float eps);
 
 /// Break any edge that deviates by the given epsilon from the surface described in
 ///  the display adapter.  But rather than using lat lon values, we'll output in
 ///  display coordinates and build points along the great circle.
-void SubdivideEdgesToSurfaceGC(const VectorRing &inPts,VectorRing3d &outPts,bool closed,CoordSystemDisplayAdapter *adapter,float eps,float sphereOffset = 0.0,int minPts = 0);
+void SubdivideEdgesToSurfaceGC(const VectorRing &inPts,VectorRing3d &outPts,bool closed,
+                               const CoordSystemDisplayAdapter *adapter,
+                               float eps,float sphereOffset = 0.0,int minPts = 0);
     
 /** Base class for loading a vector data file.
  Fill this into hand data over to whomever wants it.
@@ -296,7 +311,7 @@ public:
     virtual ~VectorReader() { }
     
     /// Return false if we failed to load
-    virtual bool isValid() = 0;
+    virtual bool isValid() const = 0;
     
     /// Returns one of the vector types.
     /// Keep enough state to figure out what the next one is.
@@ -304,10 +319,10 @@ public:
     virtual VectorShapeRef getNextObject(const StringSet *filter) = 0;
     
     /// Return true if this vector reader can seek and read
-    virtual bool canReadByIndex() { return false; }
+    virtual bool canReadByIndex() const { return false; }
     
     /// Return the total number of vectors objects
-    virtual unsigned int getNumObjects() { return 0; }
+    virtual unsigned int getNumObjects() const { return 0; }
     
     /// Return an object that corresponds to the given index.
     /// You need to be able to seek in your file format for this.

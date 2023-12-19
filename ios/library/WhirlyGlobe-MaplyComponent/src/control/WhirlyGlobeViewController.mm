@@ -1,9 +1,8 @@
-/*
- *  WhirlyGlobeViewController.mm
+/*  WhirlyGlobeViewController.mm
  *  WhirlyGlobeComponent
  *
  *  Created by Steve Gifford on 7/21/12.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2023 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,12 +14,22 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import <WhirlyGlobe_iOS.h>
 #import "control/WhirlyGlobeViewController.h"
-#import "WhirlyGlobeViewController_private.h"
+#import "private/WhirlyGlobeViewController_private.h"
+#import "private/MaplyBaseViewController_private.h"
+#import "private/GlobeDoubleTapDelegate_private.h"
+#import "private/GlobeDoubleTapDragDelegate_private.h"
+#import "private/GlobePanDelegate_private.h"
+#import "private/GlobePinchDelegate_private.h"
+#import "private/GlobeRotateDelegate_private.h"
+#import "private/GlobeTapDelegate_private.h"
+#import "private/GlobeTiltDelegate_private.h"
+#import "private/GlobeTwoFingerTapDelegate_private.h"
+#import "gestures/GlobeTapMessage.h"
+#import "private/GlobeTapMessage_private.h"
 
 using namespace Eigen;
 using namespace WhirlyKit;
@@ -45,7 +54,8 @@ using namespace WhirlyGlobe;
 {
     self = [super init];
     endState = inEndState;
-    
+    _zoomEasing = nil;
+
     return self;
 }
 
@@ -80,8 +90,16 @@ using namespace WhirlyGlobe;
         state.heading = (dHeading - 2.0*M_PI)*t + startState.heading;
     else
         state.heading = (dHeading + 2.0*M_PI)*t + startState.heading;
+
+    if (auto easing = _zoomEasing)
+    {
+        state.height = easing(startState.height, endState.height, t);
+    }
+    else
+    {
+        state.height = exp((log(endState.height) - log(startState.height)) * t + log(startState.height));
+    }
     
-    state.height = (endState.height - startState.height)*t + startState.height;
     state.tilt = (endState.tilt - startState.tilt)*t + startState.tilt;
     state.roll = (endState.roll - startState.roll)*t + startState.roll;
     MaplyCoordinateD pos;
@@ -109,34 +127,33 @@ using namespace WhirlyGlobe;
 
 // Interface object between Obj-C and C++ for animation callbacks
 // Also used to catch view geometry updates
-class WhirlyGlobeViewWrapper : public WhirlyGlobe::GlobeViewAnimationDelegate, public ViewWatcher
+struct WhirlyGlobeViewWrapper : public WhirlyGlobe::GlobeViewAnimationDelegate, public ViewWatcher
 {
-public:
-    WhirlyGlobeViewWrapper()
-    : control(nil)
+    WhirlyGlobeViewWrapper(WhirlyGlobeViewController *control) : control(control)
     {
     }
-    
+
     // Called by the View to set up view state per frame
-    void updateView(WhirlyGlobe::GlobeView *globeView)
+    virtual void updateView(WhirlyKit::View *view) override
     {
-        [control updateView:globeView];
+        [control updateView:(WhirlyGlobe::GlobeView *)view];
     }
-    
+
     // Called by the view when things are changed
-    virtual void viewUpdated(View *view)
+    virtual void viewUpdated(View *view) override
     {
         [control viewUpdated:view];
     }
-    
-public:
-    WhirlyGlobeViewController __weak * control;
+
+    virtual bool isUserMotion() const override { return false; }
+
+private:
+    WhirlyGlobeViewController __weak * control = nil;
 };
 
 @implementation WhirlyGlobeViewController
 {
-    bool isPanning,isRotating,isZooming,isAnimating,isTilting;
-    WhirlyGlobeViewWrapper viewWrapper;
+    std::shared_ptr<WhirlyGlobeViewWrapper> viewWrapper;
     CGPoint globeCenter;
 }
 
@@ -146,6 +163,11 @@ public:
     if (!self)
         return nil;
     
+    _isPanning = false;
+    _isRotating = false;
+    _isZooming = false;
+    _isAnimating = false;
+    _isTilting = false;
     _autoMoveToTap = true;
     _doubleTapZoomGesture = true;
     _twoFingerTapGesture = true;
@@ -153,7 +175,7 @@ public:
     _zoomTapFactor = 2.0;
     _zoomTapAnimationDuration = 0.1;
     globeCenter = {-1000,-1000};
-    viewWrapper.control = self;
+    viewWrapper = std::make_shared<WhirlyGlobeViewWrapper>(self);
 
     return self;
 }
@@ -203,9 +225,9 @@ public:
 // Create the globe view
 - (ViewRef) loadSetup_view
 {
-    globeView = GlobeView_iOSRef(new GlobeView_iOS());
-    globeView->continuousZoom = true;
-    globeView->addWatcher(&viewWrapper);
+    globeView = std::make_shared<GlobeView_iOS>();
+    globeView->setContinuousZoom(true);
+    globeView->addWatcher(viewWrapper);
     
     return globeView;
 }
@@ -241,6 +263,7 @@ public:
         doubleTapDelegate.maxZoom = pinchDelegate.maxHeight;
         doubleTapDelegate.zoomTapFactor = _zoomTapFactor;
         doubleTapDelegate.zoomAnimationDuration = _zoomTapAnimationDuration;
+        doubleTapDelegate.approveAllGestures = self.fastGestures;
     }
     const auto tapRecognizer = tapDelegate.gestureRecognizer;
     if(_twoFingerTapGesture)
@@ -250,9 +273,10 @@ public:
         twoFingerTapDelegate.maxZoom = pinchDelegate.maxHeight;
         twoFingerTapDelegate.zoomTapFactor = _zoomTapFactor;
         twoFingerTapDelegate.zoomAnimationDuration = _zoomTapAnimationDuration;
+        twoFingerTapDelegate.approveAllGestures = self.fastGestures;
         
         const auto twoFingerRecognizer = twoFingerTapDelegate.gestureRecognizer;
-        if (pinchDelegate) {
+        if (pinchDelegate && !self.fastGestures) {
             [twoFingerRecognizer requireGestureRecognizerToFail:pinchDelegate.gestureRecognizer];
         }
         [tapRecognizer requireGestureRecognizerToFail:twoFingerRecognizer];
@@ -262,11 +286,60 @@ public:
         doubleTapDragDelegate = [WhirlyGlobeDoubleTapDragDelegate doubleTapDragDelegateForView:wrapView globeView:globeView.get()];
         doubleTapDragDelegate.minZoom = pinchDelegate.minHeight;
         doubleTapDragDelegate.maxZoom = pinchDelegate.maxHeight;
+        if (self.fastGestures)
+            doubleTapDragDelegate.minimumPressDuration = 0.01;
         const auto doubleTapRecognizer = doubleTapDragDelegate.gestureRecognizer;
         [tapRecognizer requireGestureRecognizerToFail:doubleTapRecognizer];
-        [panDelegate.gestureRecognizer requireGestureRecognizerToFail:doubleTapRecognizer];
+        if (!self.fastGestures)
+            [panDelegate.gestureRecognizer requireGestureRecognizerToFail:doubleTapRecognizer];
     }
 }
+
+- (void)setIsPanning:(bool)isPanning
+{
+    _isPanning = isPanning;
+    if (renderControl && renderControl->visualView)
+    {
+        renderControl->visualView->setIsPanning(isPanning);
+    }
+}
+
+- (void)setIsRotating:(bool)isRotating
+{
+    _isRotating = isRotating;
+    if (renderControl && renderControl->visualView)
+    {
+        renderControl->visualView->setIsRotating(isRotating);
+    }
+}
+
+- (void)setIsTilting:(bool)isTilting
+{
+    _isZooming = isTilting;
+    if (renderControl && renderControl->visualView)
+    {
+        renderControl->visualView->setIsTilting(isTilting);
+    }
+}
+
+- (void)setIsZooming:(bool)isZooming
+{
+    _isZooming = isZooming;
+    if (renderControl && renderControl->visualView)
+    {
+        renderControl->visualView->setIsZooming(isZooming);
+    }
+}
+
+- (void)setIsAnimating:(bool)isAnimating
+{
+    _isAnimating = isAnimating;
+    if (renderControl && renderControl->visualView)
+    {
+        renderControl->visualView->setIsAnimating(isAnimating);
+    }
+}
+
 
 - (void)viewWillAppear:(BOOL)animated
 {
@@ -401,6 +474,7 @@ public:
     return pinchDelegate != nil;
 }
 
+
 - (void)setRotateGesture:(bool)rotateGesture
 {
     if (rotateGesture)
@@ -475,6 +549,10 @@ public:
 
 - (void)setHeight:(float)height
 {
+    if (height != globeView->getHeightAboveGlobe())
+    {
+        globeView->setHasZoomed(true);
+    }
     globeView->setHeightAboveGlobe(height);
 }
 
@@ -577,6 +655,11 @@ public:
     globeView->setFarClippingPlane(farClipPlane);
 }
 
+- (double)getMaxHeightAboveGlobe
+{
+    return globeView->maxHeightAboveGlobe();
+}
+
 - (void)setTiltMinHeight:(float)minHeight maxHeight:(float)maxHeight minTilt:(float)minTilt maxTilt:(float)maxTilt
 {
     tiltControlDelegate = StandardTiltDelegateRef(new StandardTiltDelegate(globeView.get()));
@@ -611,6 +694,10 @@ public:
 
 - (void)setTilt:(float)newTilt
 {
+    if (newTilt != globeView->getTilt())
+    {
+        globeView->setHasTilted(true);
+    }
     globeView->setTilt(newTilt);
 }
 
@@ -621,6 +708,10 @@ public:
 
 - (void)setRoll:(double)newRoll
 {
+    if (newRoll != globeView->getRoll())
+    {
+        globeView->setHasRotated(true); // do we need to track roll & rotate separately?
+    }
     globeView->setRoll(newRoll, true);
 }
 
@@ -777,7 +868,7 @@ public:
     auto frameSizeScaled = renderControl->sceneRenderer->getFramebufferSizeScaled();
     if (globeView->pointOnSphereFromScreen(loc2f, modelTrans, frameSizeScaled, whereLoc, true))
     {
-        CoordSystemDisplayAdapter *coordAdapter = globeView->coordAdapter;
+        const auto coordAdapter = globeView->getCoordAdapter();
         Vector3d destPt = coordAdapter->localToDisplay(coordAdapter->getCoordSystem()->geographicToLocal3d(GeoCoord(newPos.x,newPos.y)));
         Eigen::Quaterniond endRot;
         endRot = QuatFromTwoVectors(destPt, whereLoc);
@@ -830,7 +921,8 @@ public:
     anim.heading = newHeading;
     anim.height = newHeight;
     anim.tilt = [self tilt];
-    
+    anim.zoomEasing = self.animationZoomEasing;
+
     [self animateWithDelegate:anim time:howLong];
     
     return true;
@@ -854,7 +946,8 @@ public:
     anim.heading = newHeading;
     anim.height = newHeight;
     anim.tilt = [self tilt];
-    
+    anim.zoomEasing = self.animationZoomEasing;
+
     [self animateWithDelegate:anim time:howLong];
     
     return true;
@@ -903,6 +996,8 @@ public:
     anim.heading = newHeading;
     anim.height = newHeight;
     anim.tilt = [self tilt];
+    anim.zoomEasing = self.animationZoomEasing;
+
     [self animateWithDelegate:anim time:howLong];
     
     return true;
@@ -920,10 +1015,17 @@ public:
         return;
     }
     
+    const auto oldRot = globeView->getRotQuat();
+    
     [self rotateToPoint:GeoCoord(newPos.x,newPos.y) time:0.0];
     // If there's a pinch delegate, ask it to calculate the height.
     if (tiltControlDelegate) {
         self.tilt = tiltControlDelegate->tiltFromHeight(globeView->getHeightAboveGlobe());
+    }
+
+    if (oldRot.dot(globeView->getRotQuat()) != 1.0)
+    {
+        globeView->setHasMoved(true);
     }
  }
 
@@ -939,6 +1041,11 @@ public:
     }
 
     [self setPosition:newPos];
+
+    if (height != globeView->getHeightAboveGlobe())
+    {
+        globeView->setHasZoomed(true);
+    }
     globeView->setHeightAboveGlobe(height);
 }
 
@@ -952,9 +1059,21 @@ public:
         NSLog(@"WhirlyGlobeViewController: Invalid location passed to setPosition:");
         return;
     }
+
+    const auto oldRot = globeView->getRotQuat();
     
     [self rotateToPoint:GeoCoord(newPos.x,newPos.y) time:0.0];
-    globeView->setHeightAboveGlobe(height);
+
+    if (oldRot.dot(globeView->getRotQuat()) != 1.0)
+    {
+        globeView->setHasMoved(true);
+    }
+
+    if (height != globeView->getHeightAboveGlobe())
+    {
+        globeView->setHasZoomed(true);
+    }
+
     // If there's a pinch delegate, ask it to calculate the height.
     if (tiltControlDelegate)
         self.tilt = tiltControlDelegate->tiltFromHeight(globeView->getHeightAboveGlobe());
@@ -992,6 +1111,10 @@ public:
     Eigen::AngleAxisd rot(heading,localPt);
     Quaterniond newRotQuat = posQuat * rot;
     
+    if (newRotQuat.dot(globeView->getRotQuat()) != 1.0)
+    {
+        globeView->setHasRotated(true);
+    }
     globeView->setRotQuat(newRotQuat);
 }
 
@@ -1015,7 +1138,8 @@ public:
     if (!renderControl)
         return {0.0, 0.0};
 
-    GeoCoord geoCoord = globeView->coordAdapter->getCoordSystem()->localToGeographic(globeView->coordAdapter->displayToLocal(globeView->currentUp()));
+    const auto adapter = globeView->getCoordAdapter();
+    const GeoCoord geoCoord = adapter->getCoordSystem()->localToGeographic(adapter->displayToLocal(globeView->currentUp()));
 
 	return {.x = geoCoord.lon(), .y = geoCoord.lat()};
 }
@@ -1025,7 +1149,8 @@ public:
     if (!renderControl)
         return {0.0, 0.0};
 
-    Point2d geoCoord = globeView->coordAdapter->getCoordSystem()->localToGeographicD(globeView->coordAdapter->displayToLocal(globeView->currentUp()));
+    const auto adapter = globeView->getCoordAdapter();
+    const Point2d geoCoord = adapter->getCoordSystem()->localToGeographicD(adapter->displayToLocal(globeView->currentUp()));
 
 	return {.x = geoCoord.x(), .y = geoCoord.y()};
 }
@@ -1047,7 +1172,8 @@ public:
     
     *height = globeView->getHeightAboveGlobe();
     Point3d localPt = globeView->currentUp();
-    GeoCoord geoCoord = globeView->coordAdapter->getCoordSystem()->localToGeographic(globeView->coordAdapter->displayToLocal(localPt));
+    const auto adapter = globeView->getCoordAdapter();
+    GeoCoord geoCoord = adapter->getCoordSystem()->localToGeographic(adapter->displayToLocal(localPt));
     pos->x = geoCoord.lon();  pos->y = geoCoord.lat();
 }
 
@@ -1060,7 +1186,8 @@ public:
 
     *height = globeView->getHeightAboveGlobe();
     Point3d localPt = globeView->currentUp();
-    Point2d geoCoord = globeView->coordAdapter->getCoordSystem()->localToGeographicD(globeView->coordAdapter->displayToLocal(localPt));
+    const auto adapter = globeView->getCoordAdapter();
+    Point2d geoCoord = adapter->getCoordSystem()->localToGeographicD(adapter->displayToLocal(localPt));
     pos->x = geoCoord.x();  pos->y = geoCoord.y();
 }
 
@@ -1156,7 +1283,9 @@ public:
 
 - (void) handleStartMoving:(bool)userMotion
 {
-    if (!isPanning && !isRotating && !isZooming && !isAnimating && !isTilting)
+    [super handleStartMoving:userMotion];
+    
+    if (!_isPanning && !_isRotating && !_isZooming && !_isAnimating && !_isTilting)
     {
         const auto __strong delegate = _delegate;
         if ([delegate respondsToSelector:@selector(globeViewControllerDidStartMoving:userMotion:)])
@@ -1169,12 +1298,16 @@ public:
 {
     if (!renderControl)
         return;
-    
-    Point2f screenCorners[4];
-    screenCorners[0] = Point2f(0.0, 0.0);
-    screenCorners[1] = Point2f(renderControl->sceneRenderer->framebufferWidth,0.0);
-    screenCorners[2] = Point2f(renderControl->sceneRenderer->framebufferWidth,renderControl->sceneRenderer->framebufferHeight);
-    screenCorners[3] = Point2f(0.0, renderControl->sceneRenderer->framebufferHeight);
+
+    const Point2f frameSize = renderControl->sceneRenderer->getFramebufferSize();
+    const Point2f frameSizeScaled = renderControl->sceneRenderer->getFramebufferSizeScaled();
+
+    const Point2f screenCorners[4] = {
+        Point2f(0.0, 0.0),
+        Point2f(frameSize.x(),0.0),
+        frameSize,
+        Point2f(0.0, frameSize.y()),
+    };
     
     Eigen::Matrix4d modelTrans;
     Eigen::Affine3d trans(Eigen::Translation3d(0,0,-globeView->calcEarthZOffset()));
@@ -1183,7 +1316,6 @@ public:
     
     modelTrans = viewMat * modelMat;
 
-    auto frameSizeScaled = renderControl->sceneRenderer->getFramebufferSizeScaled();
     for (unsigned int ii=0;ii<4;ii++)
     {
         Point3d hit;
@@ -1200,7 +1332,9 @@ public:
 // Convenience routine to handle the end of moving
 - (void)handleStopMoving:(bool)userMotion
 {
-    if (isPanning || isRotating || isZooming || isAnimating || isTilting)
+    [super handleStopMoving:userMotion];
+
+    if (_isPanning || _isRotating || _isZooming || _isAnimating || _isTilting)
         return;
     
     const auto __strong delegate = _delegate;
@@ -1220,7 +1354,7 @@ public:
         return;
     
     [self handleStartMoving:true];
-    isTilting = true;
+    self.isTilting = true;
 }
 
 // Called when the tilt delegate stops moving
@@ -1229,7 +1363,7 @@ public:
     if (note.object != globeView->tag)
         return;
     
-    isTilting = false;
+    self.isTilting = false;
     [self handleStopMoving:true];
 }
 
@@ -1242,7 +1376,7 @@ public:
 //    NSLog(@"Pan started");
 
     [self handleStartMoving:true];
-    isPanning = true;
+    self.isPanning = true;
 }
 
 // Called when the pan delegate stops moving
@@ -1253,7 +1387,7 @@ public:
     
 //    NSLog(@"Pan ended");
     
-    isPanning = false;
+    self.isPanning = false;
     [self handleStopMoving:true];
 }
 
@@ -1261,11 +1395,23 @@ public:
 {
     if (note.object != globeView->tag)
         return;
-    
+
+    if (self.fastGestures) {
+        // Cancel any pending recognition of other gestures.
+        // ("If you change this property to NO while a gesture recognizer is currently
+        //   regognizing a gesture, the gesture recognizer transitions to a cancelled state.")
+        UIGestureRecognizer __strong *panRec = panDelegate.gestureRecognizer;
+        panRec.enabled = NO;
+        panRec.enabled = YES;
+        UIGestureRecognizer __strong *tapRec = twoFingerTapDelegate.gestureRecognizer;
+        tapRec.enabled = NO;
+        tapRec.enabled = YES;
+    }
+
 //    NSLog(@"Pinch started");
     
     [self handleStartMoving:true];
-    isZooming = true;
+    self.isZooming = true;
 }
 
 - (void) pinchDidEnd:(NSNotification *)note
@@ -1275,7 +1421,7 @@ public:
     
 //    NSLog(@"Pinch ended");
 
-    isZooming = false;
+    self.isZooming = false;
     [self handleStopMoving:true];
 }
 
@@ -1287,7 +1433,7 @@ public:
 //    NSLog(@"Rotate started");
     
     [self handleStartMoving:true];
-    isRotating = true;
+    self.isRotating = true;
 }
 
 - (void) rotateDidEnd:(NSNotification *)note
@@ -1297,7 +1443,7 @@ public:
     
 //    NSLog(@"Rotate ended");
     
-    isRotating = false;
+    self.isRotating = false;
     [self handleStopMoving:true];
 }
 
@@ -1309,7 +1455,7 @@ public:
 //    NSLog(@"Animation started");
 
     [self handleStartMoving:false];
-    isAnimating = true;
+    self.isAnimating = true;
 }
 
 - (void) animationDidEnd:(NSNotification *)note
@@ -1320,31 +1466,91 @@ public:
 //    NSLog(@"Animation ended");
     
     // Momentum animation is only kicked off by the pan delegate.
-    bool userMotion = false;
-    if (dynamic_cast<AnimateViewRotation *>(globeView->getDelegate().get()))
-        userMotion = true;
+    const auto delegate = globeView->getDelegate();
+    const bool userMotion = delegate && delegate->isUserMotion();
     
-    isAnimating = false;
+    self.isAnimating = false;
     knownAnimateEndRot = false;
     [self handleStopMoving:userMotion];
 }
 
-// See if the given bounding box is all on sreen
-- (bool)checkCoverage:(Mbr &)mbr globeView:(WhirlyGlobe::GlobeView *)theView height:(float)height
+// See if the given bounding box is all on screen
+- (bool)checkCoverage:(const Mbr &)mbr
+            globeView:(WhirlyGlobe::GlobeView *)theView
+                  loc:(MaplyCoordinate)loc
+               height:(float)height
+                frame:(CGRect)frame
+               newLoc:(MaplyCoordinate *)newLoc
 {
+    return [self checkCoverage:mbr
+                     globeView:theView
+                           loc:loc
+                        height:height
+                         frame:frame
+                        newLoc:newLoc
+                        margin:{0.0,0.0}];
+}
+
+- (bool)checkCoverage:(const Mbr &)mbr
+            globeView:(WhirlyGlobe::GlobeView *)theView
+                  loc:(MaplyCoordinate)loc
+               height:(float)height
+                frame:(CGRect)frame
+               newLoc:(MaplyCoordinate *)newLoc
+               margin:(const Point2d &)margin
+{
+    if (!theView || frame.size.width * frame.size.height == 0)
+    {
+        return false;
+    }
+    if (newLoc)
+    {
+        *newLoc = loc;
+    }
+
+    // Center the given location
+    Eigen::Quaterniond newRotQuat = theView->makeRotationToGeoCoord(GeoCoord(loc.x,loc.y), true);
+    theView->setRotQuat(newRotQuat,false);
     theView->setHeightAboveGlobe(height, false);
+
+    // If they want to center in an area other than the whole view frame, we need to work out
+    // what center point will place the given location at the center of the given view frame.
+    const auto screenCenter = CGPointMake(CGRectGetMidX(self.view.frame), CGRectGetMidY(self.view.frame));
+    const auto frameCenter = CGPointMake(CGRectGetMidX(frame), CGRectGetMidY(frame));
+    const auto offset = CGPointMake(frameCenter.x - screenCenter.x, frameCenter.y - screenCenter.y);
+    if (offset.x != 0 || offset.y != 0)
+    {
+        const auto invCenter = CGPointMake(screenCenter.x - offset.x, screenCenter.y - offset.y);
+        MaplyCoordinate invGeo = {0,0};
+        if (![self geoPointFromScreen:invCenter theView:theView geoCoord:&invGeo])
+        {
+            return false;
+        }
+
+        // Place the given location at the center of the given frame
+        newRotQuat = theView->makeRotationToGeoCoord(Point2d(invGeo.x,invGeo.y), true);
+        theView->setRotQuat(newRotQuat,false);
+
+        if (newLoc)
+        {
+            *newLoc = invGeo;
+        }
+    }
 
     Point2fVector pts;
     mbr.asPoints(pts);
-    CGRect frame = self.view.frame;
-    for (unsigned int ii=0;ii<pts.size();ii++)
+
+    for (const auto &pt : pts)
     {
-        Point2f pt = pts[ii];
-        MaplyCoordinate geoCoord;
-        geoCoord.x = pt.x();  geoCoord.y = pt.y();
-        CGPoint screenPt = [self pointOnScreenFromGeo:geoCoord globeView:theView];
-        if (screenPt.x < 0 || screenPt.y < 0 || screenPt.x > frame.size.width || screenPt.y > frame.size.height)
+        const CGPoint screenPt = [self pointOnScreenFromGeo:{pt.x(), pt.y()} globeView:theView];
+        if (!std::isfinite(screenPt.y) ||
+            screenPt.x < frame.origin.x - margin.x() ||
+            screenPt.y < frame.origin.y - margin.y() ||
+            screenPt.x > frame.origin.x + frame.size.width + margin.x() ||
+            screenPt.y > frame.origin.y + frame.size.height + margin.y())
+        {
             return false;
+        }
     }
     
     return true;
@@ -1352,17 +1558,49 @@ public:
 
 - (float)findHeightToViewBounds:(MaplyBoundingBox)bbox pos:(MaplyCoordinate)pos
 {
-    if (!globeView) {
+    return [self findHeightToViewBounds:bbox pos:pos marginX:0 marginY:0];
+}
+
+- (float)findHeightToViewBounds:(MaplyBoundingBox)bbox
+                            pos:(MaplyCoordinate)pos
+                        marginX:(double)marginX
+                        marginY:(double)marginY
+{
+    return [self findHeightToViewBounds:bbox
+                                    pos:pos
+                                  frame:self.view.frame
+                                 newPos:nil
+                                marginX:marginX
+                                marginY:marginY];
+}
+
+- (float)findHeightToViewBounds:(MaplyBoundingBox)bbox
+                            pos:(MaplyCoordinate)pos
+                          frame:(CGRect)frame
+                         newPos:(MaplyCoordinate *)newPos
+                        marginX:(double)marginX
+                        marginY:(double)marginY
+{
+    if (!globeView)
+    {
         return 0;
     }
-    GlobeView tempGlobe(*globeView);
-    
-    float oldHeight = globeView->getHeightAboveGlobe();
-    Eigen::Quaterniond newRotQuat = tempGlobe.makeRotationToGeoCoord(GeoCoord(pos.x,pos.y), true);
-    tempGlobe.setRotQuat(newRotQuat,false);
 
-    Mbr mbr(Point2f(bbox.ll.x,bbox.ll.y),Point2f(bbox.ur.x,bbox.ur.y));
-    
+    // checkCoverage won't work if the frame size isn't set
+    if (frame.size.width * frame.size.height == 0)
+    {
+        return 0;
+    }
+
+    GlobeView tempGlobe(*globeView);
+
+    //const float oldHeight = globeView->getHeightAboveGlobe();
+    //const Eigen::Quaterniond newRotQuat = tempGlobe.makeRotationToGeoCoord(GeoCoord(pos.x,pos.y), true);
+    //tempGlobe.setRotQuat(newRotQuat,false);
+
+    const Mbr mbr({ bbox.ll.x, bbox.ll.y }, { bbox.ur.x, bbox.ur.y });
+    const Point2d margin(marginX, marginY);
+
     double minHeight = tempGlobe.minHeightAboveGlobe();
     double maxHeight = tempGlobe.maxHeightAboveGlobe();
     if (pinchDelegate)
@@ -1372,39 +1610,49 @@ public:
     }
 
     // Check that we can at least see it
-    bool minOnScreen = [self checkCoverage:mbr globeView:&tempGlobe height:minHeight];
-    bool maxOnScreen = [self checkCoverage:mbr globeView:&tempGlobe height:maxHeight];
-    if (!minOnScreen && !maxOnScreen)
+    MaplyCoordinate minPos, maxPos;
+    const bool minOnScreen = [self checkCoverage:mbr globeView:&tempGlobe loc:pos height:minHeight
+                                           frame:frame newLoc:&minPos margin:margin];
+          bool maxOnScreen = [self checkCoverage:mbr globeView:&tempGlobe loc:pos height:maxHeight
+                                           frame:frame newLoc:&maxPos margin:margin];
+
+    // If there's a frame offset, max height will often
+    // fail, so we need to search both directions.
+    if (!minOnScreen && !maxOnScreen && !newPos)
     {
-        tempGlobe.setHeightAboveGlobe(oldHeight,false);
-        return oldHeight;
+        if (newPos)
+        {
+            *newPos = pos;
+        }
+        return 0.0;
     }
-    
-    // Now for the binary search
-    float minRange = 1e-5;
-    do
+    else if (minOnScreen)
     {
-        float midHeight = (minHeight + maxHeight)/2.0;
-        bool midOnScreen = [self checkCoverage:mbr globeView:&tempGlobe height:midHeight];
-        
-        if (!minOnScreen && midOnScreen)
+        if (newPos)
+        {
+            *newPos = minPos;
+        }
+        return minHeight;
+    }
+
+    // minHeight is out but maxHeight works.
+    // Binary search to find the lowest height that still works.
+    constexpr float minRange = 1e-5;
+    while (maxHeight - minHeight > minRange)
+    {
+        const float midHeight = (minHeight + maxHeight)/2.0;
+        if ([self checkCoverage:mbr globeView:&tempGlobe loc:pos height:midHeight
+                          frame:frame newLoc:newPos margin:margin])
         {
             maxHeight = midHeight;
-            maxOnScreen = midOnScreen;
-        } else if (!midOnScreen && maxOnScreen)
-        {
-            minHeight = midHeight;
-            minOnScreen = midOnScreen;
-        } else {
-            // Not expecting this
-            break;
+            maxOnScreen = true;
         }
-        
-        if (maxHeight-minHeight < minRange)
-            break;
-    } while (true);
-    
-    return maxHeight;
+        else
+        {
+            (maxOnScreen ? minHeight : maxHeight) = midHeight;
+        }
+    }
+    return maxOnScreen ? maxHeight : 0.0;
 }
 
 - (CGPoint)pointOnScreenFromGeo:(MaplyCoordinate)geoCoord
@@ -1415,70 +1663,96 @@ public:
 - (CGPoint)pointOnScreenFromGeo:(MaplyCoordinate)geoCoord globeView:(GlobeView *)theView
 {
     if (!renderControl)
-        return CGPointMake(0.0, 0.0);
-    
-    Point3d pt = theView->coordAdapter->localToDisplay(theView->coordAdapter->getCoordSystem()->geographicToLocal3d(GeoCoord(geoCoord.x,geoCoord.y)));
-    
-    Eigen::Matrix4d modelTrans = theView->calcFullMatrix();
-    
-    auto screenPt = theView->pointOnScreenFromSphere(pt, &modelTrans, renderControl->sceneRenderer->getFramebufferSizeScaled());
+    {
+        return CGPointZero;
+    }
+
+    const Point2f frameSizeScaled = renderControl->sceneRenderer->getFramebufferSizeScaled();
+    if (frameSizeScaled.x() <= 0 || frameSizeScaled.y() <= 0)
+    {
+        // Called too early, wait until we're set up
+        return CGPointZero;
+    }
+
+    const auto adapter = theView->getCoordAdapter();
+    const Point3d pt = adapter->localToDisplay(adapter->getCoordSystem()->geographicToLocal3d({geoCoord.x,geoCoord.y}));
+
+    const Eigen::Matrix4d modelTrans = theView->calcFullMatrix();
+
+    auto screenPt = theView->pointOnScreenFromSphere(pt, &modelTrans, frameSizeScaled);
     return CGPointMake(screenPt.x(),screenPt.y());
 }
 
 - (CGPoint)screenPointFromGeo:(MaplyCoordinate)geoCoord
 {
 	CGPoint p;
-
-	if (![self screenPointFromGeo:geoCoord screenPt:&p]) {
-		return CGPointZero;
-	}
-
-	return p;
+	return [self screenPointFromGeo:geoCoord screenPt:&p] ? p : CGPointZero;
 }
 
 - (bool)screenPointFromGeo:(MaplyCoordinate)geoCoord screenPt:(CGPoint *)screenPt
 {
     if (!renderControl)
+    {
         return false;
-    
-    Point3d pt = renderControl->visualView->coordAdapter->localToDisplay(renderControl->visualView->coordAdapter->getCoordSystem()->geographicToLocal3d(GeoCoord(geoCoord.x,geoCoord.y)));
-    Point3f pt3f(pt.x(),pt.y(),pt.z());
-    
-    Eigen::Matrix4d modelTrans4d = renderControl->visualView->calcModelMatrix();
-    Eigen::Matrix4d viewTrans4d = renderControl->visualView->calcViewMatrix();
-    Eigen::Matrix4d modelAndViewMat4d = viewTrans4d * modelTrans4d;
-    Eigen::Matrix4f modelAndViewMat = Matrix4dToMatrix4f(modelAndViewMat4d);
-    Eigen::Matrix4f modelAndViewNormalMat = modelAndViewMat.inverse().transpose();
+    }
 
-    if (CheckPointAndNormFacing(pt3f,pt3f.normalized(),modelAndViewMat,modelAndViewNormalMat) < 0.0)
+    const auto adapter = renderControl->visualView->getCoordAdapter();
+    const Point3d localPt = adapter->getCoordSystem()->geographicToLocal3d(GeoCoord(geoCoord.x,geoCoord.y));
+    const Point3d displayPt = adapter->localToDisplay(localPt);
+    const Point3f displayPtf = displayPt.cast<float>();
+    
+    const Eigen::Matrix4d modelTrans4d = renderControl->visualView->calcModelMatrix();
+    const Eigen::Matrix4d viewTrans4d = renderControl->visualView->calcViewMatrix();
+    const Eigen::Matrix4d modelAndViewMat4d = viewTrans4d * modelTrans4d;
+    const Eigen::Matrix4f modelAndViewMat = Matrix4dToMatrix4f(modelAndViewMat4d);
+    const Eigen::Matrix4f modelAndViewNormalMat = modelAndViewMat.inverse().transpose();
+
+    if (CheckPointAndNormFacing(displayPtf,displayPtf.normalized(),modelAndViewMat,modelAndViewNormalMat) < 0.0)
+    {
         return false;
+    }
     
-    auto screenPt2f = globeView->pointOnScreenFromSphere(pt, &modelAndViewMat4d, renderControl->sceneRenderer->getFramebufferSizeScaled());
-    screenPt->x = screenPt2f.x();  screenPt->y = screenPt2f.y();
-    
-    if (screenPt->x < 0 || screenPt->y < 0 || screenPt->x > renderControl->sceneRenderer->framebufferWidth || screenPt->y > renderControl->sceneRenderer->framebufferHeight)
-        return false;
-    
-    return true;
+    const Point2f frameSizeScaled = renderControl->sceneRenderer->getFramebufferSizeScaled();
+
+    auto screenPt2f = globeView->pointOnScreenFromSphere(displayPt, &modelAndViewMat4d, frameSizeScaled);
+    *screenPt = CGPointMake(screenPt2f.x(), screenPt2f.y());
+
+    return (screenPt->x >= 0 && screenPt->y >= 0 &&
+            screenPt->x < frameSizeScaled.x() &&
+            screenPt->y < frameSizeScaled.y());
 }
 
 - (bool)geoPointFromScreen:(CGPoint)screenPt geoCoord:(MaplyCoordinate *)retCoord
 {
-    if (!renderControl)
+    return [self geoPointFromScreen:screenPt theView:globeView.get() geoCoord:retCoord];
+}
+
+- (bool)geoPointFromScreen:(CGPoint)screenPt
+                   theView:(WhirlyGlobe::GlobeView * __nonnull)theView
+                  geoCoord:(MaplyCoordinate * __nonnull)retCoord
+{
+    if (!renderControl || !theView)
+    {
         return false;
-    
+    }
+
+    const auto *coordAdapter = theView->getCoordAdapter();
+    const auto *coordSys = coordAdapter->getCoordSystem();
+    const auto frameSize = renderControl->sceneRenderer->getFramebufferSizeScaled();
+
 	Point3d hit;
     Point2f screenPt2f(screenPt.x,screenPt.y);
-	Eigen::Matrix4d theTransform = globeView->calcFullMatrix();
-    if (globeView->pointOnSphereFromScreen(screenPt2f, theTransform, renderControl->sceneRenderer->getFramebufferSizeScaled(), hit, true))
+	Eigen::Matrix4d theTransform = theView->calcFullMatrix();
+    if (theView->pointOnSphereFromScreen(screenPt2f, theTransform, frameSize, hit, true))
     {
-        GeoCoord geoCoord = renderControl->visualView->coordAdapter->getCoordSystem()->localToGeographic(renderControl->visualView->coordAdapter->displayToLocal(hit));
-        retCoord->x = geoCoord.x();
-        retCoord->y = geoCoord.y();
-        
+        if (retCoord)
+        {
+            const GeoCoord geoCoord = coordSys->localToGeographic(coordAdapter->displayToLocal(hit));
+            *retCoord = { geoCoord.x(), geoCoord.y() };
+        }
         return true;
-	} else
-        return false;
+	}
+    return false;
 }
 
 - (nullable NSValue *)geoPointFromScreen:(CGPoint)screenPt
@@ -1511,7 +1785,8 @@ public:
 	Eigen::Matrix4d theTransform = globeView->calcFullMatrix();
     if (globeView->pointOnSphereFromScreen(Point2f(screenPt.x,screenPt.y), theTransform, renderControl->sceneRenderer->getFramebufferSizeScaled(), hit, true))
     {
-        Point3d geoC = renderControl->visualView->coordAdapter->getCoordSystem()->localToGeocentric(renderControl->visualView->coordAdapter->displayToLocal(hit));
+        const auto adapter = renderControl->visualView->getCoordAdapter();
+        Point3d geoC = adapter->getCoordSystem()->localToGeocentric(adapter->displayToLocal(hit));
         retCoords[0] = geoC.x();  retCoords[1] = geoC.y();  retCoords[2] = geoC.z();
         
         // Note: Obviously doing something stupid here
@@ -1625,10 +1900,8 @@ public:
     
     // Tell the delegate what we're up to
     [animationDelegate globeViewController:self startState:stateStart startTime:now endTime:animationDelegateEnd];
-    
-    WhirlyGlobeViewWrapper *delegate = new WhirlyGlobeViewWrapper();
-    delegate->control = self;
-    globeView->setDelegate(GlobeViewAnimationDelegateRef(delegate));
+
+    globeView->setDelegate(std::make_shared<WhirlyGlobeViewWrapper>(self));
 }
 
 - (void)setViewState:(WhirlyGlobeViewControllerAnimationState *)animState
@@ -1664,7 +1937,8 @@ public:
     }
     
     // Start with a rotation from the clean start state to the location
-    Point3d worldLoc = globeView->coordAdapter->localToDisplay(globeView->coordAdapter->getCoordSystem()->geographicToLocal3d(GeoCoord(animState.pos.x,animState.pos.y)));
+    const auto adapter = globeView->getCoordAdapter();
+    const Point3d worldLoc = adapter->localToDisplay(adapter->getCoordSystem()->geographicToLocal3d(GeoCoord(animState.pos.x,animState.pos.y)));
     Eigen::Quaterniond posRot = QuatFromTwoVectors(worldLoc, startLoc);
     
     // Orient with north up.  Either because we want that or we're about do do a heading
@@ -1700,9 +1974,10 @@ public:
     globeView->setHeightAboveGlobe(animState.height,false);
     
     // Set the tilt either directly or as a consequence of the height
-    if (animState.tilt >= MAXFLOAT)
-        globeView->setTilt(tiltControlDelegate->tiltFromHeight(globeView->getHeightAboveGlobe()));
-    else
+    if (animState.tilt >= MAXFLOAT) {
+        if (tiltControlDelegate)
+            globeView->setTilt(tiltControlDelegate->tiltFromHeight(globeView->getHeightAboveGlobe()));
+    } else
         globeView->setTilt(animState.tilt);
     globeView->setRoll(animState.roll, false);
 
@@ -1739,9 +2014,9 @@ public:
 - (WhirlyGlobeViewControllerAnimationState *)viewStateForLookAt:(MaplyCoordinate)coord tilt:(float)tilt heading:(float)heading altitude:(float)alt range:(float)range
 {
     Vector3f north(0,0,1);
-    WhirlyKit::CoordSystemDisplayAdapter *coordAdapter = globeView->coordAdapter;
-    WhirlyKit::CoordSystem *coordSys = coordAdapter->getCoordSystem();
-    Vector3f p0norm = coordAdapter->localToDisplay(coordSys->geographicToLocal(WhirlyKit::GeoCoord(coord.x,coord.y)));
+    const CoordSystemDisplayAdapter *coordAdapter = globeView->getCoordAdapter();
+    const CoordSystem *coordSys = coordAdapter->getCoordSystem();
+    Vector3f p0norm = coordAdapter->localToDisplay(coordSys->geographicToLocal(GeoCoord(coord.x,coord.y)));
     // Position we're looking at in display coords
     Vector3f p0 = p0norm * (1.0 + alt);
     
@@ -1802,29 +2077,43 @@ public:
 
 - (bool) getCurrentExtents:(MaplyBoundingBox *)bbox
 {
-    CGRect frame = self.view.frame;
-    
-    CGPoint pt = CGPointMake(0,frame.size.height);
-    
-    bool resp = [self geoPointFromScreen:pt geoCoord:&(bbox->ll)];
-    
-    if (!resp)
+    if (!bbox)
     {
-        // Left lower point is outside the globe
         return false;
     }
-    
-    pt = CGPointMake(frame.size.width,0);
-    
-    resp = [self geoPointFromScreen:pt geoCoord:&(bbox->ur)];
-    if (!resp)
+
+    const auto &frame = self.view.frame.size;
+
+    // Try the corner points.  Note that this doesn't account for rotation.
+    if ([self geoPointFromScreen:CGPointMake(0,frame.height) geoCoord:&(bbox->ll)] &&
+        [self geoPointFromScreen:CGPointMake(frame.width,0) geoCoord:&(bbox->ur)])
     {
-        // Right upper point is outside the globe
-        return false;
+        return true;
     }
-    
+
+    // One or both are off the globe, try the center
+    MaplyCoordinate center;
+    if ([self geoPointFromScreen:CGPointMake(frame.width/2,frame.height/2) geoCoord:&center])
+    {
+        // Assume we can see 90 degrees in every direction.
+        bbox->ll.y = std::max(-M_PI_2, center.y - M_PI_2);
+        bbox->ur.y = std::min(M_PI_2, center.y + M_PI_2);
+
+        // If we're anywhere but right at the equator, we can see the whole span of longitudes.
+        if (std::fabs(center.y) < M_PI / 180)
+        {
+            bbox->ll.x = fmod(center.x - M_PI_2 + M_2_PI, M_2_PI);
+            bbox->ur.x = fmod(center.x + M_PI_2, M_2_PI);
+        }
+        else
+        {
+            bbox->ll.x = -M_PI;
+            bbox->ur.x =  M_PI;
+        }
+        return true;
+    }
+
     return true;
-    
 }
 
 static const float LonAng = 2*M_PI/5.0;
@@ -1838,16 +2127,19 @@ static const float FullExtentEps = 1e-5;
     if (!renderControl)
         return 0;
     
-    float extentEps = visualBoxes ? FullExtentEps : 0.0;
+    const float extentEps = visualBoxes ? FullExtentEps : 0.0;
     
-    Point2f screenCorners[4];
-    screenCorners[0] = Point2f(0.0, 0.0);
-    screenCorners[1] = Point2f(renderControl->sceneRenderer->framebufferWidth,0.0);
-    screenCorners[2] = Point2f(renderControl->sceneRenderer->framebufferWidth,renderControl->sceneRenderer->framebufferHeight);
-    screenCorners[3] = Point2f(0.0, renderControl->sceneRenderer->framebufferHeight);
+    const Point2f frameSize = renderControl->sceneRenderer->getFramebufferSize();
+    const Point2f frameSizeScaled = renderControl->sceneRenderer->getFramebufferSizeScaled();
+
+    const Point2f screenCorners[4] = {
+        { 0.0, 0.0 },
+        { frameSize.x(), 0.0 },
+        frameSize,
+        { 0.0, frameSize.y() },
+    };
     
-    Eigen::Matrix4d modelTrans = globeView->calcFullMatrix();
-    auto frameSizeScaled = renderControl->sceneRenderer->getFramebufferSizeScaled();
+    const Eigen::Matrix4d modelTrans = globeView->calcFullMatrix();
 
     Point3d corners[4];
     bool cornerValid[4];
@@ -1866,8 +2158,9 @@ static const float FullExtentEps = 1e-5;
     }
     
     // Current location the user is over
-    Point3d localPt = globeView->currentUp();
-    GeoCoord currentLoc = globeView->coordAdapter->getCoordSystem()->localToGeographic(globeView->coordAdapter->displayToLocal(localPt));
+    const Point3d localPt = globeView->currentUp();
+    const auto adapter = globeView->getCoordAdapter();
+    const GeoCoord currentLoc = adapter->getCoordSystem()->localToGeographic(adapter->displayToLocal(localPt));
 
     // Toss in the current location
     std::vector<Mbr> mbrs(1);
@@ -2036,11 +2329,9 @@ static const float FullExtentEps = 1e-5;
             }
         } else {
             // Check the poles
-            Point3d poles[2];
-            poles[0] = Point3d(0,0,1);
-            poles[1] = Point3d(0,0,-1);
+            const Point3d poles[2] = { { 0, 0, 1 }, { 0, 0, -1 } };
             
-            Eigen::Matrix4d modelAndViewNormalMat = modelTrans.inverse().transpose();
+            const Eigen::Matrix4d modelAndViewNormalMat = modelTrans.inverse().transpose();
             
             for (unsigned int ii=0;ii<2;ii++)
             {
@@ -2048,10 +2339,14 @@ static const float FullExtentEps = 1e-5;
                 if (CheckPointAndNormFacing(pt,pt.normalized(),modelTrans,modelAndViewNormalMat) < 0.0)
                     continue;
                 
-                Point2f screenPt = globeView->pointOnScreenFromSphere(pt, &modelTrans, frameSizeScaled);
+                const Point2f screenPt = globeView->pointOnScreenFromSphere(pt, &modelTrans, frameSizeScaled);
+                const Point2f frameSize = renderControl->sceneRenderer->getFramebufferSizeScaled();
             
-                if (screenPt.x() < 0 || screenPt.y() < 0 || screenPt.x() > renderControl->sceneRenderer->framebufferWidth || screenPt.y() > renderControl->sceneRenderer->framebufferHeight)
+                if (screenPt.x() < 0 || screenPt.y() < 0 ||
+                    screenPt.x() > frameSize.x() || screenPt.y() > frameSize.y())
+                {
                     continue;
+                }
 
                 // Include the pole and just do the whole area
                 switch (ii)

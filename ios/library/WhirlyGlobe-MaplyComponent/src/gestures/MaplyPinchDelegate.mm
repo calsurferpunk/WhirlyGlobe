@@ -1,9 +1,8 @@
-/*
- *  MaplyPinchDelegateMap.h
+/*  MaplyPinchDelegate.mm
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 1/10/12.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,13 +14,13 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "gestures/MaplyPinchDelegate.h"
-#import "SceneRenderer.h"
-#import "MaplyZoomGestureDelegate_private.h"
+#import "private/MaplyPinchDelegate_private.h"
+#import "private/MaplyZoomGestureDelegate_private.h"
 #import "MaplyAnimateTranslation.h"
+#import "SceneRenderer.h"
 #import "ViewWrapper.h"
 
 using namespace WhirlyKit;
@@ -31,8 +30,8 @@ using namespace Maply;
 {
     /// If we're zooming, where we started
     float startZ;
-    Point2f startingMidPoint;
-    Point3d startingGeoPoint;
+    Point2f startingMidPoint;       // screen coordinates
+    Point3d startingGeoPoint;       // actually in display coordinates
 }
 
 + (MaplyPinchDelegate *)pinchDelegateForView:(UIView *)view mapView:(MapView_iOSRef)mapView
@@ -47,8 +46,8 @@ using namespace Maply;
 // Called for pinch actions
 - (void)pinchGesture:(id)sender
 {
-	UIPinchGestureRecognizer *pinch = sender;
-	UIGestureRecognizerState theState = pinch.state;
+    UIPinchGestureRecognizer *pinch = sender;
+    UIGestureRecognizerState theState = pinch.state;
     UIView<WhirlyKitViewWrapper> *wrapView = (UIView<WhirlyKitViewWrapper> *)pinch.view;
     SceneRenderer *sceneRenderer = wrapView.renderer;
 
@@ -60,18 +59,20 @@ using namespace Maply;
             startZ = self.mapView->getLoc().z();
             
             //calculate center between touches, in screen and map coords
-            CGPoint t0 = [pinch locationOfTouch:0 inView:pinch.view];
-            CGPoint t1 = [pinch locationOfTouch:1 inView:pinch.view];
-            startingMidPoint.x() = (t0.x + t1.x) / 2.0;
-            startingMidPoint.y() = (t0.y + t1.y) / 2.0;
-            Eigen::Matrix4d modelTrans = self.mapView->calcFullMatrix();
-            Point2f frameSize = sceneRenderer->getFramebufferSizeScaled();
-            self.mapView->pointOnPlaneFromScreen(startingMidPoint, &modelTrans, frameSize, &startingGeoPoint, true);
-
+            if ([pinch numberOfTouches] >= 2) {
+                CGPoint t0 = [pinch locationOfTouch:0 inView:pinch.view];
+                CGPoint t1 = [pinch locationOfTouch:1 inView:pinch.view];
+                startingMidPoint.x() = (t0.x + t1.x) / 2.0;
+                startingMidPoint.y() = (t0.y + t1.y) / 2.0;
+                Eigen::Matrix4d modelTrans = self.mapView->calcFullMatrix();
+                Point2f frameSize = sceneRenderer->getFramebufferSizeScaled();
+                self.mapView->pointOnPlaneFromScreen(startingMidPoint, &modelTrans, frameSize, &startingGeoPoint, true);
+            }
+            
             self.mapView->cancelAnimation();
             [[NSNotificationCenter defaultCenter] postNotificationName:kZoomGestureDelegateDidStart object:self.mapView->tag];
+            break;
         }
-			break;
 		case UIGestureRecognizerStateChanged:
         {
             Point3d curLoc = self.mapView->getLoc();
@@ -96,17 +97,18 @@ using namespace Maply;
                     (wrapView.frame.size.height/2.0) - screenOffset.y());
                 Point3d newCenterGeoPoint;
                 testMapView.pointOnPlaneFromScreen(newMapCenterPoint, &modelTrans, frameSizeScaled, &newLoc, true);
+                newLoc = self.mapView->getCoordAdapter()->displayToLocal(newLoc);
                 newLoc.z() = newZ;
 
                 testMapView.setLoc(newLoc, false);
                 Point3d newCenter;
-                if (MaplyGestureWithinBounds(bounds,newLoc,sceneRenderer,&testMapView,&newCenter))
+                if (MaplyGestureWithinBounds([self getBounds],newLoc,sceneRenderer,&testMapView,&newCenter))
                 {
                     self.mapView->setLoc(newCenter, true);
                 }
             }
+            break;
         }
-			break;
         case UIGestureRecognizerStateEnded:
             [[NSNotificationCenter defaultCenter] postNotificationName:kZoomGestureDelegateDidEnd object:self.mapView->tag];
             break;

@@ -1,9 +1,8 @@
-/*
- *  Scene.h
+/*  Scene.h
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 1/3/11.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,18 +14,18 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
-#import <vector>
-#import <set>
-#import <unordered_map>
 #import "WhirlyVector.h"
 #import "Texture.h"
 #import "Program.h"
 #import "BasicDrawableInstance.h"
 #import "ActiveModel.h"
 #import "CoordSystem.h"
+
+#import <vector>
+#import <set>
+#import <unordered_map>
 
 namespace WhirlyKit
 {
@@ -35,10 +34,14 @@ namespace WhirlyKit
     
 class SceneRenderer;
 class Scene;
-class SubTexture;
+struct SubTexture;
+struct RenderSetupInfo;
+
+#if !MAPLY_MINIMAL
 class FontTextureManager;
 typedef std::shared_ptr<FontTextureManager> FontTextureManagerRef;
-class RenderSetupInfo;
+#endif //!MAPLY_MINIMAL
+
 
 /// Request that the renderer add the given texture.
 /// This will make it available for use, referenced by ID.
@@ -48,12 +51,12 @@ public:
     /// Construct with a texture.
     /// You are not responsible for deleting the texture after this.
     AddTextureReq(TextureBase *tex) { texRef = TextureBaseRef(tex); }
-    AddTextureReq(const TextureBaseRef &texRef) : texRef(texRef) { }
+    AddTextureReq(TextureBaseRef texRef) : texRef(std::move(texRef)) { }
     /// If the texture hasn't been added to the renderer, clean it up.
-    virtual ~AddTextureReq();
+    virtual ~AddTextureReq() = default;
 
     /// Texture creation generally wants a flush
-    virtual bool needsFlush() { return true; }
+    virtual bool needsFlush() const { return true; }
     
     /// Create the texture on its native thread
     virtual void setupForRenderer(const RenderSetupInfo *setupInfo,Scene *scene);
@@ -62,7 +65,7 @@ public:
 	void execute(Scene *scene,SceneRenderer *renderer,View *view);
 	
     /// Only use this if you've thought it out
-    TextureBase *getTex() const;
+    TextureBase *getTex() const { return texRef.get(); }
 
 protected:
     TextureBaseRef texRef;
@@ -91,12 +94,12 @@ public:
     /// Construct with a drawable.  You're not responsible for deletion
 	AddDrawableReq(Drawable *drawable) : drawRef(drawable) { }
     /// Passing by ref means don't worry about it
-    AddDrawableReq(const DrawableRef &drawRef) : drawRef(drawRef) { }
+    AddDrawableReq(DrawableRef drawRef) : drawRef(std::move(drawRef)) { }
     /// If the drawable wasn't used, delete it
-    virtual ~AddDrawableReq();
+    virtual ~AddDrawableReq() = default;
     
     /// Drawable creation generally wants a flush
-    virtual bool needsFlush() { return true; }
+    virtual bool needsFlush() const { return true; }
     
     /// Create the drawable on its native thread
     virtual void setupForRenderer(const RenderSetupInfo *,Scene *scene);
@@ -221,7 +224,7 @@ class SceneManager
 {
 public:
     SceneManager();
-    virtual ~SceneManager() = default;
+    virtual ~SceneManager();
     
     /// Set (or reset) the current renderer
     virtual void setRenderer(SceneRenderer *inRenderer);
@@ -230,16 +233,23 @@ public:
     virtual void setScene(Scene *inScene);
     
     /// Return the scene this is part of
-    Scene *getScene() const;
+    Scene *getScene() const { return scene; }
 
     /// Return the renderer
-    SceneRenderer *getSceneRenderer() const;
-    
+    SceneRenderer *getSceneRenderer() const { return renderer; }
+
+    /// Clean up resources and stop operations in progress
+    virtual void teardown();
+
+    bool isShuttingDown() const { return shutdown; }
+
 protected:
     std::mutex lock;
     
     Scene *scene;
     SceneRenderer *renderer;
+
+    volatile bool shutdown = false;
 };
 typedef std::shared_ptr<SceneManager> SceneManagerRef;
 
@@ -265,7 +275,7 @@ public:
     void addChangeRequest(ChangeRequest *newChange);
     /// Add a list of change requets.  You can call this from any thread.
     /// This is the faster option if you have more than one change request
-    void addChangeRequests(const ChangeSet &newchanges);
+    void addChangeRequests(ChangeSet &newchanges);
     
     /// Process change requests
     /// Only the renderer should call this in the rendering thread
@@ -303,8 +313,11 @@ public:
     DrawableRef getDrawable(SimpleIdentity drawId) const;
 
     /// Remove a drawable from the scene
-    virtual void remDrawable(DrawableRef drawable);
-    
+    virtual void remDrawable(const DrawableRef &drawable);
+
+    /// Remove a drawable from the scene
+    virtual void remDrawable(SimpleIdentity id);
+
     /// Add a fully formed texture
     virtual void addTexture(TextureBaseRef texRef);
     
@@ -315,8 +328,11 @@ public:
     virtual bool removeTexture(SimpleIdentity texID);
 
     /// Called once by the renderer so we can reset any managers that care
-    void setRenderer(SceneRenderer *renderer);
-    
+    void setRenderer(SceneRenderer *inRenderer);
+
+    /// Get the current scene renderer
+    SceneRenderer* getRenderer() const { return renderer; }
+
     /// Return the given manager.  This is thread safe;
     SceneManagerRef getManager(const char *name) { return getManager(std::string(name)); }
     /// Return the given manager.  This is thread safe;
@@ -344,14 +360,14 @@ public:
     void addActiveModel(ActiveModelRef);
     
     /// Remove an active model (if it's in here).  Only call this on the main thread.
-    void removeActiveModel(const ActiveModelRef &);
+    void removeActiveModel(PlatformThreadInfo *, const ActiveModelRef &);
     
     /// Return a dispatch queue that we can use for... stuff.
     /// The idea here is we'll wait for these to drain when we tear down.
 //    dispatch_queue_t getDispatchQueue() { return dispatchQueue; }
     
     // Return all the drawables in a list.  Only call this on the main thread.
-    const std::vector<Drawable *> getDrawables() const;
+    std::vector<Drawable *> getDrawables() const;
     
     // Used for offline frame by frame rendering
     void setCurrentTime(TimeInterval newTime);
@@ -371,7 +387,7 @@ public:
     void dumpStats() const;
     
     /// Tear down renderer related assets
-    virtual void teardown(PlatformThreadInfo*) = 0;
+    virtual void teardown(PlatformThreadInfo*);
     
     /// Mark any changed programs as acknowledged (used in Metal)
     void markProgramsUnchanged();
@@ -389,8 +405,12 @@ public:
     float getZoomSlotValue(int zoomSlot) const;
     
     /// Copy all the zoom slots into a destination array
-    void copyZoomSlots(float *dest);
-	
+    // dest must be at least MaplyMaxZoomSlots
+    void copyZoomSlots(float *dest) const;
+
+    /// Copy all zoom slot values from the given scene object
+    void copyZoomSlotsFrom(const Scene *otherScene, float offset = 0.0f);
+
     /// Add a shader for reference, but not with a scene name.
     /// Presumably you'll call setSceneProgram() shortly.
     void addProgram(ProgramRef prog);
@@ -414,23 +434,27 @@ public:
     /// Return the number of change requests
     int getNumChangeRequests() const;
 
+#if !MAPLY_MINIMAL
+
     /// Set up the font texture manager.  Don't call this yourself.
     void setFontTextureManager(const FontTextureManagerRef &newManager);
 
     /// Returns the font texture manager, which is thread safe
     FontTextureManagerRef getFontTextureManager() const { return fontTextureManager; }
 
+#endif //!MAPLY_MINIMAL
+
 protected:
     /// Don't be calling this
     void setDisplayAdapter(CoordSystemDisplayAdapter *newCoordAdapter);
     
     /// Passed around to setup and teardown renderer assets
-    const RenderSetupInfo *setupInfo;
+    const RenderSetupInfo *setupInfo = nullptr;
 
     mutable std::mutex coordAdapterLock;
     /// The coordinate system display adapter converts from the local space
     ///  to display coordinates.
-    CoordSystemDisplayAdapter *coordAdapter;
+    CoordSystemDisplayAdapter *coordAdapter = nullptr;
                 
     /// All the active models
     std::vector<ActiveModelRef> activeModels;
@@ -462,29 +486,34 @@ protected:
     
     /// Managers for various functionality
     std::map<std::string,SceneManagerRef> managers;
-                
+
     /// Lock for accessing programs
     mutable std::mutex programLock;
-                    
+
     // Sampling layers will set these to talk to shaders
     mutable std::mutex zoomSlotLock;
-    float zoomSlots[MaplyMaxZoomSlots];
-    
+    float zoomSlots[MaplyMaxZoomSlots] = { 0.0f };
+
 protected:
     
     // If time is being set externally
-    TimeInterval currentTime;
+    TimeInterval currentTime = 0.0;
     // Time at initialization
-    TimeInterval baseTime;
+    TimeInterval baseTime = 0.0;
 
     /// All the OpenGL ES 2.0 shader programs we know about
     ProgramSet programs;
     
     /// Used for 2D overlap testing
-    double overlapMargin;
+    double overlapMargin = 0.0;
     
+#if !MAPLY_MINIMAL
     // The font texture manager is created at startup
     FontTextureManagerRef fontTextureManager;
+#endif //!MAPLY_MINIMAL
+
+    SceneRenderer* renderer = nullptr;
 };
-	
+using SceneRef = std::shared_ptr<Scene>;
+
 }

@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by jmnavarro
- *  Copyright 2011-2015 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ public class MaplyStarModelTestCase extends MaplyTestCase {
 
     public MaplyStarModelTestCase(Activity activity) {
         super(activity);
-        setTestName("Maply Star Test Case");
+        setTestName("Star Model");
         setDelay(10000);
         this.implementation = TestExecutionImplementation.Globe;
     }
@@ -54,7 +54,7 @@ public class MaplyStarModelTestCase extends MaplyTestCase {
             @Override
             public void run() {
                 globeVC.setClearColor(Color.BLACK);
-                particleThread = globeVC.makeLayerThread(false);
+                particleThread = globeVC.makeLayerThread(false, "Particles");
                 try {
                     particleAdapter = new MaplyStarModel("starcatalog_orig.txt", "star_background.png", getActivity());
                     particleAdapter.addToViewc(globeVC, RenderController.ThreadMode.ThreadCurrent);

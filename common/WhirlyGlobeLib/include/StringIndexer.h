@@ -80,6 +80,7 @@ extern StringIdentity a_maskNameIDs[];
 extern StringIdentity a_texCoordNameID;
 extern StringIdentity u_w2NameID;
 extern StringIdentity u_Realw2NameID;
+extern StringIdentity u_wideOffsetNameID;
 extern StringIdentity u_EdgeNameID;
 extern StringIdentity u_texScaleNameID;
 extern StringIdentity u_colorNameID;
@@ -103,7 +104,8 @@ class StringIndexer
 public:
     // Return or make up a string identity
     static StringIdentity getStringID(const std::string &);
-    
+    static StringIdentity getStringID(const char *);
+
     // Return the string for a string identity
     static std::string getString(StringIdentity);
     

@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/16/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 #import "ChangeRequest.h"
 #import "baseInfo.h"
 #import "DefaultShadersMTL.h"
+#import <unordered_set>
 
 namespace WhirlyKit
 {
@@ -50,10 +51,8 @@ void CopyIntoMtlFloat4(simd::float4 &dest,const float vals[4]);
 class BufferEntryMTL {
 public:
     BufferEntryMTL();
-    BufferEntryMTL(const BufferEntryMTL &that);
     bool operator == (const BufferEntryMTL &that);
     void clear();
-    BufferEntryMTL & operator = (const BufferEntryMTL &that);
     
     bool valid;            // Manipulating functions will set this
     id<MTLHeap> heap;      // Set if this is in a heap
@@ -97,12 +96,12 @@ public:
     // Construct either track all buffers, or just track what we need to use()
     ResourceRefsMTL(bool trackHolds=false);
     
-    void addEntry(BufferEntryMTL &entry);
+    void addEntry(const BufferEntryMTL &entry);
     void addBuffer(id<MTLBuffer> buffer);
-    void addTexture(TextureEntryMTL &texture);
+    void addTexture(const TextureEntryMTL &texture);
     void addTextures(const std::vector<TextureEntryMTL> &textures);
 
-    void addResources(ResourceRefsMTL &other);
+    void addResources(const ResourceRefsMTL &other);
     
     // Wire up the resources listed
     void use(id<MTLRenderCommandEncoder> cmdEncode);
@@ -111,17 +110,20 @@ public:
     void clear();
     
 protected:
-    std::set< id<MTLHeap> > heaps;
-    std::set< id<MTLBuffer> > buffers;
-    std::set< id<MTLTexture> > textures;
+    NSMutableSet< id<MTLHeap> > *heaps;
+    NSMutableSet< id<MTLBuffer> > *buffers;
+    NSMutableSet< id<MTLTexture> > *textures;
     
     bool trackHolds;
     
     // We're just hanging on to these till the end of the frame
-    std::set< id<MTLBuffer> > buffersToHold;
-    std::set< id<MTLTexture> > texturesToHold;
+    NSMutableSet< id<MTLBuffer> > *buffersToHold;
+    NSMutableSet< id<MTLTexture> > *texturesToHold;
 };
 typedef std::shared_ptr<ResourceRefsMTL> ResourceRefsMTLRef;
+
+class DrawGroupMTL;
+typedef std::shared_ptr<DrawGroupMTL> DrawGroupMTLRef;
 
 // Used to track resources that we're tearing down
 // We need to hold on to them until after the current frame is done
@@ -130,6 +132,9 @@ public:
     RenderTeardownInfoMTL();
     
     void clear();
+
+    // Hold on to a draw group until releasing it later
+    void releaseDrawGroups(SceneRenderer *renderer,std::vector<DrawGroupMTLRef> &ref);
 
     // Either destroy the texture now or hold on to it for destruction shortly
     void destroyTexture(SceneRenderer *renderer,const TextureBaseRef &tex) override;
@@ -142,6 +147,7 @@ public:
 
 protected:
     // Hold these objects and release them on another thread
+    std::vector<DrawGroupMTLRef> drawGroups;
     std::vector<DrawableRef> drawables;
     std::vector<TextureBaseRef> textures;
 };
@@ -162,6 +168,9 @@ public:
     // If false, we'll allocate individual buffers
     static const bool UseHeaps;
     
+    // Update the amount of space on the various heaps
+    void updateHeaps();
+    
     // Allocate a buffer of the given type and size
     // It may be an entry in a heap, it might not.
     // The BufferEntryMTLRef will track it
@@ -174,14 +183,33 @@ public:
     TextureEntryMTL newTextureWithDescriptor(MTLTextureDescriptor *desc,size_t size);
 
 protected:
-    id<MTLHeap> findHeap(HeapType heapType,size_t &size);
-    id<MTLHeap> findTextureHeap(MTLTextureDescriptor *desc,size_t size);
-
-    class HeapGroup
+    // Info about a single heap
+    struct HeapInfo
     {
-    public:
-        std::vector<id<MTLHeap> > heaps;
+        size_t maxAvailSize;
+        id<MTLHeap> heap;
     };
+    typedef std::shared_ptr<HeapInfo> HeapInfoRef;
+    
+    typedef struct _HeapGroupSorter {
+        bool operator() (const HeapInfoRef &a, const HeapInfoRef &b) const {
+            if (a->maxAvailSize == b->maxAvailSize)
+                return a->heap < b->heap;
+            return a->maxAvailSize < b->maxAvailSize;
+        }
+    } HeapGroupSorter;
+    using HeapSet = std::set<HeapInfoRef, HeapGroupSorter>;
+    
+    // Group of heaps sorted by max available size
+    struct HeapGroup
+    {
+        HeapSet heaps;
+    };
+    
+    HeapInfoRef allocateHeap(unsigned size, unsigned minSize, MTLStorageMode mode);
+    HeapInfoRef findHeap(HeapType heapType,size_t &size,id<MTLHeap> prevHeap = nil);
+    HeapInfoRef findHeap(HeapSet &heapSet,size_t &size,id<MTLHeap> prevHeap = nil);
+    HeapInfoRef findTextureHeap(MTLTextureDescriptor *desc,size_t size,id<MTLHeap> prevHeap = nil);
 
     std::mutex lock;
     std::mutex texLock;
@@ -191,16 +219,19 @@ protected:
 
     // Keep Metal allocations aligned to this
     size_t memAlign;
+    
+    static constexpr size_t MB = 1024 * 1024;
 };
 
+#define MaxViewWrap 3
+
 /// Passed around to various init and teardown routines
-class RenderSetupInfoMTL : public RenderSetupInfo
+struct RenderSetupInfoMTL : public RenderSetupInfo
 {
-public:
     RenderSetupInfoMTL(id<MTLDevice> mtlDevice,id<MTLLibrary> mtlLibrary);
     
     id<MTLDevice> mtlDevice;
-    
+
     HeapManagerMTL heapManage;
     
     // Keep Metal allocations aligned to this
@@ -208,14 +239,16 @@ public:
 
     // Buffers created for shared uniforms.
     // Wired into the various drawables individually
-    BufferEntryMTL uniformBuff;
+    BufferEntryMTL uniformBuff[MaxViewWrap];   // We can have three different instances of all geometry (for view wrapping)
     BufferEntryMTL lightingBuff;
 };
 
 /// Convert  a float expression into its Metal version
-void FloatExpressionToMtl(FloatExpressionInfoRef srcInfo,WhirlyKitShader::FloatExp &destExp);
+void FloatExpressionToMtl(const FloatExpressionInfoRef &srcInfo,
+                          WhirlyKitShader::FloatExp &destExp);
 
 /// Convert a color expression into its Metal version
-void ColorExpressionToMtl(ColorExpressionInfoRef srcInfo,WhirlyKitShader::ColorExp &destExp);
+void ColorExpressionToMtl(const ColorExpressionInfoRef &srcInfo,
+                          WhirlyKitShader::ColorExp &destExp);
 
 }

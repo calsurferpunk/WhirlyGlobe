@@ -1,9 +1,8 @@
-/*
- *  ImageTile.cpp
+/*  ImageTile.cpp
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 2/14/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,28 +14,11 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "ImageTile.h"
 
 namespace WhirlyKit
 {
-    
-ImageTile::ImageTile()
-    : borderSize(0),width(0), height(0), components(0),
-    targetWidth(0), targetHeight(0)
-{
-}
-    
-ImageTile::ImageTile(const std::string &name)
-    : borderSize(0),width(0), height(0), components(0),
-    targetWidth(0), targetHeight(0), name(name)
-{
-}
 
-ImageTile::~ImageTile()
-{
-}
-    
 }

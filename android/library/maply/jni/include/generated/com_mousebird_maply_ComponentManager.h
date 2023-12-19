@@ -26,10 +26,10 @@ JNIEXPORT jboolean JNICALL Java_com_mousebird_maply_ComponentManager_hasComponen
 /*
  * Class:     com_mousebird_maply_ComponentManager
  * Method:    removeComponentObjectsNative
- * Signature: ([Lcom/mousebird/maply/ComponentObject;Lcom/mousebird/maply/ChangeSet;)V
+ * Signature: ([Lcom/mousebird/maply/ComponentObject;Lcom/mousebird/maply/ChangeSet;Z)V
  */
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentManager_removeComponentObjectsNative
-  (JNIEnv *, jobject, jobjectArray, jobject);
+  (JNIEnv *, jobject, jobjectArray, jobject,jboolean);
 
 /*
  * Class:     com_mousebird_maply_ComponentManager
@@ -38,6 +38,14 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentManager_removeComponent
  */
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentManager_enableComponentObjects
   (JNIEnv *, jobject, jobjectArray, jboolean, jobject);
+
+/*
+ * Class:     com_mousebird_maply_ComponentManager
+ * Method:    findVectors
+ * Signature:
+ */
+JNIEXPORT jobjectArray JNICALL Java_com_mousebird_maply_ComponentManager_findVectors
+        (JNIEnv *, jobject, jobject, jdouble, jobject, jobject, jint);
 
 /*
  * Class:     com_mousebird_maply_ComponentManager

@@ -1,9 +1,9 @@
 /*
- *  PanDelegateFixed.m
+ *  GlobePanDelegate.mm
  *  WhirlyGlobeApp
  *
  *  Created by Stephen Gifford on 4/28/11.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,8 +18,9 @@
  *
  */
 
-#import "gestures/GlobePanDelegate.h"
 #import <UIKit/UIGestureRecognizerSubclass.h>
+#import "GlobePanDelegate.h"
+#import "GlobePanDelegate_private.h"
 #import "ViewWrapper.h"
 
 using namespace Eigen;
@@ -47,6 +48,10 @@ typedef enum {PanNone,PanFree,PanSuspended} PanningType;
     self.state = UIGestureRecognizerStateEnded;
 }
 
+@end
+
+@interface WhirlyGlobePanDelegate ()
++ (WhirlyGlobePanDelegate *)panDelegateForView:(UIView *)view globeView:(WhirlyGlobe::GlobeView_iOSRef)globeView useCustomPanRecognizer:(bool)useCustomPanRecognizer;
 @end
 
 @implementation WhirlyGlobePanDelegate
@@ -94,6 +99,18 @@ typedef enum {PanNone,PanFree,PanSuspended} PanningType;
         panRecog = [[MinDelayPanGestureRecognizer alloc] initWithTarget:panDelegate action:@selector(panAction:)];
     else
         panRecog = [[UIPanGestureRecognizer alloc] initWithTarget:panDelegate action:@selector(panAction:)];
+
+    // this enables use of the iPad trackpad for panning around the map
+    if (@available(iOS 13.4, *)) {
+        panRecog.allowedScrollTypesMask = UIScrollTypeMaskContinuous;
+    }
+
+#if TARGET_OS_MACCATALYST
+    if (@available(macCatalyst 13.4, *))
+    {
+        panRecog.allowedScrollTypesMask = UIScrollTypeMaskAll;
+    }
+#endif
     panRecog.delegate = panDelegate;
     panDelegate.gestureRecognizer = panRecog;
 	[view addGestureRecognizer:panRecog];
@@ -192,24 +209,56 @@ static const float MomentumAnimLen = 1.0;
 
     // End for more than one finger
     const auto __strong gestureRecognizer = self.gestureRecognizer;
-    if ([pan numberOfTouches] > 1)
+    if (pan.numberOfTouches > 1)
     {
         panType = PanSuspended;
         runEndMomentum = false;
 
-        if ([gestureRecognizer isKindOfClass:[MinDelayPanGestureRecognizer class]]) {
+        if ([gestureRecognizer isKindOfClass:[MinDelayPanGestureRecognizer class]])
+        {
             // Don't cancel if interoperating with a scroll view.  (Otherwise
             // the globe view would be paged away.)
             MinDelayPanGestureRecognizer *minDelayPanGestureRecognizer = (MinDelayPanGestureRecognizer *)gestureRecognizer;
             [minDelayPanGestureRecognizer forceEnd];
-        } else {
+        }
+        else
+        {
             // Cancel gesture
             gestureRecognizer.enabled = false;
             gestureRecognizer.enabled = true;
         }
         return;
     }
-	    
+    else if (pan.numberOfTouches == 0 && pan.state != UIGestureRecognizerStateEnded)
+    {
+        // Scroll-wheel or trackpad scroll gesture
+        const CGPoint delta = [pan translationInView:wrapView];
+
+        Point3d hit;
+        const Eigen::Matrix4d theTransform = globeView->calcFullMatrix();
+        const CGPoint touchLoc = [pan locationInView:pan.view];
+        const Point2f touchLoc2f(touchLoc.x,touchLoc.y);
+        const auto frameSizeScaled = sceneRender->getFramebufferSizeScaled();
+        if (globeView->pointOnSphereFromScreen(touchLoc2f, theTransform, frameSizeScaled, hit, true))
+        {
+            // todo: zoom around hit point, fall back on screen center if hit is outside the globe
+        }
+        const double curH = globeView->getHeightAboveGlobe();
+        const double zoomFactor = 1.5;     // todo: maybe just pass this over to the double-tap handler?
+        const double minZoom = globeView->minHeightAboveGlobe();
+        const double maxZoom = globeView->maxHeightAboveGlobe();
+        const double targetH = curH * ((delta.y < 0) ? zoomFactor : 1/zoomFactor);
+        const double newH = std::max(minZoom, std::min(maxZoom, targetH));
+        if (newH != curH)
+        {
+            const NSTimeInterval zoomAnimationDuration = 0.5;   // todo
+            auto animate = new AnimateViewHeight(globeView.get(),newH,zoomAnimationDuration);
+            //animate->setTiltDelegate(_tiltDelegate);  // todo
+            globeView->setDelegate(GlobeViewAnimationDelegateRef(animate));
+        }
+        return;
+    }
+
 	switch (pan.state)
 	{
 		case UIGestureRecognizerStateBegan:
@@ -352,7 +401,8 @@ static const float MomentumAnimLen = 1.0;
                     float accel = - angVel / (MomentumAnimLen * MomentumAnimLen);
                     
                     // Keep going in that direction for a while
-                    if (angVel > 0.0)
+                    // If we use 0.00, it's a little too sensitive.  This cuts off the movement a little earlier.
+                    if (angVel > 0.003)
                     {
                         AnimateViewMomentum *anim = new AnimateViewMomentum(globeView,angVel,accel,upVector,_northUp);
                         globeView->setDelegate(GlobeViewAnimationDelegateRef(anim));

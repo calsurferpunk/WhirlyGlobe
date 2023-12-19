@@ -3,11 +3,10 @@
 //  AutoTester
 //
 //  Created by Steve Gifford on 1/24/17.
-//  Copyright © 2017 mousebird consulting.
+//  Copyright 2017-2022 mousebird consulting.
 //
 
 #import "LIDARTestCase.h"
-#import "WhirlyGlobeComponent.h"
 
 @implementation LIDARTestCase
 {
@@ -17,8 +16,8 @@
 - (instancetype)init
 {
     if (self = [super init]) {
-        self.captureDelay = 7;
-        self.name = @"LIDAR Stadium";
+        //self.captureDelay = 7;
+        self.name = @"LIDAR Stadium (broken)";
         self.implementations = MaplyTestCaseImplementationGlobe;
     }
     return self;
@@ -75,6 +74,7 @@ static int MaxDisplayedPoints = 3000000;
     NSString * baseCacheDir = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) objectAtIndex:0];
     NSString * cacheDir = [NSString stringWithFormat:@"%@/cartodb_light/", baseCacheDir];
     int maxZoom = 22;
+    /*
     MaplyRemoteTileSource *tileSource = [[MaplyRemoteTileSource alloc] initWithBaseURL:@"http://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png" ext:nil minZoom:0 maxZoom:maxZoom];
     tileSource.cacheDir = cacheDir;
     MaplyQuadImageTilesLayer *layer = [[MaplyQuadImageTilesLayer alloc] initWithCoordSystem:tileSource.coordSys tileSource:tileSource];
@@ -83,6 +83,7 @@ static int MaxDisplayedPoints = 3000000;
     layer.drawPriority = 0;
     layer.color = [UIColor colorWithWhite:0.5 alpha:1.0];
     [globeVC addLayer:layer];
+     */
 }
 
 - (void)setUpWithGlobe:(WhirlyGlobeViewController *)globeVC
@@ -94,7 +95,8 @@ static int MaxDisplayedPoints = 3000000;
 
     // Base layer from CartoDB
     [self addBaseLayer:globeVC];
-    
+
+    /*
     // Shader Shaders for color and ramp versions
     pointShaderColor = MaplyLAZBuildPointShader(globeVC);
     pointShaderRamp = MaplyLAZBuildRampPointShader(globeVC,[self generateColorRamp]);
@@ -102,10 +104,12 @@ static int MaxDisplayedPoints = 3000000;
     // Add the database
     NSString *path = [[NSBundle mainBundle] pathForResource:@"stadium-utm-quad-data" ofType:@"sqlite"];
     [self addLaz:globeVC path:path rampShader:pointShaderRamp regularShader:pointShaderColor desc:@{kMaplyLAZReaderColorScale: @(255.0)}];
+     */
 }
 
 - (void)addLaz:(WhirlyGlobeViewController *)globeVC path:(NSString *)dbPath rampShader:(MaplyShader *)rampShader regularShader:(MaplyShader *)regShader desc:(NSDictionary *)desc
 {
+    /*
     // Set up the paging logic
     //        quadDelegate = [[LAZQuadReader alloc] initWithDB:lazPath indexFile:indexPath];
     MaplyCoordinate3dD ll,ur;
@@ -137,6 +141,7 @@ static int MaxDisplayedPoints = 3000000;
     lazLayer.useParentTileBounds = false;
     lazLayer.singleLevelLoading = false;
     [globeVC addLayer:lazLayer];
+     */
 }
 
 @end

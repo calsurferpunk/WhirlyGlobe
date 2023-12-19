@@ -1,9 +1,8 @@
-/*
- *  MaplyParticleSystem.h
+/*  MaplyParticleSystem.h
  *  WhirlyGlobe-MaplyComponent
  *
  *  Created by Steve Gifford on 4/26/15.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,13 +14,12 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import <UIKit/UIKit.h>
-#import "math/MaplyCoordinate.h"
-#import "rendering/MaplyShader.h"
-#import "rendering/MaplyRenderTarget.h"
+#import <WhirlyGlobe/MaplyCoordinate.h>
+#import <WhirlyGlobe/MaplyShader.h>
+#import <WhirlyGlobe/MaplyRenderTarget.h>
 
 typedef NS_ENUM(NSInteger, MaplyParticleSystemType) {
 	MaplyParticleSystemTypePoint,
@@ -71,6 +69,7 @@ typedef NS_ENUM(NSInteger, MaplyParticleSystemType) {
     Individual particle lifetime.
     
     The created particles will last only a certain amount of time.
+    Only for OpenGL ES.
   */
 @property (nonatomic,assign) NSTimeInterval lifetime;
 
@@ -88,6 +87,11 @@ typedef NS_ENUM(NSInteger, MaplyParticleSystemType) {
   */
 @property (nonatomic,assign) int totalParticles;
 
+/**
+    The number of triangles emitted for each particle.
+ */
+@property (nonatomic,assign) int trianglesPerParticle;
+
 /** 
     Batch size for MaplyParticleBatch.
     
@@ -103,6 +107,7 @@ typedef NS_ENUM(NSInteger, MaplyParticleSystemType) {
   */
 @property (nonatomic,assign) int vertexSize;
 
+
 /** 
     Turn on/off the continuous rendering for particles.
     
@@ -110,12 +115,17 @@ typedef NS_ENUM(NSInteger, MaplyParticleSystemType) {
   */
 @property (nonatomic,assign) bool continuousUpdate;
 
+/**
+    Use premultiplied alpha when rendering
+ */
+@property (nonatomic,assign) bool blendPremultipliedAlpha;
+
 /** 
     Initialize a particle system with a name.
     
     The particle system needs the name for performance and debugging.  The rest of the values can left to their defaults.
   */
-- (nonnull instancetype)initWithName:(NSString *__nonnull)name viewC:(NSObject <MaplyRenderControllerProtocol> * __nonnull)viewC;
+- (nullable instancetype)initWithName:(NSString *__nonnull)name viewC:(NSObject <MaplyRenderControllerProtocol> * __nonnull)viewC;
 
 /** 
     Add an attribute we'll be expecting in each batch.
@@ -136,6 +146,12 @@ typedef NS_ENUM(NSInteger, MaplyParticleSystemType) {
     OpenGL ES Only.  Metal does this more simply.
   */
 - (void)addVarying:(NSString *__nonnull)varyAttrName inputName:(NSString *__nonnull)inputName type:(MaplyShaderAttrType)type;
+
+/**
+ For Metal, we just pass in input and output arrays (at least two) along with the number of entries
+ in those arrays.  The shaders do the rest of the work in Metal.
+ */
+- (void)addCalculationNum:(int)numEntries data:(NSMutableArray<NSData *> * __nonnull)dataEntries;
 
 /** 
     Add a texture to the particle system.

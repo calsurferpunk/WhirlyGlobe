@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 2/14/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
  *
  */
 
-#import "WhirlyGlobe.h"
+#import "WhirlyGlobeLib.h"
 #import "SceneRenderer.h"
 
 namespace WhirlyKit
@@ -44,6 +44,7 @@ public:
     
     /// Stop keeping track of texture if you were
     virtual void clearTexture();
+
     
 public:
     SceneRenderer::Type renderType;
@@ -54,7 +55,7 @@ public:
     
     Texture *tex;
 };
-    
+
 typedef std::shared_ptr<ImageTile_iOS> ImageTile_iOSRef;
-    
+
 }

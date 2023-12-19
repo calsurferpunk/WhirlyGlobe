@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 2/2/11.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,10 +19,13 @@
  */
 
 #import "LayerThread.h"
+#import "LayerThread_private.h"
 #import "Scene.h"
 #import "GlobeView.h"
 #import "Platform.h"
 #import "SceneRendererMTL.h"
+#import "MaplyRenderController.h"
+#import "MaplyRenderController_private.h"
 #import "WhirlyKitLog.h"
 
 using namespace WhirlyKit;
@@ -53,7 +56,11 @@ using namespace WhirlyKit;
     BOOL inRunAddChangeRequests;
 }
 
-- (id)initWithScene:(WhirlyKit::Scene *)inScene view:(View *)inView renderer:(SceneRenderer *)inRenderer mainLayerThread:(bool)mainLayerThread
+- (id)initWithScene:(WhirlyKit::Scene *)inScene
+               view:(View *)inView
+           renderer:(SceneRenderer *)inRenderer
+    mainLayerThread:(bool)mainLayerThread
+      renderControl:(MaplyRenderController *)inRenderControl
 {
 	if ((self = [super init]))
 	{
@@ -71,6 +78,8 @@ using namespace WhirlyKit;
         _allowFlush = true;
         
         pauseLock = [[NSCondition alloc] init];
+        
+        self.renderControl = inRenderControl;
 	}
 	
 	return self;
@@ -90,12 +99,12 @@ using namespace WhirlyKit;
     if (self.runLoop)
         [self performSelector:@selector(addLayerThread:) onThread:self withObject:layer waitUntilDone:NO];
     else
-        [layers addObject:layer];    
+        [layers addObject:layer];
 }
 
 - (void)addLayerThread:(NSObject<WhirlyKitLayer> *)layer
 {
-	[layers addObject:layer];    
+	[layers addObject:layer];
     [layer startWithThread:self scene:_scene];
 }
 
@@ -151,17 +160,29 @@ using namespace WhirlyKit;
 
 - (void)addChangeRequest:(WhirlyKit::ChangeRequest *)changeRequest
 {
-    std::vector<WhirlyKit::ChangeRequest *> requests;
+    ChangeSet requests;
     requests.push_back(changeRequest);
-    
     [self addChangeRequests:requests];
 }
 
-- (void)addChangeRequests:(std::vector<WhirlyKit::ChangeRequest *> &)newChangeRequests
+- (void)addChangeRequests:(ChangeSet &)newChangeRequests
 {
+    if (self.isCancelled)
+    {
+        // We're already shutting down, and we may have already
+        // cleaned up the pending changes, so just discard these.
+        for (auto req : newChangeRequests)
+        {
+            delete req;
+        }
+        newChangeRequests.clear();
+    }
+
     if (newChangeRequests.empty())
+    {
         return;
-    
+    }
+
     std::lock_guard<std::mutex> guardLock(changeLock);
 
     // If we don't have one coming, schedule a merge
@@ -169,6 +190,7 @@ using namespace WhirlyKit;
         [self performSelector:@selector(runAddChangeRequests) onThread:self withObject:nil waitUntilDone:NO];
     
     changeRequests.insert(changeRequests.end(), newChangeRequests.begin(), newChangeRequests.end());
+    newChangeRequests.clear();
 }
 
 - (void)flushChangeRequests
@@ -187,27 +209,19 @@ using namespace WhirlyKit;
 
 - (void)runAddChangeRequests
 {
-    if ([self isCancelled]) {
-        std::lock_guard<std::mutex> guardLock(changeLock);
-        for (auto change : changeRequests) {
-            delete change;
-        }
-        changeRequests.clear();
-        return;
-    }
-
     inRunAddChangeRequests = true;
     for (NSObject<WhirlyKitLayer> *layer in layers) {
         if ([layer respondsToSelector:@selector(preSceneFlush:)])
             [layer preSceneFlush:self];
     }
     inRunAddChangeRequests = false;
-    
+
+    // Copy the pending changes to a local collection within the mutex.
+    // We must not return without passing these to the scene or destroying them.
     std::vector<WhirlyKit::ChangeRequest *> changesToProcess;
     {
         std::lock_guard<std::mutex> guardLock(changeLock);
-        changesToProcess = changeRequests;
-        changeRequests.clear();
+        changesToProcess = std::move(changeRequests);
     }
 
     bool requiresFlush = false;
@@ -215,15 +229,17 @@ using namespace WhirlyKit;
     ChangeSet changesToAdd;
     for (unsigned int ii=0;ii<changesToProcess.size();ii++)
     {
-        ChangeRequest *change = changesToProcess[ii];
-        if (change)
+        if (ChangeRequest *change = changesToProcess[ii])
         {
             requiresFlush |= change->needsFlush();
             change->setupForRenderer(_renderer->getRenderSetupInfo(),_scene);
             changesToAdd.push_back(changesToProcess[ii]);
-        } else
+        }
+        else
+        {
             // A NULL change request is just a flush request
             requiresFlush = true;
+        }
     }
     
     // If anything needed a flush after that, let's do it
@@ -234,7 +250,8 @@ using namespace WhirlyKit;
         if (changesToAdd.empty())
             changesToAdd.push_back(nullptr);
     }
-    
+
+    // Pass ownership of change requests to the scene
     _scene->addChangeRequests(changesToAdd);
 }
 
@@ -257,12 +274,21 @@ using namespace WhirlyKit;
 
 - (void)cancel
 {
+    // NSThread doesn't like to be canceled twice
+    if (self.cancelled)
+    {
+        return;
+    }
     [super cancel];
-    if (paused) {
+    if (paused)
+    {
         // Wake up from the pause lock to recognize the cancel
         [self unpause];
     }
-    CFRunLoopStop(self.runLoop.getCFRunLoop);
+    if (CFRunLoopRef loop = self.runLoop.getCFRunLoop)
+    {
+        CFRunLoopStop(loop);
+    }
 }
 
 // Empty routine used for NSTimer selector
@@ -306,12 +332,44 @@ using namespace WhirlyKit;
 //                    // Does nothing but keeps CFRunLoopRun() from returning quite so quickly
 //                }];
                 [_runLoop addTimer:timer forMode:NSDefaultRunLoopMode];
-                CFRunLoopRun();
+                @try {
+                    try {
+                        CFRunLoopRun();
+                    } catch (const std::exception &ex) {
+                        NSLog(@"LayerThread runloop C++ exception: %s", ex.what());
+                        if (MaplyRenderController *rc = self.renderControl) {
+                            [rc report:@"LayerThreadRunLoop"
+                             exception:[[NSException alloc] initWithName:@"STL Exception"
+                                                                  reason:[NSString stringWithUTF8String:ex.what()]
+                                                                userInfo:nil]];
+                        }
+                        [self cancel];
+                    }
+                    catch (NSException *ex) {
+                        throw;
+                    }
+                    catch (...) {
+                        NSLog(@"LayerThread runloop C++ exception");
+                        if (MaplyRenderController *rc = self.renderControl) {
+                            [rc report:@"LayerThreadRunLoop"
+                             exception:[[NSException alloc] initWithName:@"C++ Exception"
+                                                                  reason:@"Unknown"
+                                                                userInfo:nil]];
+                        }
+                        [self cancel];
+                    }
+                } @catch(NSException *ex) {
+                    NSLog(@"LayerThread runloop exception: %@", ex.reason);
+                    if (MaplyRenderController *rc = self.renderControl) {
+                        [rc report:@"LayerThreadRunLoop" exception:ex];
+                    }
+                    [self cancel];
+                }
                 [timer invalidate];
             }
             [pauseLock unlock];
         }
-        
+
         [NSObject cancelPreviousPerformRequestsWithTarget:self];
         
         [_viewWatcher stop];

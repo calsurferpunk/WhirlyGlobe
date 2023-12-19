@@ -1,9 +1,8 @@
-/*
- *  SceneRenderer.cpp
+/*  SceneRenderer.cpp
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 1/13/11.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2023 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,10 +14,10 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "SceneRenderer.h"
+#import "WhirlyKitLog.h"
 
 using namespace Eigen;
 
@@ -27,44 +26,33 @@ namespace WhirlyKit
     
 // Compare two matrices float by float
 // The default comparison seems to have an epsilon and the cwise version isn't getting picked up
-bool matrixAisSameAsB(Matrix4d &a,Matrix4d &b)
+static bool matrixAisSameAsB(const Matrix4d &a,const Matrix4d &b)
 {
-    double *floatsA = a.data();
-    double *floatsB = b.data();
-    
-    for (unsigned int ii=0;ii<16;ii++)
-        if (floatsA[ii] != floatsB[ii])
-            return false;
-    
-    return true;
-}
-    
-RendererFrameInfo::RendererFrameInfo()
-: sceneRenderer(NULL), theView(NULL), scene(NULL), frameLen(0), currentTime(0),
-heightAboveSurface(0), screenSizeInDisplayCoords(0,0), lights(NULL), program(NULL)
-{
-}
-
-RendererFrameInfo::RendererFrameInfo(const RendererFrameInfo &that)
-{
-    *this = that;
+    return !memcmp(a.data(), b.data(), 16 * sizeof(Matrix4d::Scalar));
 }
 
 WorkGroup::~WorkGroup()
 {
-    for (auto &targetCon : renderTargetContainers) {
-        for (auto &draw : targetCon->drawables) {
-            auto it = draw->workGroupIDs.find(getId());
-            if (it != draw->workGroupIDs.end())
-                draw->workGroupIDs.erase(it);
+    try
+    {
+        for (auto &targetCon : renderTargetContainers)
+        {
+            for (auto &draw : targetCon->drawables)
+            {
+                const auto it = draw->workGroupIDs.find(getId());
+                if (it != draw->workGroupIDs.end())
+                {
+                    draw->workGroupIDs.erase(it);
+                }
+            }
         }
     }
+    WK_STD_DTOR_CATCH()
 }
 
-RenderTargetContainer::RenderTargetContainer(RenderTargetRef renderTarget)
-: renderTarget(renderTarget), modified(true)
+RenderTargetContainer::RenderTargetContainer(RenderTargetRef renderTarget) :
+    renderTarget(std::move(renderTarget))
 {
-    
 }
 
 bool WorkGroup::addDrawable(DrawableRef drawable)
@@ -116,18 +104,10 @@ void WorkGroup::addRenderTarget(RenderTargetRef renderTarget)
     renderTargetContainers.push_back(renderTargetContainer);
 }
     
-SceneRenderer::SceneRenderer()
-{
-}
-    
-SceneRenderer::~SceneRenderer()
-{
-}
-    
 void SceneRenderer::init()
 {
-    scene = NULL;
-    theView = NULL;
+    scene = nullptr;
+    theView = nullptr;
     zBufferMode = zBufferOff;
     framebufferWidth = 0;
     framebufferHeight = 0;
@@ -144,7 +124,7 @@ void SceneRenderer::init()
     renderUntil = 0.0;
     extraFrames = 0;
     clearColor = RGBAColor(0,0,0,0);
-    framebufferTex = NULL;
+    framebufferTex = nullptr;
 
     // Add a simple default light
     DirectionalLight light;
@@ -164,11 +144,17 @@ Scene *SceneRenderer::getScene()
 View *SceneRenderer::getView()
     { return theView; }
 
-float SceneRenderer::getScale()
+float SceneRenderer::getScale() const
     { return scale; }
 
 void SceneRenderer::setScale(float newScale)
     { scale = newScale; }
+
+void SceneRenderer::setFramebufferSize(float width, float height)
+{
+    framebufferWidth = width;
+    framebufferHeight = height;
+}
 
 void SceneRenderer::setZBufferMode(WhirlyKitSceneRendererZBufferMode inZBufferMode)
     { zBufferMode = inZBufferMode; }
@@ -184,9 +170,9 @@ void SceneRenderer::setView(View *newView)
     
 void SceneRenderer::addRenderTarget(RenderTargetRef newTarget)
 {
-    auto workGroup = workGroups[WorkGroup::Offscreen];
+    const auto &workGroup = workGroups[WorkGroup::Offscreen];
     workGroup->renderTargetContainers.push_back(workGroup->makeRenderTargetContainer(newTarget));
-    renderTargets.insert(renderTargets.begin(),newTarget);
+    renderTargets.insert(renderTargets.begin(),std::move(newTarget));
 }
 
 void SceneRenderer::addDrawable(DrawableRef newDrawable)
@@ -217,7 +203,7 @@ void SceneRenderer::removeDrawable(DrawableRef draw,bool teardown,RenderTeardown
     }
 }
 
-void SceneRenderer::updateWorkGroups(RendererFrameInfo *frameInfo)
+void SceneRenderer::updateWorkGroups(RendererFrameInfo *frameInfo,int numViewOffsets)
 {
     // Look at drawables to move into the active set
     std::vector<DrawableRef> drawsToMoveIn;
@@ -302,21 +288,78 @@ void SceneRenderer::removeRenderTarget(SimpleIdentity targetID)
 }
 
 void SceneRenderer::defaultTargetInit(RenderTarget *)
-    { }
+{ }
 
 void SceneRenderer::presentRender()
-    { }
+{ }
 
-Point2f SceneRenderer::getFramebufferSize()
+int SceneRenderer::retainZoomSlot(double minZoom, double maxHeight, double maxZoom, double minHeight)
+{
+    const int slot = scene ? scene->retainZoomSlot() : -1;
+    if (slot >= 0)
+    {
+        zoomSlotMap.insert(std::make_pair(slot, ZoomSlotInfo{
+            .minZoom = minZoom,
+            .maxZoom = maxZoom,
+            .minHeight = minHeight,
+            .maxHeight = maxHeight,
+        }));
+    }
+    return slot;
+}
+
+void SceneRenderer::updateZoomSlots()
+{
+    // Compute dynamic zoom slots
+    if (theView && scene)
+    {
+        const auto h = theView->heightAboveSurface();
+        for (const auto &kvp : zoomSlotMap)
+        {
+            scene->setZoomSlotValue(kvp.first, (float)kvp.second.zoom(h));
+        }
+    }
+}
+
+void SceneRenderer::releaseZoomSlot(int slot)
+{
+    if (scene)
+    {
+        zoomSlotMap.erase(slot);
+        scene->releaseZoomSlot(slot);
+    }
+}
+
+double SceneRenderer::ZoomSlotInfo::zoom(double height) const
+{
+    const auto dH = log(maxHeight) - log(minHeight);
+    const auto nH = log(std::max(height,1e-8)) - log(minHeight);
+    const auto z = minZoom + (maxZoom - minZoom) * (1.0 - ((dH != 0) ? nH/dH : 0));
+    return std::max(0.0, z);
+}
+
+Point2f SceneRenderer::getFramebufferSize() const
 {
     return Point2f(framebufferWidth,framebufferHeight);
 }
 
-Point2f SceneRenderer::getFramebufferSizeScaled()
+Mbr SceneRenderer::getFramebufferBound(float margin) const
 {
-    return Point2f(framebufferWidth/scale,framebufferHeight/scale);
+    const Point2f size = getFramebufferSize();
+    return { size * -margin, size * (1.0f + margin) };
 }
-    
+
+Point2f SceneRenderer::getFramebufferSizeScaled() const
+{
+    return Point2f(framebufferWidth,framebufferHeight) / ((scale != 0) ? scale : 1.0f);
+}
+
+Mbr SceneRenderer::getFramebufferBoundScaled(float margin) const
+{
+    const Point2f size = getFramebufferSizeScaled();
+    return { size * -margin, size * (1.0f + margin) };
+}
+
 void SceneRenderer::setRenderUntil(TimeInterval newRenderUntil)
 {
     renderUntil = std::max(renderUntil,newRenderUntil);
@@ -349,13 +392,13 @@ void SceneRenderer::removeExtraFrameRenderRequest(SimpleIdentity drawID)
 void SceneRenderer::updateExtraFrames()
 {
     extraFrames = 0;
-    for (auto it : extraFramesPerID)
+    for (const auto &it : extraFramesPerID)
         extraFrames = std::max(extraFrames,it.second);
 }
 
 void SceneRenderer::removeContinuousRenderRequest(SimpleIdentity drawID)
 {
-    SimpleIDSet::iterator it = contRenderRequests.find(drawID);
+    const auto it = contRenderRequests.find(drawID);
     if (it != contRenderRequests.end())
         contRenderRequests.erase(it);
 }
@@ -367,10 +410,14 @@ void SceneRenderer::setScene(WhirlyKit::Scene *newScene)
     if (scene)
     {
         scene->setRenderer(this);
+
+        // Consider the lights to have changed so that they get updated,
+        // even if we're still using the defaults set up in init().
+        lightsLastUpdated = scene->getCurrentTime();
     }
 }
 
-RGBAColor SceneRenderer::getClearColor()
+RGBAColor SceneRenderer::getClearColor() const
 {
     return clearColor;
 }

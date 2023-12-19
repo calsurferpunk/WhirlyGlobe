@@ -1,9 +1,8 @@
-/*
- *  QuadSamplingParams.cpp
+/*  QuadSamplingParams.cpp
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 2/14/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "QuadSamplingParams.h"
@@ -23,24 +21,21 @@
 namespace WhirlyKit
 {
 
-SamplingParams::SamplingParams()
-    : coordSys(NULL),
-    minZoom(0), maxZoom(0), reportedMaxZoom(-1),
-    maxTiles(128),
-    minImportance(256*256), minImportanceTop(0.0),
-    coverPoles(true), edgeMatching(true),
-    tessX(10), tessY(10),
-    singleLevel(false),
-    forceMinLevel(true),
-    forceMinLevelHeight(0.0),
-    generateGeom(true)
+void SamplingParams::setCoordSys(CoordSystemRef newSys)
 {
+    coordSys = std::move(newSys);
+
+    if (coordSys)
+    {
+        // Bounds are in projected coordinates
+        coordBounds = MbrD(coordSys->getBoundsLocal());
+    }
+    else
+    {
+        coordBounds.reset();
+    }
 }
 
-SamplingParams::~SamplingParams()
-{
-}
-    
 bool SamplingParams::operator == (const SamplingParams &that) const
 {
     if (!coordSys && !that.coordSys)
@@ -58,20 +53,22 @@ bool SamplingParams::operator == (const SamplingParams &that) const
         coverPoles == that.coverPoles && edgeMatching == that.edgeMatching &&
         tessX == that.tessX && tessY == that.tessY &&
         singleLevel == that.singleLevel &&
+        boundsScale == that.boundsScale &&
         forceMinLevel == that.forceMinLevel &&
         forceMinLevelHeight == that.forceMinLevelHeight &&
         clipBounds == that.clipBounds &&
+        useClipBoundsForImportance == that.useClipBoundsForImportance &&
         generateGeom == that.generateGeom &&
         levelLoads == that.levelLoads &&
         importancePerLevel == that.importancePerLevel;
 }
     
-void SamplingParams::setImportanceLevel(double minImportance,int level)
+void SamplingParams::setImportanceLevel(double theMinImportance,int level)
 {
     if (level >= importancePerLevel.size()) {
         importancePerLevel.resize(level+1,-2.0);
     }
-    importancePerLevel[level] = minImportance;
+    importancePerLevel[level] = theMinImportance;
 }
     
 }

@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 6/2/14.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -205,6 +205,52 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LabelInfo_setFontSizeNative
 		__android_log_print(ANDROID_LOG_VERBOSE, "Maply", "Crash in LabelInfo::setFontSize()");
 	}
 }
+
+extern "C"
+JNIEXPORT void JNICALL Java_com_mousebird_maply_LabelInfo_setFontPointSize
+        (JNIEnv *env, jobject obj, jfloat fontPointSize)
+{
+    try
+    {
+        LabelInfoClassInfo *classInfo = LabelInfoClassInfo::getClassInfo();
+        LabelInfoAndroidRef *info = classInfo->getObject(env,obj);
+        if (!info)
+            return;
+
+        (*info)->fontPointSize = fontPointSize;
+    }
+    catch (...)
+    {
+        __android_log_print(ANDROID_LOG_VERBOSE, "Maply", "Crash in LabelInfo::setFontPointSize()");
+    }
+}
+
+/*
+ * Class:     com_mousebird_maply_LabelInfo
+ * Method:    getFontPointSize
+ * Signature: ()F
+ */
+extern "C"
+JNIEXPORT jfloat JNICALL Java_com_mousebird_maply_LabelInfo_getFontPointSize
+        (JNIEnv *env, jobject obj)
+{
+    try
+    {
+        LabelInfoClassInfo *classInfo = LabelInfoClassInfo::getClassInfo();
+        LabelInfoAndroidRef *info = classInfo->getObject(env,obj);
+        if (!info)
+            return 0.0;
+
+        return (*info)->fontPointSize;
+    }
+    catch (...)
+    {
+        __android_log_print(ANDROID_LOG_VERBOSE, "Maply", "Crash in LabelInfo::getFontPointSize()");
+    }
+
+    return 0.0;
+}
+
 
 extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LabelInfo_setOutlineColor

@@ -3,15 +3,12 @@
 //  AutoTester
 //
 //  Created by Tim Sylvester on 31 Dec. 2020.
-//  Copyright © 2020 mousebird consulting.
+//  Copyright 2020-2022 mousebird consulting.
 //
 
 #import "VectorsTestCase.h"
 #import "ChangeVectorsTestCase.h"
-#import "MaplyBaseViewController.h"
-#import "MaplyViewController.h"
-#import "WhirlyGlobeViewController.h"
-#import "AutoTester-Swift.h"
+#import "SwiftBridge.h"
 
 #include <stdlib.h>
 
@@ -135,7 +132,7 @@
         [self.baseViewController changeVector:_wideVecObj desc:@{
             kMaplyEnable: @((arc4random()%10) ? YES : NO),
             kMaplyColor: [ChangeVectorsTestCase randomColor],
-            kMaplyVecWidth: @((arc4random()%33) / 4.0f),
+            kMaplyVecWidth: @((arc4random()%330) / 4.0f),
             kMaplyDrawPriority: @(kMaplyVectorDrawPriorityDefault)
         }];
     }
@@ -144,7 +141,8 @@
         [self.baseViewController changeVector:_wideTexVecObj desc:@{
             kMaplyEnable: @((arc4random()%10) ? YES : NO),
             kMaplyColor: [ChangeVectorsTestCase randomColor],
-            kMaplyVecWidth: @((arc4random()%33) / 4.0f),
+            kMaplyVecWidth: @((arc4random()%330) / 4.0f),
+            kMaplyVecTexture: _dashedLineTex,
             kMaplyDrawPriority: @(kMaplyVectorDrawPriorityDefault)
         }];
     }

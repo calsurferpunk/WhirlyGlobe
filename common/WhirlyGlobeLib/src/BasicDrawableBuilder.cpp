@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 2/1/11.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -36,8 +36,8 @@ BasicDrawableBuilder::BasicDrawableBuilder() :
 }
     
 BasicDrawableBuilder::BasicDrawableBuilder(std::string name,Scene *scene) :
-    name(std::move(name)),
-    scene(scene)
+    scene(scene),
+    name(std::move(name))
 {
 }
     
@@ -62,6 +62,7 @@ void BasicDrawableBuilder::Init()
     basicDraw->startEnable = 0.0;
     basicDraw->endEnable = 0.0;
     basicDraw->programId = EmptyIdentity;
+    basicDraw->calcProgramId = EmptyIdentity;
     basicDraw->isAlpha = false;
     basicDraw->drawOrder = BaseInfo::DrawOrderTiles;
     basicDraw->drawPriority = 0;
@@ -85,6 +86,8 @@ void BasicDrawableBuilder::Init()
     basicDraw->requestZBuffer = false;
     basicDraw->writeZBuffer = true;
     basicDraw->renderTargetID = EmptyIdentity;
+    
+    basicDraw->calcDataEntries = 0;
     
     basicDraw->clipCoords = false;
     
@@ -133,7 +136,7 @@ void BasicDrawableBuilder::setupTexCoordEntry(int which,int numReserve)
     {
         BasicDrawable::TexInfo newInfo;
         char attributeName[40];
-        sprintf(attributeName,"a_texCoord%d",ii);
+        snprintf(attributeName,sizeof(attributeName),"a_texCoord%d",ii);
         newInfo.texCoordEntry = addAttribute(BDFloat2Type,StringIndexer::getStringID(attributeName));
         basicDraw->vertexAttributes[newInfo.texCoordEntry]->setDefaultVector2f(Vector2f(0.0,0.0));
         basicDraw->vertexAttributes[newInfo.texCoordEntry]->reserve(numReserve);
@@ -211,9 +214,9 @@ void BasicDrawableBuilder::setDrawPriority(unsigned int newPriority)
     basicDraw->drawPriority = newPriority;
 }
 
-void BasicDrawableBuilder::setMatrix(const Eigen::Matrix4d *inMat)
+void BasicDrawableBuilder::setMatrix(const Eigen::Matrix4d &inMat)
 {
-    basicDraw->mat = *inMat; basicDraw->hasMatrix = true;
+    basicDraw->mat = inMat; basicDraw->hasMatrix = true;
 }
 
 void BasicDrawableBuilder::setRequestZBuffer(bool val)
@@ -276,6 +279,11 @@ void BasicDrawableBuilder::setProgram(SimpleIdentity progId)
     basicDraw->setProgram(progId);
 }
 
+void BasicDrawableBuilder::setCalculationProgram(SimpleIdentity progId)
+{
+    basicDraw->setCalculationProgram(progId);
+}
+
 void BasicDrawableBuilder::setupTweaker(BasicDrawable &theDraw) const
 {
     if (auto tweaker = makeTweaker())
@@ -317,6 +325,7 @@ void BasicDrawableBuilder::setColor(RGBAColor inColor)
     {
         basicDraw->vertexAttributes[basicDraw->colorEntry]->setDefaultColor(color);
     }
+    basicDraw->color = color;
 }
 
 void BasicDrawableBuilder::setColor(const unsigned char color[])
@@ -431,12 +440,15 @@ void BasicDrawableBuilder::addNormal(const Point3f &norm)
     basicDraw->vertexAttributes[basicDraw->normalEntry]->addVector3f(norm);
 }
 
+void BasicDrawableBuilder::setCalculationData(int numEntries,const std::vector<RawDataRef> &data)
+{
+    basicDraw->setCalculationData(numEntries, data);
+}
+
 void BasicDrawableBuilder::addNormal(const Point3d &norm)
 {
-    if (basicDraw->normalEntry < 0)
-        return;
-    
-    basicDraw->vertexAttributes[basicDraw->normalEntry]->addVector3f(Point3f(norm.x(),norm.y(),norm.z()));
+    const Point3f pf = norm.cast<float>();
+    addNormal(pf);
 }
 
 bool BasicDrawableBuilder::compareVertexAttributes(const SingleVertexAttributeSet &attrs) const
@@ -583,6 +595,7 @@ void BasicDrawableBuilder::setUniforms(const SingleVertexAttributeSet &uniforms)
 
 void BasicDrawableBuilder::applySubTexture(int which,const SubTexture &subTex,int startingAt)
 {
+#if !MAPLY_MINIMAL
     if (which == -1)
     {
         // Apply the mapping everywhere
@@ -605,8 +618,7 @@ void BasicDrawableBuilder::applySubTexture(int which,const SubTexture &subTex,in
             (*texCoords)[ii] = subTex.processTexCoord(TexCoord(tc.x(),tc.y()));
         }
     }
+#endif //!MAPLY_MINIMAL
 }
 
 }
-
-#include <utility>

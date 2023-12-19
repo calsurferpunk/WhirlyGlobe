@@ -1,9 +1,8 @@
-/*
- *  MaplyBaseInteractionLayer_private.h
+/*  MaplyBaseInteractionLayer_private.h
  *  MaplyComponent
  *
  *  Created by Steve Gifford on 12/14/12.
- *  Copyright 2012-2021 mousebird consulting
+ *  Copyright 2012-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,17 +14,20 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import <Foundation/Foundation.h>
-#import <set>
-#import <WhirlyGlobe_iOS.h>
-#import "MaplyComponentObject_private.h"
 #import "ImageTexture_private.h"
 #import "control/MaplyBaseViewController.h"
 #import "MaplyTextureAtlas_private.h"
 #import "ComponentManager_iOS.h"
+
+#if !MAPLY_MINIMAL
+#import "WhirlyGlobe_iOS.h"
+#import "MaplyComponentObject_private.h"
+#endif //!MAPLY_MINIMAL
+
+#import <set>
 
 @interface MaplyBaseInteractionLayer : NSObject<WhirlyKitLayer>
 {
@@ -106,6 +108,11 @@
 
 // Add shapes
 - (MaplyComponentObject *__nullable)addShapes:(NSArray *__nonnull)shapes desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode;
+
+- (MaplyComponentObject *__nullable)addShapes:(NSArray *__nonnull)shapes
+                                         info:(WhirlyKit::ShapeInfo&)shapeInfo
+                                         desc:(NSDictionary *__nullable)inDesc
+                                         mode:(MaplyThreadMode)threadMode;
 
 // Add model instances
 - (MaplyComponentObject *__nullable)addModelInstances:(NSArray *__nonnull)modelInstances desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode;
@@ -207,14 +214,22 @@
 - (void)removeImageTexture:(MaplyTexture *__nonnull)tex changes:(WhirlyKit::ChangeSet &)changes;
 
 // Do a point in poly check for vectors we're representing
-- (NSArray *__nullable)findVectorsInPoint:(WhirlyKit::Point2f)pt;
 - (NSArray *__nullable)findVectorsInPoint:(WhirlyKit::Point2f)pt inView:(MaplyBaseViewController*__nullable)vc multi:(bool)multi;
 
+// Find MaplySelectableObjects at a screen point
 - (NSObject*__nullable)selectLabelsAndMarkerForScreenPoint:(CGPoint)screenPoint;
+- (NSMutableArray*__nullable)selectMultipleLabelsAndMarkersForScreenPoint:(CGPoint)screenPoint;
+- (NSMutableArray*__nullable)convertSelectedObjects:(const std::vector<WhirlyKit::SelectionManager::SelectedObject> &)selectedObjs;
+- (NSMutableArray*__nullable)convertSelectedVecObjects:(NSArray<MaplyVectorObject *>*__nullable)vecObjs;
 
 // Find the Maply object corresponding to the given ID (from the selection manager).
 // Thread-safe
 - (NSObject *__nullable)getSelectableObject:(WhirlyKit::SimpleIdentity)objId;
+
+// Look up a shader program by name
+- (WhirlyKit::SimpleIdentity) getProgramID:(NSString *_Nonnull)name;
+
+- (MaplyShader *__nullable)getProgramByName:(const NSString *__nonnull)name;
 
 // Called right before asking us to do some work
 - (bool)startOfWork;

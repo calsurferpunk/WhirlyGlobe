@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/14/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@ namespace WhirlyKit
 class SceneGLES : public Scene
 {
 public:
-    
     SceneGLES(CoordSystemDisplayAdapter *adapter);
     
     /// Look for a valid texture
@@ -48,5 +47,6 @@ protected:
     /// Memory manager, really buffer and texture ID manager
     OpenGLMemManager memManager;
 };
+using SceneGLESRef = std::shared_ptr<SceneGLES>;
 
 }

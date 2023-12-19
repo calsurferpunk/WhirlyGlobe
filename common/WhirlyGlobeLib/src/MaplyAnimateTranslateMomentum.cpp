@@ -1,9 +1,8 @@
-/*
- *  MaplyAnimateTranslateMomentum.h
+/*  MaplyAnimateTranslateMomentum.cpp
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 1/20/12.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "MaplyAnimateTranslation.h"
@@ -26,33 +24,34 @@ using namespace WhirlyKit;
 
 namespace Maply {
 
-AnimateTranslateMomentum::AnimateTranslateMomentum(MapView *inMapView,
-                         float inVel,float inAcc,const WhirlyKit::Point3f &inDir,
-                         const Point2dVector &inBounds,
-                         SceneRenderer *inSceneRenderer)
+AnimateTranslateMomentum::AnimateTranslateMomentum(
+        const MapViewRef &inMapView,
+        float inVel, float inAcc,
+        const WhirlyKit::Point3f &inDir,
+        const Point2dVector &inBounds,
+        SceneRenderer *inSceneRenderer) :
+    renderer(inSceneRenderer),
+    velocity(inVel),
+    acceleration(inAcc)
 {
-    velocity = inVel;
-    acceleration = inAcc;
     dir = Vector3fToVector3d(inDir.normalized());
     startDate = TimeGetCurrent();
-    mapView = inMapView;
-    org = mapView->getLoc();
-    renderer = inSceneRenderer;
-    userMotion = true;
-        
+    org = inMapView->getLoc();
+
     // Let's calculate the maximum time, so we know when to stop
     if (acceleration != 0.0)
     {
         maxTime = 0.0;
         if (acceleration != 0.0)
-            maxTime = -velocity / acceleration;
-        maxTime = std::max(0.f,maxTime);
-        
+        {
+            maxTime = std::max(0.0f,-velocity / acceleration);
+        }
         if (maxTime == 0.0)
+        {
             startDate = 0;
-    } else
-        maxTime = MAXFLOAT;
-    
+        }
+    }
+
     bounds = inBounds;
 }
 
@@ -62,14 +61,15 @@ bool AnimateTranslateMomentum::withinBounds(const Point3d &loc,MapView *testMapV
 }
 
 // Called by the view when it's time to update
-void AnimateTranslateMomentum::updateView(MapView *mapView)
+void AnimateTranslateMomentum::updateView(WhirlyKit::View *view)
 {
+    auto mapView = (MapView *)view;
     if (startDate == 0.0)
         return;
     
-	float sinceStart = TimeGetCurrent() - startDate;
+    auto sinceStart = TimeGetCurrent() - startDate;
     
-    if (sinceStart > maxTime)
+    if (sinceStart >= maxTime)
     {
         // This will snap us to the end and then we stop
         sinceStart = maxTime;
@@ -78,8 +78,8 @@ void AnimateTranslateMomentum::updateView(MapView *mapView)
     }
     
     // Calculate the distance
-    double dist = (velocity + 0.5 * acceleration * sinceStart) * sinceStart;
-    Point3d newLoc = org + dir * dist;
+    const double dist = (velocity + 0.5 * acceleration * sinceStart) * sinceStart;
+    const Point3d newLoc = org + dir * dist;
     mapView->setLoc(newLoc,false);
     
     Point3d newCenter;
@@ -91,9 +91,11 @@ void AnimateTranslateMomentum::updateView(MapView *mapView)
     if (withinBounds(newLoc, &testMapView, &newCenter))
     {
         mapView->setLoc(newCenter,true);
-    } else {
+    }
+    else
+    {
         startDate = 0.0;
     }
 }
-    
+
 }

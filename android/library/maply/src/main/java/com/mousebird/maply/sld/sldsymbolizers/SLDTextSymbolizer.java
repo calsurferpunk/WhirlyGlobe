@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Ranen Ghosh on 3/14/17.
- *  Copyright 2011-2017 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -114,7 +114,8 @@ public class SLDTextSymbolizer extends SLDSymbolizer {
             offset = null;
 
         labelInfo.setDrawPriority(symbolizerParams.getRelativeDrawPriority() + RenderController.LabelDrawPriorityDefault);
-        vectorTileTextStyle = new VectorTileTextStyle(labelInfo, placement, offset, textField, vectorStyleSettings, viewC);
+        vectorTileTextStyle = new VectorTileTextStyle(null,null,labelInfo,
+                                                      placement,offset,textField,vectorStyleSettings,viewC);
         symbolizerParams.incrementRelativeDrawPriority();
     }
 

@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/16/19.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -59,9 +59,12 @@ void SceneMTL::teardown(PlatformThreadInfo *inst)
         it.second->destroyInRenderer(setupInfo,this);
     }
     textures.clear();
+#if !MAPLY_MINIMAL
     if (fontTextureManager) {
         fontTextureManager->teardown(inst);
     }
+#endif //!MAPLY_MINIMAL
+    Scene::teardown(inst);
 }
     
 }

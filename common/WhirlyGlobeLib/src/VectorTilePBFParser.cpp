@@ -1,10 +1,20 @@
-//
-//  VectorTilePBFParser.cpp
-//  WhirlyGlobeMaplyComponent
-//
-//  Created by Tim Sylvester on 10/30/20.
-//  Copyright © 2020 mousebird consulting. All rights reserved.
-//
+/*  VectorTilePBFParser.cpp
+ *  WhirlyGlobeLib
+ *
+ *  Created by Tim Sylvester on 10/30/20.
+ *  Copyright 2011-2022 mousebird consulting
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
 
 #include "VectorTilePBFParser.h"
 
@@ -25,16 +35,16 @@ namespace WhirlyKit
 
 namespace {
     // Fixed strings to avoid allocations on every call to, e.g., Dictionary::setString
-    const static std::string layerNameKey("layer_name");
-    const static std::string geometryTypeKey("geometry_type");
-    const static std::string layerOrderKey("layer_order");
+    const std::string layerNameKey("layer_name");       //NOLINT
+    const std::string geometryTypeKey("geometry_type"); //NOLINT
+    const std::string layerOrderKey("layer_order");     //NOLINT
 }
 
 const vector_tile_Tile_Layer VectorTilePBFParser::_defaultLayer = {
-    /* name       */ { &VectorTilePBFParser::stringDecode,    nullptr },
-    /* features   */ { &VectorTilePBFParser::featureDecode,   nullptr },
-    /* keys       */ { &VectorTilePBFParser::stringVecDecode, nullptr },
-    /* values     */ { &VectorTilePBFParser::valueVecDecode,  nullptr },
+    /* name       */ { { &VectorTilePBFParser::stringDecode },    nullptr },
+    /* features   */ { { &VectorTilePBFParser::featureDecode },   nullptr },
+    /* keys       */ { { &VectorTilePBFParser::stringVecDecode }, nullptr },
+    /* values     */ { { &VectorTilePBFParser::valueVecDecode },  nullptr },
     /* has_extent */ false,
     /* extent     */ 0,
     /* version    */ 0,
@@ -44,14 +54,14 @@ const vector_tile_Tile_Layer VectorTilePBFParser::_defaultLayer = {
 const vector_tile_Tile_Feature VectorTilePBFParser::_defaultFeature = {
     /* has_id   */ false,
     /* id       */ 0LL,
-    /* tags     */ { &VectorTilePBFParser::intVecDecode, nullptr },
+    /* tags     */ { { &VectorTilePBFParser::intVecDecode }, nullptr },
     /* has_type */ false,
     /* type     */ vector_tile_Tile_GeomType_UNKNOWN,
-    /* geometry */ { &VectorTilePBFParser::intVecDecode, nullptr },
+    /* geometry */ { { &VectorTilePBFParser::intVecDecode }, nullptr },
 };
 
 const vector_tile_Tile_Value VectorTilePBFParser::_defaultValue = {
-    /* pb_callback_t string_value */ { &VectorTilePBFParser::stringDecode, nullptr },
+    /* pb_callback_t string_value */ { { &VectorTilePBFParser::stringDecode }, nullptr },
     /* bool has_float_value       */ false,
     /* float float_value          */ 0.0f,
     /* bool has_double_value      */ false,
@@ -78,17 +88,17 @@ VectorTilePBFParser::VectorTilePBFParser(
         bool localCoords,
         bool parseAll,
         std::vector<VectorObjectRef>* keepVectors,
-        std::function<bool()> isCanceled)
+        CancelFunction isCanceled)
     : _tileData      (tileData)
     , _styleDelegate (styleData)
     , _styleInst     (styleInst)
+    , _vecObjByStyle (vecObjByStyle)
     , _uuidName      (uuidName)
     , _uuidValues    (uuidValues)
-    , _vecObjByStyle (vecObjByStyle)
     , _localCoords   (localCoords)
     , _parseAll      (parseAll)
     , _keepVectors   (keepVectors)
-    , _checkCancelled(isCanceled)
+    , _checkCancelled(std::move(isCanceled))
     , _bbox          (tileData->bbox)
     , _bboxWidth     (_bbox.ur().x() - _bbox.ll().x())
     , _bboxHeight    (_bbox.ur().y() - _bbox.ll().y())
@@ -102,7 +112,7 @@ VectorTilePBFParser::VectorTilePBFParser(
 bool VectorTilePBFParser::parse(const uint8_t* data, size_t length)
 {
     _vector_tile_Tile tile = {
-        /* layer     */ { layerDecode, this },
+        /* layer     */ { { layerDecode }, this },
         /*extensions */ nullptr,
     };
 
@@ -124,7 +134,8 @@ bool VectorTilePBFParser::layerDecode(pb_istream_t *stream, const pb_field_iter_
 
 bool VectorTilePBFParser::layerDecode(pb_istream_t *stream, const pb_field_iter_t *field)
 {
-    if (_checkCancelled()) {
+    if (_checkCancelled(_styleInst))
+    {
         _wasCancelled = true;
         return false;
     }
@@ -195,7 +206,8 @@ bool VectorTilePBFParser::layerDecode(pb_istream_t *stream, const pb_field_iter_
     size_t prevGeomIndex = 0;
     for (auto const &feature : _features)
     {
-        if (_checkCancelled()) {
+        if (_checkCancelled(_styleInst))
+        {
             _wasCancelled = true;
             return false;
         }
@@ -203,7 +215,7 @@ bool VectorTilePBFParser::layerDecode(pb_istream_t *stream, const pb_field_iter_
         auto attributes = std::make_shared<MutableDictionaryC>();
         attributes->setString(layerNameKey, layerName);
         attributes->setInt(geometryTypeKey, (int)feature.geomType);
-        attributes->setInt(layerOrderKey, _layerCount);
+        attributes->setInt(layerOrderKey, (int)_layerCount);
 
         const bool tagsOk = processTags(attributes, prevTagIndex, prevGeomIndex, feature);
         //const auto curTagIndex = prevTagIndex;
@@ -293,14 +305,14 @@ bool VectorTilePBFParser::layerDecode(pb_istream_t *stream, const pb_field_iter_
 /// https://github.com/mapbox/vector-tile-spec/tree/master/2.1/#432-parameter-integers
 /// A ParameterInteger is zigzag encoded so that small negative and positive values are both encoded as small integers.
 int32_t VectorTilePBFParser::decodeParamInt(int32_t p) {
-    return ((p >> 1) ^ (-(p & 1)));
+    return ((p >> 1U) ^ (-(p & 1U)));       //NOLINT these are right out of the spec
 }
 
 /// https://github.com/mapbox/vector-tile-spec/tree/master/2.1/#431-command-integers
 /// A command ID is encoded as an unsigned integer in the least significant 3 bits of the CommandInteger, and is in the range 0 through 7, inclusive.
 /// A command count is encoded as an unsigned integer in the remaining 29 bits of a CommandInteger, and is in the range 0 through pow(2, 29) - 1, inclusive.
 std::pair<uint8_t, int32_t> VectorTilePBFParser::decodeCommand(int32_t c) {
-    return std::make_pair(c & ((1 << CmdBits) - 1), c >> CmdBits);
+    return std::make_pair(c & ((1 << CmdBits) - 1), c >> CmdBits);  //NOLINT these are right out of the spec
 }
 
 // Layer contains a collection of Features
@@ -399,7 +411,7 @@ bool VectorTilePBFParser::checkStyles(SimpleIDUSet& styleIDs, const MutableDicti
     return (!styleIDs.empty() || _parseAll);
 }
 
-void VectorTilePBFParser::parseLineString(const uint32_t *geometry, size_t geomCount, ShapeSet& shapes)
+void VectorTilePBFParser::parseLineString(const uint32_t *geometry, size_t geomCount, ShapeSet& shapes) const
 {
     double x = 0;
     double y = 0;
@@ -438,7 +450,7 @@ void VectorTilePBFParser::parseLineString(const uint32_t *geometry, size_t geomC
 
                 if (cmd == SEG_MOVETO)  // move-to means we are starting a new segment
                 {
-                    if (lin && lin->pts.size() > 0)  // We've already got a line, finish it
+                    if (lin && !lin->pts.empty())  // We've already got a line, finish it
                     {
                         lin->initGeoMbr();
                         shapes.insert(lin);
@@ -452,7 +464,7 @@ void VectorTilePBFParser::parseLineString(const uint32_t *geometry, size_t geomC
             }
             else if (cmd == SEG_CLOSE_MASKED)
             {
-                if (lin->pts.size() > 0)  //We've already got a line, finish it
+                if (!lin->pts.empty())  //We've already got a line, finish it
                 {
                     lin->pts.emplace_back(firstCoord.x(),firstCoord.y());
                     lin->initGeoMbr();
@@ -475,7 +487,7 @@ void VectorTilePBFParser::parseLineString(const uint32_t *geometry, size_t geomC
         }
     }
     
-    if (lin && lin->pts.size() > 0)
+    if (lin && !lin->pts.empty())
     {
         lin->initGeoMbr();
         shapes.insert(lin);
@@ -488,9 +500,10 @@ bool VectorTilePBFParser::parsePolygon(const uint32_t *geometry, size_t geomCoun
     double y = 0;
     int cmd = -1;
     int length = 0;
-    Point2f point;
     Point2f firstCoord(0, 0);
-    VectorRing ring;
+
+    tempRing.clear();
+    tempRing.reserve(geomCount+1);
     
     for (int k = 0; k < geomCount; )
     {
@@ -512,29 +525,30 @@ bool VectorTilePBFParser::parsePolygon(const uint32_t *geometry, size_t geomCoun
                 
                 // At this point x/y is a coord is encoded in tile coord space, from 0 to TILE_SIZE
                 // Convert to epsg:3785, then to degrees, then to radians
-                point = Point2f((_tileOriginX + x / _sx), (_tileOriginY - y / _sy));
+                double fx = _tileOriginX + x / _sx;
+                double fy = _tileOriginY - y / _sy;
                 
                 if (!_localCoords)
                 {
-                    point.x() = DegToRad((point.x() / MAX_EXTENT) * 180.0);
-                    point.y() = 2 * atan(exp(DegToRad((point.y() / MAX_EXTENT) * 180.0))) - M_PI_2;
+                    fx = DegToRad((fx / MAX_EXTENT) * 180.0);
+                    fy = 2 * atan(exp(DegToRad((fy / MAX_EXTENT) * 180.0))) - M_PI_2;
                 }
 
                 if (cmd == SEG_MOVETO)  //move to means we are starting a new segment
                 {
-                    firstCoord = point;
+                    firstCoord = Point2f(fx,fy);
                     //TODO: does this ever happen when we are part way through a shape? holes?
                 }
-                
-                ring.emplace_back(point.x(),point.y());
+
+                tempRing.emplace_back(fx, fy);
             }
             else if (cmd == SEG_CLOSE_MASKED)
             {
-                if (ring.size() > 0)  //We've already got a line, finish it
+                if (!tempRing.empty())  //We've already got a line, finish it
                 {
-                    ring.emplace_back(firstCoord.x(),firstCoord.y()); //close the loop
-                    shape.loops.push_back(ring); //add loop to shape
-                    ring.clear(); //reuse the ring
+                    tempRing.emplace_back(firstCoord); //close the loop
+                    shape.loops.push_back(tempRing); //add loop to shape
+                    tempRing.clear(); //reuse the ring
                 }
             }
             else
@@ -545,12 +559,12 @@ bool VectorTilePBFParser::parsePolygon(const uint32_t *geometry, size_t geomCoun
     }
     
 #if DEBUG
-    if (ring.size() > 0)
+    if (!tempRing.empty())
     {
-        wkLogLevel(Warn, "VectorTilePBFParser: Finished polygon loop, and ring has %d points", (int)ring.size());
+        wkLogLevel(Warn, "VectorTilePBFParser: Finished polygon loop, and ring has %d points", (int)tempRing.size());
     }
 #endif
-    //TODO: Is there a posibilty of still having a ring here that hasn't been added by a close command?
+    //TODO: Is there a possibility of still having a ring here that hasn't been added by a close command?
     
     if (!shape.loops.empty())
     {
@@ -566,8 +580,7 @@ bool VectorTilePBFParser::parsePoints(const uint32_t *geometry, size_t geomCount
     double y = 0;
     int cmd = -1;
     int length = 0;
-    Point2f point;
-    
+
     for (int k = 0; k < geomCount; )
     {
         if (!length)
@@ -590,14 +603,15 @@ bool VectorTilePBFParser::parsePoints(const uint32_t *geometry, size_t geomCount
                 // Covert to epsg:3785, then to degrees, then to radians
                 if (x > 0 && x < TileSize && y > 0 && y < TileSize)
                 {
-                    point = Point2f((_tileOriginX + x / _sx), (_tileOriginY - y / _sy));
+                    double fx = _tileOriginX + x / _sx;
+                    double fy = _tileOriginY - y / _sy;
                     
                     if (!_localCoords)
                     {
-                        point.x() = DegToRad((point.x() / MAX_EXTENT) * 180.0);
-                        point.y() = 2 * atan(exp(DegToRad((point.y() / MAX_EXTENT) * 180.0))) - M_PI_2;
+                        fx = DegToRad((fx / MAX_EXTENT) * 180.0);
+                        fy = 2 * atan(exp(DegToRad((fy / MAX_EXTENT) * 180.0))) - M_PI_2;
                     }
-                    shape.pts.emplace_back(point.x(),point.y());
+                    shape.pts.emplace_back(fx,fy);
                 }
             }
             else if (cmd == SEG_CLOSE_MASKED)
@@ -666,12 +680,12 @@ bool VectorTilePBFParser::valueVecDecode(pb_istream_t *stream, const pb_field_it
     }
 
          if (value.has_float_value)  vec.push_back({{.floatValue  = value.float_value},  SmallValue::SmallValFloat});
-    else if (value.has_double_value) vec.push_back({{.doubleValue = value.double_value}, SmallValue::SmallValDouble});
-    else if (value.has_int_value)    vec.push_back({{.intValue    = value.int_value},    SmallValue::SmallValInt});
-    else if (value.has_uint_value)   vec.push_back({{.uintValue   = value.uint_value},   SmallValue::SmallValUInt});
-    else if (value.has_sint_value)   vec.push_back({{.sintValue   = value.sint_value},   SmallValue::SmallValSInt});
-    else if (value.has_bool_value)   vec.push_back({{.boolValue   = value.bool_value},   SmallValue::SmallValBool});
-    else                             vec.push_back({{.stringValue = string},             SmallValue::SmallValString});
+    else if (value.has_double_value) vec.push_back({{.doubleValue = value.double_value}, SmallValue::SmallValDouble});  //NOLINT
+    else if (value.has_int_value)    vec.push_back({{.intValue    = value.int_value},    SmallValue::SmallValInt});     //NOLINT
+    else if (value.has_uint_value)   vec.push_back({{.uintValue   = value.uint_value},   SmallValue::SmallValUInt});    //NOLINT
+    else if (value.has_sint_value)   vec.push_back({{.sintValue   = value.sint_value},   SmallValue::SmallValSInt});    //NOLINT
+    else if (value.has_bool_value)   vec.push_back({{.boolValue   = value.bool_value},   SmallValue::SmallValBool});    //NOLINT
+    else                             vec.push_back({{.stringValue = string},             SmallValue::SmallValString});  //NOLINT
 
     return true;
 }

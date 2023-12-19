@@ -1,9 +1,8 @@
-/*
- *  MapboxVectorTileParser.h
+/*  MapboxVectorTileParser.h
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/25/16.
- *  Copyright 2011-2016 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "vector_tile.pb.h"
@@ -42,7 +40,7 @@ typedef enum {
     SEG_CLOSE_MASKED = SEG_CLOSE & 0x07,
 } MapnikCommandType;
 
-class PlatformThreadInfo;
+struct PlatformThreadInfo;
 
 /**
  Information about a single vector tile being parsed.  This is passed into the buildObjects:
@@ -53,7 +51,7 @@ class PlatformThreadInfo;
 class VectorTileData
 {
 public:
-    VectorTileData();
+    VectorTileData() = default;
     // Construct by just taking the outline information.  No data.
     VectorTileData(const VectorTileData &);
     virtual ~VectorTileData();
@@ -104,7 +102,7 @@ class MapboxVectorTileParser
 {
 public:
     MapboxVectorTileParser(PlatformThreadInfo *inst,VectorStyleDelegateImplRef styleDelegate);
-    virtual ~MapboxVectorTileParser();
+    virtual ~MapboxVectorTileParser() = default;
 
     /// If set, we'll parse into local coordinates as specified by the bounding box, rather than geo coords
     void setLocalCoords(bool b = true) { localCoords = b; }
@@ -115,7 +113,7 @@ public:
     /// Parse everything, even if there's no style for it
     void setParseAll(bool b = true) { parseAll = b; }
 
-    /// Add a category for a particulary style ID
+    /// Add a category for a particular style ID
     /// These are used for sorting later on
     void addCategory(const std::string &category,long long styleID);
 
@@ -123,12 +121,22 @@ public:
     /// Returns false on failure or cancellation.
     virtual bool parse(PlatformThreadInfo *styleInst, RawData *rawData, VectorTileData *tileData, volatile bool *cancelBool);
 
+    using CancelFunction = std::function<bool(PlatformThreadInfo *)>;
+
+    /// Parse the vector tile and return a list of vectors.
+    /// Returns false on failure or cancellation.
+    virtual bool parse(PlatformThreadInfo *styleInst,
+                       RawData *rawData,
+                       VectorTileData *tileData,
+                       const CancelFunction &cancelFn);
+
     /// The subclass calls the appropriate style to build component objects
     ///  which are then returned in the VectorTileData
     virtual void buildForStyle(PlatformThreadInfo *styleInst,
                                long long styleID,
                                const std::vector<VectorObjectRef> &vecObjs,
-                               const VectorTileDataRef &data);
+                               const VectorTileDataRef &data,
+                               const CancelFunction &cancelFn);
 
     /// Set the name of the uuid field.
     /// When present, the value is set as the kMaplyUUID attribute on generated objects
@@ -147,19 +155,19 @@ public:
     const VectorStyleDelegateImplRef &getStyleDelegate() const { return styleDelegate; }
 protected:
     /// If set, we'll parse into local coordinates as specified by the bounding box, rather than geo coords
-    bool localCoords;
+    bool localCoords = false;
 
     /// Keep the vector objects around as we parse them
-    bool keepVectors;
+    bool keepVectors = false;
 
     /// Parse everything, even if there's no style for it
-    bool parseAll;
+    bool parseAll = false;
 
     /// If set, we'll tack a debug label in the middle of the tile
-    bool debugLabel;
+    bool debugLabel = false;
 
     /// If set, we'll put an outline around the tile
-    bool debugOutline;
+    bool debugOutline = false;
 
     std::string uuidName;
 

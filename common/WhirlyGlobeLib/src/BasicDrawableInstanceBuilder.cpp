@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/10/19.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ void BasicDrawableInstanceBuilder::Init()
     drawInst->programID = EmptyIdentity;
     drawInst->enable = true;
     drawInst->masterID = EmptyIdentity;
+    drawInst->instID = EmptyIdentity;
     drawInst->requestZBuffer = false;
     drawInst->writeZBuffer = true;
     drawInst->startEnable = 0.0;
@@ -59,6 +60,11 @@ void BasicDrawableInstanceBuilder::setMasterID(SimpleIdentity baseDrawID,BasicDr
 {
     drawInst->masterID = baseDrawID;
     drawInst->instanceStyle = style;
+}
+
+void BasicDrawableInstanceBuilder::setInstID(SimpleIdentity instDrawID)
+{
+    drawInst->instID = instDrawID;
 }
 
 void BasicDrawableInstanceBuilder::setOnOff(bool onOff)
@@ -169,6 +175,11 @@ void BasicDrawableInstanceBuilder::setUniforms(const SingleVertexAttributeSet &u
 void BasicDrawableInstanceBuilder::setUniBlock(const BasicDrawable::UniformBlock &uniBlock)
 {
     drawInst->setUniBlock(uniBlock);
+}
+
+void BasicDrawableInstanceBuilder::setContinuousUpdate(bool newVal)
+{
+    drawInst->moving = newVal;
 }
 
 void BasicDrawableInstanceBuilder::setTexId(unsigned int which,SimpleIdentity inId)

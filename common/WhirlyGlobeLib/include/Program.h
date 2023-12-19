@@ -1,9 +1,8 @@
-/*
- *  Program.h
+/*  Program.h
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 10/23/12.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import <vector>
@@ -29,8 +27,8 @@
 namespace WhirlyKit
 {
     
-class DirectionalLight;
-class Material;
+struct DirectionalLight;
+struct Material;
 
 /** Representation of an OpenGL ES 2.0 program.  It's an identifiable so we can
     point to it generically.  Otherwise, pretty basic.
@@ -38,17 +36,17 @@ class Material;
 class Program : public Identifiable
 {
 public:
-    Program();
-    virtual ~Program();
+    Program() = default;
+    virtual ~Program() = default;
         
     /// Return true if it was built correctly
-    virtual bool isValid() = 0;
+    virtual bool isValid() const = 0;
     
     /// Check for the specific attribute associated with WhirlyKit lights
-    virtual bool hasLights() = 0;
+    virtual bool hasLights() const = 0;
     
     /// Return the name (for tracking purposes)
-    const std::string &getName();
+    virtual const std::string &getName() const;
     
     /// Tie a given texture ID to the given slot or nameID (depending on renderer)
     /// We have to set these up each time before drawing
@@ -70,13 +68,16 @@ public:
     virtual void setReduceMode(ReduceMode reduceMode);
 
     // Current reduce mode (or off)
-    virtual ReduceMode getReduceMode();
+    virtual ReduceMode getReduceMode() const;
+
+    static SimpleIdentity NoProgramID;
     
 public:
-    bool changed;
+    bool texturesChanged = true;
+    bool valuesChanged = true;
     std::string name;
-    TimeInterval lightsLastUpdated;
-    ReduceMode reduceMode;
+    TimeInterval lightsLastUpdated = 0.0;
+    ReduceMode reduceMode = None;
     // Uniforms to be passed into a shader (just Metal for now)
     std::vector<BasicDrawable::UniformBlock> uniBlocks;
 };
@@ -116,7 +117,7 @@ protected:
 class ProgramUniformBlockSetRequest : public ChangeRequest
 {
 public:
-    ProgramUniformBlockSetRequest(SimpleIdentity progID,const RawDataRef &uniBlock,int bufferID);
+    ProgramUniformBlockSetRequest(SimpleIdentity progID,RawDataRef uniBlock,int bufferID);
     ~ProgramUniformBlockSetRequest() { }
 
     /// Remove from the renderer.  Never call this.

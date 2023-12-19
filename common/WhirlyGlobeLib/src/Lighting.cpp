@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by jmnavarro
- *  Copyright 2011-2019 mousebird consulting.
+ *  Copyright 2011-2022 mousebird consulting.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -24,31 +24,6 @@ using namespace Eigen;
 
 namespace WhirlyKit
 {
-    
-DirectionalLight::DirectionalLight()
-{
-    viewDependent = true;
-    pos = Eigen::Vector3f(0,0,0);
-    ambient = Eigen::Vector4f(1,1,1,1);
-    diffuse = Eigen::Vector4f(1,1,1,1);
-    specular = Eigen::Vector4f(0,0,0,0);
-}
-
-DirectionalLight::~DirectionalLight()
-{
-}
-
-Material::Material() :
-    ambient(Eigen::Vector4f(1,1,1,1)),
-    diffuse(Eigen::Vector4f(1,1,1,1)),
-    specular(Eigen::Vector4f(1,1,1,1)),
-    specularExponent(1)
-{
-}
-
-Material::~Material()
-{
-}
 
 }
 

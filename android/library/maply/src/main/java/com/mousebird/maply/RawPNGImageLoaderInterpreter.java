@@ -1,5 +1,7 @@
 package com.mousebird.maply;
 
+import androidx.annotation.NonNull;
+
 /**
  * This loader interpreter treats input image data objects as PNGs containing raw data.
  *  The difference is we'll use a direct PNG reader to tease it out, rather than Bitmap.
@@ -19,8 +21,19 @@ public class RawPNGImageLoaderInterpreter implements LoaderInterpreter {
      */
     public void dataForTile(LoaderReturn loadReturn,QuadLoaderBase loader) {
         byte[][] images = loadReturn.getTileData();
-        for (byte[] image : images)
-            dataForTileNative(image,loadReturn);
+        for (byte[] image : images) {
+            if (loadReturn.isCanceled()) {
+                return;
+            }
+            dataForTileNative(image, loadReturn);
+        }
+    }
+
+    /**
+     * Some tiles were just removed.
+     */
+    @Override
+    public void tilesUnloaded(@NonNull TileID[] ids) {
     }
 
     /**

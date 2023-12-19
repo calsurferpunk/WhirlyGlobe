@@ -1,8 +1,8 @@
-/*  FontTextureManager.mm
+/*  FontTextureManager.cpp
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 4/15/13.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2023 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 
 #import "FontTextureManager.h"
 #import "WhirlyVector.h"
+#import "WhirlyKitLog.h"
 
 using namespace Eigen;
 using namespace WhirlyKit;
@@ -25,22 +26,17 @@ using namespace WhirlyKit;
 namespace WhirlyKit
 {
     
-FontManager::FontManager() :
-    refCount(0),
-    color(255,255,255,255),
-    outlineColor(0,0,0,0),
-    backColor(0,0,0,0),
-    outlineSize(0.0)
-{
-}
-
 FontManager::~FontManager()
 {
-    for (auto glyph : glyphs)
+    try
     {
-        delete glyph;
+        for (auto glyph : glyphs)
+        {
+            delete glyph;
+        }
+        glyphs.clear();
     }
-    glyphs.clear();
+    WK_STD_DTOR_CATCH()
 }
 
 // Look for an existing glyph and return it if it's there
@@ -52,15 +48,15 @@ FontManager::GlyphInfo *FontManager::findGlyph(WKGlyph glyph)
 }
 
 // Add the given glyph info
-FontManager::GlyphInfo *FontManager::addGlyph(WKGlyph glyph,SubTexture subTex,const Point2f &size,const Point2f &offset,const Point2f &textureOffset)
+FontManager::GlyphInfo *FontManager::addGlyph(WKGlyph glyph,const SubTexture &subTex,const Point2f &size,const Point2f &offset,const Point2f &textureOffset)
 {
-    GlyphInfo *info = new GlyphInfo(glyph);
+    auto info = new GlyphInfo(glyph);
     info->size = size;
     info->offset = offset;
     info->textureOffset = textureOffset;
     info->subTex = subTex;
     glyphs.insert(info);
-    
+
     return info;
 }
 
@@ -94,6 +90,8 @@ void FontManager::removeGlyphRefs(const GlyphSet &usedGlyphs,std::vector<SubText
             glyphInfo->refCount--;
             if (glyphInfo->refCount <= 0)
             {
+//                wkLogLevel(Info,"Glyph removed: fm = %d, glyph = %d",(int)getId(),(int)theGlyph);
+
                 if (toRemove.empty())
                 {
                     toRemove.reserve(usedGlyphs.size());
@@ -106,28 +104,28 @@ void FontManager::removeGlyphRefs(const GlyphSet &usedGlyphs,std::vector<SubText
     }
 }
 
-                
-FontTextureManager::FontTextureManager(SceneRenderer *sceneRender,Scene *scene)
-: sceneRender(sceneRender), scene(scene), texAtlas(nullptr)
+
+FontTextureManager::FontTextureManager(SceneRenderer *sceneRender,Scene *scene) :
+    sceneRender(sceneRender),
+    scene(scene)
 {
 }
 
 FontTextureManager::~FontTextureManager()
 {
-    std::lock_guard<std::mutex> guardLock(lock);
-
-    delete texAtlas;
-    texAtlas = nullptr;
-    for (auto drawStringRep : drawStringReps)
+    try
     {
-        delete drawStringRep;
+        ChangeSet changes;
+        clear(changes);
+        discardChanges(changes);
     }
-    drawStringReps.clear();
-    fontManagers.clear();
+    WK_STD_DTOR_CATCH()
 }
     
 void FontTextureManager::init()
 {
+    // Note: caller must own mutex lock
+
     if (!texAtlas)
     {
         // Let's do the biggest possible texture with small cells 32 bits deep
@@ -140,7 +138,11 @@ void FontTextureManager::init()
 void FontTextureManager::clear(ChangeSet &changes)
 {
     std::lock_guard<std::mutex> guardLock(lock);
-    
+    clearNoLock(changes);
+}
+
+void FontTextureManager::clearNoLock(ChangeSet &changes)
+{
     if (texAtlas)
     {
         texAtlas->teardown(changes);
@@ -151,6 +153,7 @@ void FontTextureManager::clear(ChangeSet &changes)
     {
         delete drawStringRep;
     }
+    drawStringReps.clear();
     fontManagers.clear();
 }
 
@@ -158,7 +161,7 @@ void FontTextureManager::removeString(PlatformThreadInfo *inst, SimpleIdentity d
 {
     std::lock_guard<std::mutex> guardLock(lock);
 
-    DrawStringRep *theRep = nullptr;
+    DrawStringRep *theRep;
     {
         DrawStringRep dummyRep(drawStringId);
         auto it = drawStringReps.find(&dummyRep);
@@ -188,12 +191,16 @@ void FontTextureManager::removeString(PlatformThreadInfo *inst, SimpleIdentity d
         // And possibly remove some sub textures
         for (const auto &ii : texRemove)
         {
+//            wkLogLevel(Info,"Texture removed for glyph");
+
             texAtlas->removeTexture(ii, changes, when);
         }
 
         // Also see if we're done with the font
         if (fm->refCount <= 0)
         {
+//            wkLogLevel(Info,"Font removed: fm = %d,",(int)fm->getId());
+
             fm->teardown(inst);
             fontManagers.erase(fmIt);
         }

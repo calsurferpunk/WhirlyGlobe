@@ -1,9 +1,8 @@
-/*
- *  BasicDrawable.h
+/*  BasicDrawableGLES.h
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 2/1/11.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import <vector>
@@ -40,8 +38,8 @@ namespace WhirlyKit
 class BasicDrawableGLES : virtual public BasicDrawable, virtual public DrawableGLES
 {
 public:
-    BasicDrawableGLES(const std::string &name);
-    virtual ~BasicDrawableGLES();
+    BasicDrawableGLES(std::string name);
+    virtual ~BasicDrawableGLES() = default;
 
     /// Set up local rendering structures (e.g. VBOs)
     virtual void setupForRenderer(const RenderSetupInfo *setupInfo,Scene *scene);
@@ -68,29 +66,33 @@ public:
     /// Override this to add your own data to interleaved vertex buffers.
     virtual void addPointToBuffer(unsigned char *basePtr,int which,const Point3d *center);
 
+protected:
+    void addPointsToBuffer(unsigned char *basePtr, unsigned numVerts, const Point3d *center);
+
 public:
     // Unprocessed data arrays
-    std::vector<Eigen::Vector3f> points;
+    Point3fVector points;
     std::vector<Triangle> tris;
 
     // Attribute that should be applied to the given program index if using VAOs
-    class VertAttrDefault
+    struct VertAttrDefault
     {
-    public:
-        VertAttrDefault(unsigned int progAttrIndex,const VertexAttribute &attr)
-        : progAttrIndex(progAttrIndex), attr((VertexAttributeGLES &)attr) { }
+        VertAttrDefault(unsigned int progAttrIndex,const VertexAttribute &attr) :
+                progAttrIndex(progAttrIndex), attr((VertexAttributeGLES &)attr) { }
         GLuint progAttrIndex;
         VertexAttributeGLES attr;
     };
     std::vector<VertAttrDefault> vertArrayDefaults;
 
-    bool isSetupGL;  // Is setup to draw with GL (needed by the instances)
-    bool usingBuffers;  // If set, we've downloaded the buffers already
+    bool isSetupGL = false;  // Is setup to draw with GL (needed by the instances)
 
     // Size for a single vertex w/ all its data.  Used by shared buffer
-    int vertexSize;
-    GLuint pointBuffer,triBuffer,sharedBuffer;
-    GLuint vertArrayObj;
+    int vertexSize = -1;
+    // Buffers or offsets into the shared buffer
+    GLuint pointBuffer = 0;
+    GLuint triBuffer = 0;
+    GLuint sharedBuffer = 0;
+    GLuint vertArrayObj = 0;
 };
-    
+
 }

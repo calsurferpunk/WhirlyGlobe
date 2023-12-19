@@ -1,9 +1,8 @@
-/*
- *  MarkerManager.h
+/*  MarkerManager.h
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 7/16/13.
- *  Copyright 2011-2019 mousebird consulting.
+ *  Copyright 2011-2022 mousebird consulting.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import <math.h>
@@ -43,13 +41,17 @@ class MarkerSceneRep : public Identifiable
 {
 public:
     MarkerSceneRep();
-    ~MarkerSceneRep() { };
+    ~MarkerSceneRep() = default;
 
     // Clear the contents out of the scene
-    void clearContents(SelectionManagerRef &selectManager,LayoutManagerRef &layoutManager,ChangeSet &changes,TimeInterval when);
+    void clearContents(const SelectionManagerRef &selectManager,
+                       const LayoutManagerRef &layoutManager,
+                       ChangeSet &changes,TimeInterval when);
     
     // Enable/disable marker related features
-    void enableContents(SelectionManagerRef &selectManager,LayoutManagerRef &layoutManager,bool enable,ChangeSet &changes);
+    void enableContents(const SelectionManagerRef &selectManager,
+                        const LayoutManagerRef &layoutManager,
+                        bool enable,ChangeSet &changes);
 
     SimpleIDSet drawIDs;  // Drawables created for this
     SimpleIDSet selectIDs;  // IDs used for selection
@@ -60,19 +62,25 @@ public:
 typedef std::set<MarkerSceneRep *,IdentifiableSorter> MarkerSceneRepSet;
 
 // Used to pass marker information between threads
-class MarkerInfo : public BaseInfo
+struct MarkerInfo : public BaseInfo
 {
-public:
     MarkerInfo(bool screenObject);
     MarkerInfo(const Dictionary &,bool screenObject);
     virtual ~MarkerInfo() = default;
+
+    // Convert contents to a string for debugging
+    virtual std::string toString() const { return BaseInfo::toString() + " + MarkerInfo..."; }
 
     RGBAColor color;
     bool screenObject;
     float width,height;
     float layoutImportance;
     int clusterGroup;
-    
+    float layoutOffset = 0.0f;
+    float layoutSpacing = 20.0f;
+    int layoutRepeat = 0;
+    bool layoutDebug = false;
+
     FloatExpressionInfoRef opacityExp;
     ColorExpressionInfoRef colorExp;
     FloatExpressionInfoRef scaleExp;
@@ -89,60 +97,67 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
     
     Marker();
-    ~Marker();
+    ~Marker() = default;
     
     /// If set, this marker should be made selectable
     ///  and it will be if the selection layer has been set
-    bool isSelectable;
+    bool isSelectable = false;
     /// If the marker is selectable, this is the unique identifier
     ///  for it.  You should set this ahead of time
-    WhirlyKit::SimpleIdentity selectID;
+    WhirlyKit::SimpleIdentity selectID = EmptyIdentity;
     /// The location for the center of the marker.
     WhirlyKit::GeoCoord loc;
     /// Set if this marker is moving
-    bool hasMotion;
+    bool hasMotion = false;
     /// End location if it's moving
     WhirlyKit::GeoCoord endLoc;
     /// Timing for animation, if present
-    TimeInterval startTime,endTime;
+    TimeInterval startTime = 0.0;
+    TimeInterval endTime = 0.0;
     /// Color for this marker
-    bool colorSet;
-    RGBAColor color;
+    bool colorSet = false;
+    RGBAColor color = RGBAColor::white();
     /// The list of textures to use.  If there's just one
     ///  we show that.  If there's more than one, we switch
     ///  between them over the period.
     std::vector<WhirlyKit::SimpleIdentity> texIDs;
     /// If set we'll keep the screen marker upright in screen space
-    bool lockRotation;
+    bool lockRotation = false;
     /// The height in 3-space (remember the globe has radius = 1.0)
-    float height;
+    float height = 0.0f;
     /// The width in 3-space (remember the globe has radius = 1.0)
-    float width;
+    float width = 0.0f;
     /// Height in screen space to consider for layout
-    float layoutHeight;
-    /// Width in screen space to soncider for layout
-    float layoutWidth;
+    float layoutHeight = -1.0f;
+    /// Width in screen space to consider for layout
+    float layoutWidth = -1.0f;
     /// Set if we want a static rotation.  Only matters in screen space
     /// This is rotation clockwise from north in radians
-    float rotation;
+    float rotation = 0.0f;
     /// Offset in points
     WhirlyKit::Point2d offset;
     /// The period over which we'll switch textures
-    TimeInterval period;
+    TimeInterval period = 0.0;
     /// For markers with more than one texture, this is the offset
     ///  we'll use when calculating position within the period.
-    TimeInterval timeOffset;
+    TimeInterval timeOffset = 0.0;
     /// Value to use for the layout engine.  Set to MAXFLOAT by
     ///  default, which will always display.
-    float layoutImportance;
+    float layoutImportance = MAXFLOAT;
+    /// Shape for label to follow
+    VectorRing layoutShape;
     /// Ordering within rendering group
-    long orderBy;
+    long orderBy = -1;
     /// Passed through the system as a unique identifier
     std::string uniqueID;
-    
+    /// Identifies objects that should be laid out together
+    std::string mergeID;
+
+    int layoutPlacement = WhirlyKitLayoutPlacementNone;
+
     // If set, we'll draw an outline to the mask target
-    WhirlyKit::SimpleIdentity maskID;
-    WhirlyKit::SimpleIdentity maskRenderTargetID;
+    WhirlyKit::SimpleIdentity maskID = EmptyIdentity;
+    WhirlyKit::SimpleIdentity maskRenderTargetID = EmptyIdentity;
 
     /// A list of vertex attributes to apply to the marker
     SingleVertexAttributeSet vertexAttrs;
@@ -150,6 +165,8 @@ public:
     /// Add a texture ID to be displayed
     void addTexID(SimpleIdentity texID);
 };
+using MarkerVec = std::vector<Marker>;
+using MarkerPtrVec = std::vector<Marker *>;
 
 #define kWKMarkerManager "WKMarkerManager"
 
@@ -163,8 +180,10 @@ public:
     virtual ~MarkerManager();
     
     /// Add an array of markers, returning the identity that corresponds
-    SimpleIdentity addMarkers(const std::vector<Marker *> &markers,const MarkerInfo &markerInfo,ChangeSet &changes);
-    
+    // If the markers are selectable, the select ID will be added to each.
+    SimpleIdentity addMarkers(const std::vector<Marker> & ,const MarkerInfo &, ChangeSet &);
+    SimpleIdentity addMarkers(const std::vector<Marker *> &, const MarkerInfo &, ChangeSet &);
+
     /// Remove the given set of markers
     void removeMarkers(SimpleIDSet &markerIDs,ChangeSet &changes);
     
@@ -175,6 +194,9 @@ public:
     virtual void setScene(Scene *inScene);
     
 protected:
+    /// Convenience routine to convert the points to model space
+    Point3dVector convertGeoPtsToModelSpace(const VectorRing &inPts);
+
     /// Resources associated with given markers
     MarkerSceneRepSet markerReps;
     /// We route the mask polygons to this program, if there are any

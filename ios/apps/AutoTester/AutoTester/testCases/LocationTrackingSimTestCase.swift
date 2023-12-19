@@ -3,10 +3,11 @@
 //  AutoTester
 //
 //  Created by Ranen Ghosh on 2016-11-23.
-//  Copyright © 2016-2017 mousebird consulting.
+//  Copyright 2016-2022 mousebird consulting.
 //
 
 import UIKit
+import WhirlyGlobe
 
 class LocationTrackingSimTestCase: MaplyTestCase, MaplyLocationTrackerDelegate, MaplyLocationSimulatorDelegate {
 
@@ -20,7 +21,7 @@ class LocationTrackingSimTestCase: MaplyTestCase, MaplyLocationTrackerDelegate, 
     override init() {
         super.init()
         
-        self.name = "Location Tracking Simulated Test Case"
+        self.name = "Location Tracking Simulated"
         self.implementations = [.globe, .map]
     }
     
@@ -60,7 +61,13 @@ class LocationTrackingSimTestCase: MaplyTestCase, MaplyLocationTrackerDelegate, 
         mapVC.animate(toPosition:MaplyCoordinateMakeWithDegrees(16.382910,48.211350), height: 0.0025, time: 0.5)
         mapVC.setZoomLimitsMin(0.0001, max: 4.0)
     }
-    
+
+    override func stop() {
+        baseViewController?.stopLocationTracking()
+        baseLayer?.stop()
+        super.stop()
+    }
+
     @objc func onSegChange() {
         if (segCtrl?.selectedSegmentIndex == 0) {
             baseViewController?.changeLocationTrackingLockType(MaplyLocationLockNone)

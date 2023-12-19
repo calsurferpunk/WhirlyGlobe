@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 7/6/15.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2023 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -134,34 +134,16 @@ Vector4f ColorExpressionInfo::evaluateF(float zoom, RGBAColor def)
     return evalExpr<RGBAColor,Vector4f>(zoom,base,def,stopInputs,stopOutputs,toVec,lerpVec);
 }
 
-BaseInfo::BaseInfo()
-    : minVis(DrawVisibleInvalid), maxVis(DrawVisibleInvalid),
-    minVisBand(DrawVisibleInvalid), maxVisBand(DrawVisibleInvalid),
-    minViewerDist(DrawVisibleInvalid), maxViewerDist(DrawVisibleInvalid),
-    zoomSlot(-1),minZoomVis(DrawVisibleInvalid),maxZoomVis(DrawVisibleInvalid),
-    viewerCenter(DrawVisibleInvalid,DrawVisibleInvalid,DrawVisibleInvalid),
-    drawOffset(0.0),
-    drawPriority(0),
-    enable(true),
-    fade(0.0), fadeIn(0.0), fadeOut(0.0), fadeOutTime(0.0),
-    startEnable(0.0), endEnable(0.0),
-    programID(EmptyIdentity),
-    extraFrames(0),
-    zBufferRead(false), zBufferWrite(false),
-    renderTargetID(EmptyIdentity),
-    hasExp(false)
-{
-}
-
-BaseInfo::BaseInfo(const BaseInfo &that)
-: minVis(that.minVis), maxVis(that.minVis), minVisBand(that.minVisBand), maxVisBand(that.maxVisBand),
-  minViewerDist(that.minViewerDist), maxViewerDist(that.maxViewerDist), zoomSlot(that.zoomSlot),
-  minZoomVis(that.minZoomVis),maxZoomVis(that.maxZoomVis), viewerCenter(that.viewerCenter),
-  drawOffset(that.drawOffset), drawPriority(that.drawPriority), drawOrder(that.drawOrder),
-  enable(that.enable), fade(that.fade), fadeIn(that.fadeIn), fadeOut(that.fadeOut),
-  fadeOutTime(that.fadeOutTime), startEnable(that.startEnable), endEnable(that.endEnable),
-  programID(that.programID), extraFrames(that.extraFrames), zBufferRead(that.zBufferRead),
-  zBufferWrite(that.zBufferWrite), renderTargetID(that.renderTargetID), hasExp(that.hasExp)
+BaseInfo::BaseInfo(const BaseInfo &that) :
+    minVis(that.minVis), maxVis(that.minVis), minVisBand(that.minVisBand), maxVisBand(that.maxVisBand),
+    minViewerDist(that.minViewerDist), maxViewerDist(that.maxViewerDist),
+    minZoomVis(that.minZoomVis),maxZoomVis(that.maxZoomVis), viewerCenter(that.viewerCenter),
+    drawOffset(that.drawOffset), drawOrder(that.drawOrder),
+    fadeIn(that.fadeIn), fadeOut(that.fadeOut),
+    fadeOutTime(that.fadeOutTime), startEnable(that.startEnable), endEnable(that.endEnable),
+    programID(that.programID), zoomSlot(that.zoomSlot), drawPriority(that.drawPriority),
+    extraFrames(that.extraFrames), enable(that.enable), zBufferRead(that.zBufferRead),
+    zBufferWrite(that.zBufferWrite), hasExp(that.hasExp), renderTargetID(that.renderTargetID)
 {
 }
     
@@ -179,11 +161,9 @@ BaseInfo::BaseInfo(const Dictionary &dict)
     viewerCenter.x() = dict.getDouble(MaplyViewableCenterX,DrawVisibleInvalid);
     viewerCenter.y() = dict.getDouble(MaplyViewableCenterY,DrawVisibleInvalid);
     viewerCenter.z() = dict.getDouble(MaplyViewableCenterZ,DrawVisibleInvalid);
-    fade = dict.getDouble(MaplyFade,0.0);
-    fadeIn = fade;
-    fadeOut = fade;
-    fadeIn = dict.getDouble(MaplyFadeIn,fadeIn);
-    fadeOut = dict.getDouble(MaplyFadeOut,fadeOut);
+    const auto fade = dict.getDouble(MaplyFade,0.0);
+    fadeIn = dict.getDouble(MaplyFadeIn,fade);
+    fadeOut = dict.getDouble(MaplyFadeOut,fade);
     fadeOutTime = dict.getDouble(MaplyFadeOutTime,0.0);
     drawPriority = dict.getInt("priority",0);
     drawPriority = dict.getInt(MaplyDrawPriority,drawPriority);
@@ -192,13 +172,12 @@ BaseInfo::BaseInfo(const Dictionary &dict)
     enable = dict.getBool(MaplyEnable,true);
     startEnable = dict.getDouble(MaplyEnableStart,0.0);
     endEnable = dict.getDouble(MaplyEnableEnd,0.0);
-    SimpleIdentity shaderID = dict.getInt(MaplyShaderString,EmptyIdentity);
-    programID = dict.getInt("program",shaderID);
+    programID = dict.getInt("program",dict.getInt(MaplyShaderString,EmptyIdentity));
     extraFrames = dict.getInt("extraFrames",0);
     zBufferRead = dict.getBool(MaplyZBufferRead,false);
     zBufferWrite = dict.getBool(MaplyZBufferWrite, false);
     renderTargetID = dict.getInt(MaplyRenderTargetDesc,EmptyIdentity);
-    hasExp = false;
+    drawableName = dict.getString(MaplyDrawableName);
 
     // Note: Porting
     // Uniforms to be passed to shader
@@ -212,7 +191,7 @@ BaseInfo::BaseInfo(const Dictionary &dict)
             if ([val isKindOfClass:[NSNumber class]])
             {
                 SingleVertexAttribute valAttr;
-                valAttr.name = [key cStringUsingEncoding:NSASCIIStringEncoding];
+                valAttr.name = [key cStringUsingEncoding:NSASCIIStringEncoding withDefault:""];
                 
                 NSNumber *num = val;
                 valAttr.type = BDFloatType;
@@ -222,7 +201,7 @@ BaseInfo::BaseInfo(const Dictionary &dict)
             } else if ([val isKindOfClass:[UIColor class]])
             {
                 SingleVertexAttribute valAttr;
-                valAttr.name = [key cStringUsingEncoding:NSASCIIStringEncoding];
+                valAttr.name = [key cStringUsingEncoding:NSASCIIStringEncoding withDefault:""];
                 
                 UIColor *col = val;
                 valAttr.type = BDChar4Type;
@@ -238,41 +217,29 @@ BaseInfo::BaseInfo(const Dictionary &dict)
     }
 #endif
 }
-    
-// Really Android?  Really?
-template <typename T>
-std::string to_string(T value)
-{
-    std::ostringstream os;
-    os << value;
-    return os.str();
-}
 
-std::string BaseInfo::toString()
+std::string BaseInfo::toString() const
 {
-    std::string outStr =
-    (std::string)"minVis = " + to_string(minVis) + ";" +
-    " maxVis = " + to_string(maxVis) + ";" +
-    " minVisBand = " + to_string(minVisBand) + ";" +
-    " maxVisBand = " + to_string(maxVisBand) + ";" +
-    " minViewerDist = " + to_string(minViewerDist) + ";" +
-    " maxViewerDist = " + to_string(maxViewerDist) + ";" +
-    " zoomSlot = " + to_string(zoomSlot) + ";" +
-    " minZoomVis = " + to_string(minZoomVis) + ";" +
-    " maxZoomVis = " + to_string(maxZoomVis) + ";" +
-    " viewerCenter = (" + to_string(viewerCenter.x()) + "," + to_string(viewerCenter.y()) + "," + to_string(viewerCenter.z()) + ");" +
-    " drawOffset = " + to_string(drawOffset) + ";" +
-    " drawPriority = " + to_string(drawPriority) + ";" +
-    " enable = " + (enable ? "yes" : "no") + ";" +
-    " fade = " + to_string(fade) + ";" +
-    " fadeIn = " + to_string(fadeIn) + ";" +
-    " fadeOut = " + to_string(fadeOut) + ";" +
-    " fadeOutTime = " + to_string(fadeOutTime) + ";" +
-    " startEnable = " + to_string(startEnable) + ";" +
-    " endEnable = " + to_string(endEnable) + ";" +
-    " programID = " + to_string(programID) + ";";
-    
-    return outStr;
+    using std::to_string;
+    return "minVis = " + to_string(minVis) + ";" +
+           " maxVis = " + to_string(maxVis) + ";" +
+           " minVisBand = " + to_string(minVisBand) + ";" +
+           " maxVisBand = " + to_string(maxVisBand) + ";" +
+           " minViewerDist = " + to_string(minViewerDist) + ";" +
+           " maxViewerDist = " + to_string(maxViewerDist) + ";" +
+           " zoomSlot = " + to_string(zoomSlot) + ";" +
+           " minZoomVis = " + to_string(minZoomVis) + ";" +
+           " maxZoomVis = " + to_string(maxZoomVis) + ";" +
+           " viewerCenter = (" + to_string(viewerCenter.x()) + "," + to_string(viewerCenter.y()) + "," + to_string(viewerCenter.z()) + ");" +
+           " drawOffset = " + to_string(drawOffset) + ";" +
+           " drawPriority = " + to_string(drawPriority) + ";" +
+           " enable = " + (enable ? "yes" : "no") + ";" +
+           " fadeIn = " + to_string(fadeIn) + ";" +
+           " fadeOut = " + to_string(fadeOut) + ";" +
+           " fadeOutTime = " + to_string(fadeOutTime) + ";" +
+           " startEnable = " + to_string(startEnable) + ";" +
+           " endEnable = " + to_string(endEnable) + ";" +
+           " programID = " + to_string(programID) + ";";
 }
     
 void BaseInfo::setupBasicDrawable(const BasicDrawableBuilderRef &drawBuild) const

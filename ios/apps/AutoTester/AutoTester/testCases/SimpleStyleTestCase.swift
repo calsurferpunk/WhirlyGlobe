@@ -3,10 +3,11 @@
 //  AutoTester
 //
 //  Created by Steve Gifford on 3/31/20.
-//  Copyright © 2021 mousebird consulting. All rights reserved.
+//  Copyright 2021-2022 mousebird consulting. All rights reserved.
 //
 
 import UIKit
+import WhirlyGlobe
 
 class SimpleStyleTestCase: MaplyTestCase {
 
@@ -181,7 +182,8 @@ class SimpleStyleTestCase: MaplyTestCase {
     {
         let styleMan = MaplySimpleStyleManager(viewC: vc)
         if let data = geoJSON.data(using: .utf8),
-            let vecObj = MaplyVectorObject(fromGeoJSON: data) {
+            let vecObj = MaplyVectorObject(geoJSON: data) {
+            vecObj.selectable = true
             styleMan.addFeatures([vecObj], mode: .current)
         }
     }
@@ -199,4 +201,8 @@ class SimpleStyleTestCase: MaplyTestCase {
         mapVC.animate(toPosition: MaplyCoordinateMakeWithDegrees(151.211111, -33.859972), time: 1.0)
     }
 
+    override func maplyViewController(_ viewC: MaplyViewController, didSelect selectedObj: NSObject) {
+    }
+    override func globeViewController(_ viewC: WhirlyGlobeViewController, didSelect selectedObj: NSObject) {
+    }
 }

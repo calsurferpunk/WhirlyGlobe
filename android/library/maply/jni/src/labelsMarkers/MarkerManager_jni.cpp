@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 6/2/14.
- *  Copyright 2011-2016 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -123,7 +123,8 @@ JNIEXPORT jlong JNICALL Java_com_mousebird_maply_MarkerManager_addMarkers
 }
 
 JNIEXPORT jlong JNICALL Java_com_mousebird_maply_MarkerManager_addScreenMarkers
-(JNIEnv *env, jobject obj, jobjectArray markerArray, jobject markerInfoObj, jobject changeSetObj)
+	(JNIEnv *env, jobject obj, jobjectArray markerArray,
+	 jobject markerInfoObj, jobject changeSetObj)
 {
     try
     {
@@ -153,7 +154,7 @@ JNIEXPORT jlong JNICALL Java_com_mousebird_maply_MarkerManager_addScreenMarkers
         // Resolve the program ID
         if ((*markerInfo)->programID == EmptyIdentity)
         {
-            Program *prog = NULL;
+            Program *prog = nullptr;
             if (isMoving)
                 prog = (*markerManager)->getScene()->findProgramByName(MaplyScreenSpaceDefaultMotionShader);
             else

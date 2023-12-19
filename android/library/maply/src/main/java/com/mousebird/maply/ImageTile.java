@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 6/2/14.
- *  Copyright 2011-2014 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ public class ImageTile
 	public native void setBorderSize(int borderSize);
 
 	/**
-	 * Turn the data into a raw texture.  This can be down later, but if you're on
+	 * Turn the data into a raw texture.  This can be done later, but if you're on
 	 * your own thread, you may just want to do it here.
 	 */
 	public native void preprocessTexture();

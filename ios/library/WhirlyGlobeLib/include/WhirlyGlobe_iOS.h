@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 3/7/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
  *
  */
 
-#import "WhirlyGlobe.h"
+#import "WhirlyGlobeLib.h"
 
 #import "Dictionary_NSDictionary.h"
 #import "RawData_NSData.h"
@@ -27,16 +27,11 @@
 #import "NSString+Stuff.h"
 #import "MapView_iOS.h"
 #import "GlobeView_iOS.h"
-#import "VectorData_iOS.h"
-#import "FontTextureManager_iOS.h"
-#import "ScreenObject_iOS.h"
-#import "SingleLabel_iOS.h"
 #import "ComponentManager_iOS.h"
 #import "QuadImageFrameLoader_iOS.h"
 #import "ImageTile_iOS.h"
 #import "UpdateDisplayLayer.h"
 #import "DataLayer.h"
-#import "LayoutLayer.h"
 #import "QuadDisplayLayerNew.h"
 #import "LayerViewWatcher.h"
 #import "LayerThread.h"
@@ -49,12 +44,18 @@
 #import "BasicDrawableBuilderMTL.h"
 #import "BasicDrawableInstanceMTL.h"
 #import "BasicDrawableInstanceBuilderMTL.h"
-#import "BillboardDrawableBuilderMTL.h"
-#import "ParticleSystemDrawableMTL.h"
-#import "ParticleSystemDrawableBuilderMTL.h"
-#import "ScreenSpaceDrawableBuilderMTL.h"
-#import "WideVectorDrawableBuilderMTL.h"
 #import "ProgramMTL.h"
 #import "RenderTargetMTL.h"
 #import "SceneMTL.h"
 #import "SceneRendererMTL.h"
+
+#if !MAPLY_MINIMAL
+# import "VectorData_iOS.h"
+# import "FontTextureManager_iOS.h"
+# import "ScreenObject_iOS.h"
+# import "SingleLabel_iOS.h"
+# import "LayoutLayer.h"
+# import "BillboardDrawableBuilderMTL.h"
+# import "ScreenSpaceDrawableBuilderMTL.h"
+# import "WideVectorDrawableBuilderMTL.h"
+#endif //!MAPLY_MINIMAL

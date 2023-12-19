@@ -3,7 +3,7 @@
  *  WhirlyGlobeMaplyComponent
  *
  *  Created by Stephen Gifford on 1/19/18.
- *  Copyright 2012-2021 Saildrone Inc.
+ *  Copyright 2012-2022 Saildrone Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,20 +18,27 @@
  *
  */
 
-#import "math/MaplyCoordinate.h"
-#import "visual_objects/MaplyScreenMarker.h"
-#import "visual_objects/MaplyVectorObject.h"
-#import "visual_objects/MaplyComponentObject.h"
-#import "MaplySharedAttributes.h"
-#import "rendering/MaplyLight.h"
-#import "rendering/MaplyShader.h"
-#import "visual_objects/MaplyTexture.h"
-#import "visual_objects/MaplyParticleSystem.h"
-#import "visual_objects/MaplyPoints.h"
-#import "visual_objects/MaplyCluster.h"
-#import "rendering/MaplyRenderTarget.h"
-#import "control/MaplyActiveObject.h"
-#import "control/MaplyControllerLayer.h"
+#import <WhirlyGlobe/MaplyCoordinate.h>
+#import <WhirlyGlobe/MaplyScreenMarker.h>
+#import <WhirlyGlobe/MaplyVectorObject.h>
+#import <WhirlyGlobe/MaplyComponentObject.h>
+#import <WhirlyGlobe/MaplySharedAttributes.h>
+#import <WhirlyGlobe/MaplyLight.h>
+#import <WhirlyGlobe/MaplyShader.h>
+#import <WhirlyGlobe/MaplyTexture.h>
+#import <WhirlyGlobe/MaplyParticleSystem.h>
+#import <WhirlyGlobe/MaplyPoints.h>
+#import <WhirlyGlobe/MaplyCluster.h>
+#import <WhirlyGlobe/MaplyRenderTarget.h>
+#import <WhirlyGlobe/MaplyActiveObject.h>
+#import <WhirlyGlobe/MaplyControllerLayer.h>
+
+#if defined(__cplusplus)
+namespace WhirlyKit
+{
+    struct ShapeInfo;
+}
+#endif //defined(__cplusplus)
 
 @class MaplyRemoteTileFetcher;
 
@@ -55,8 +62,18 @@ typedef NS_ENUM(NSInteger, MaplyQuadImageFormat) {
     MaplyImageEACR11,MaplyImageEACR11S,MaplyImageEACRG11,MaplyImageEACRG11S,
     MaplyImage4Layer8Bit,
     // Metal only
-    MaplyImageSingleFloat16,MaplyImageSingleFloat32,MaplyImageDoubleFloat16,MaplyImageDoubleFloat32,MaplyImageQuadFloat16,MaplyImageQuadFloat32,
-    MaplyImageInt16,MaplyImageUInt32,MaplyImageDoubleUInt32,MaplyImageQuadUInt32
+    MaplyImageSingleFloat16,
+    MaplyImageSingleFloat32,
+    MaplyImageDoubleFloat16,
+    MaplyImageDoubleFloat32,
+    MaplyImageQuadFloat16,
+    MaplyImageQuadFloat32,
+    MaplyImageInt16,
+    MaplyImageUInt16,
+    MaplyImageDoubleUInt16,
+    MaplyImageUInt32,
+    MaplyImageDoubleUInt32,
+    MaplyImageQuadUInt32
 };
 
 /// Wrap values for certain types of textures
@@ -73,6 +90,19 @@ typedef NS_ENUM(NSInteger, MaplyRenderType) {
     MaplyRenderUnknown
 };
 
+@protocol MaplyRenderControllerProtocol;
+
+@protocol MaplyErrorReportingDelegate
+@optional
+- (void)onError:(NSError * __nonnull)err
+        withTag:(NSString * __nonnull)tag
+          viewC:(NSObject<MaplyRenderControllerProtocol> * __nonnull)viewC;
+- (void)onException:(NSException * __nonnull)err
+            withTag:(NSString * __nonnull)tag
+              viewC:(NSObject<MaplyRenderControllerProtocol> * __nonnull)viewC;
+@end
+
+
 /**
     Render Controller Protocol defines the methods required of a render controller.
  
@@ -88,6 +118,9 @@ typedef NS_ENUM(NSInteger, MaplyRenderType) {
  If you set this to 0, you can control the ordering of everything more precisely.
  */
 @property (nonatomic,assign) int screenObjectDrawPriorityOffset;
+
+/// Set a delegate for error reporting
+@property (nonatomic, weak) NSObject<MaplyErrorReportingDelegate> * __nullable errorReportingDelegate;
 
 /**
  Clear all the currently active lights.
@@ -392,7 +425,7 @@ typedef NS_ENUM(NSInteger, MaplyRenderType) {
  |:--|:---|:----------|
  |kMaplyColor|UIColor|Color we'll use for the features.|
  |kMaplyVecWidth|NSNumber|If the geometry is not filled, this is the width of the lines.|
- |kMaplyWideVecCoordType|NSNumber|Vectors can be widened in real coordinates (kMaplyWideVecCoordTypeReal) or screen coordinates (kMaplyWideVecCoordTypeScreen).  In the latter case they stay the same size now matter how you zoom.|
+ |kMaplyWideVecCoordType|NSNumber|Vectors can be widened in real coordinates (kMaplyWideVecCoordTypeReal) or screen coordinates (kMaplyWideVecCoordTypeScreen).  In the latter case they stay the same size now matter how you zoom.
  |kMaplyWideVecJoinType|NSNumber|When lines meet in a join there are several options for representing them.  These include kMaplyWideVecMiterJoin, which is a simple miter join and kMaplyWideVecBevelJoin which is a more complicated bevel.  See http://www.w3.org/TR/SVG/painting.html#StrokeLinejoinProperty for how these look.|
  |kMaplyWideVecMiterLimit|NSNumber|When using miter joins you can trigger them at a certain threshold.|
  |kMaplyWideVecTexRepeatLen|NSNumber|This is the repeat size for a texture applied along the widened line.  For kMaplyWideVecCoordTypeScreen this is pixels.|
@@ -496,6 +529,10 @@ typedef NS_ENUM(NSInteger, MaplyRenderType) {
  @return Returns a MaplyComponentObject, which can be used to make modifications or delete the objects created.
  */
 - (MaplyComponentObject *__nullable)addShapes:(NSArray *__nonnull)shapes desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode;
+
+#if defined(__cplusplus)
+- (MaplyComponentObject *__nullable)addShapes:(NSArray *__nonnull)shapes info:(WhirlyKit::ShapeInfo &)shapeInfo desc:(NSDictionary *__nullable)desc mode:(MaplyThreadMode)threadMode;
+#endif
 
 /**
  Add one or more MaplySticker objects to the current scene.
@@ -870,6 +907,15 @@ typedef NS_ENUM(NSInteger, MaplyRenderType) {
                   ofUUIDs:(NSArray<NSString *> *__nonnull)uuids
                      mode:(MaplyThreadMode)threadMode;
 
+/// Set up a zoom slot that doesn't depend on a loader
+- (int)retainZoomSlotMinZoom:(double)minZoom
+                   maxHeight:(double)maxHeight
+                     maxZoom:(double)maxZoom
+                   minHeight:(double)minHeight;
+
+/// Release a zoom slot previously retained
+- (void)releaseZoomSlotIndex:(int)index;
+
 /**
  Pass a uniform block through to a shader.  Only for Metal.
  
@@ -911,7 +957,7 @@ typedef NS_ENUM(NSInteger, MaplyRenderType) {
  
  @return Returns the registered shader if it found one.
  */
-- (MaplyShader *__nullable)getShaderByName:(NSString *__nonnull)name;
+- (MaplyShader *__nullable)getShaderByName:(const NSString *__nonnull)name;
 
 /**
  Remove a shader that was added earlier.
@@ -952,7 +998,7 @@ typedef NS_ENUM(NSInteger, MaplyRenderType) {
 /**
     Add a MaplyControllerLayer to the globe or map.
     
-    At present, layers are for paged geometry such as image tiles or vector tiles.  You can create someting like a MaplyQuadImageTilesLayer, set it up and then hand it to addLayer: to add to the scene.
+    At present, layers are for paged geometry such as image tiles or vector tiles.  You can create something like a MaplyQuadImageTilesLayer, set it up and then hand it to addLayer: to add to the scene.
   */
 - (bool)addLayer:(MaplyControllerLayer *__nonnull)layer;
 
@@ -967,6 +1013,13 @@ typedef NS_ENUM(NSInteger, MaplyRenderType) {
 
 /// Return a tile fetcher we may share between loaders
 - (MaplyRemoteTileFetcher * __nullable)addTileFetcher:(NSString * __nonnull)name;
+
+/// Return a tile fetcher we may share between loaders
+- (MaplyRemoteTileFetcher * __nullable)addTileFetcher:(NSString * __nonnull)name
+                                   withMaxConnections:(int)maxConnections;
+
+/// Get an existing tile fetcher by name, but don't create a new one
+- (MaplyRemoteTileFetcher * __nullable)getTileFetcher:(NSString * __nonnull)name;
 
 /**
     If in Metal rendering mode, return the Metal device being used.
@@ -983,6 +1036,10 @@ typedef NS_ENUM(NSInteger, MaplyRenderType) {
  */
 - (void)teardown;
 
+@optional
+- (void)report:(NSString * __nonnull)tag error:(NSError * __nonnull)error;
+- (void)report:(NSString * __nonnull)tag exception:(NSException * __nonnull)error;
+
 @end
 
 /**
@@ -992,11 +1049,23 @@ typedef NS_ENUM(NSInteger, MaplyRenderType) {
  */
 @interface MaplyRenderController : NSObject<MaplyRenderControllerProtocol>
 
+/// The time on which offsets are based
+@property (nonatomic, readonly) double baseTime;
+
+/// The default max number of connections per fetcher
+@property (nonatomic) int tileFetcherConnections;
+
 /// Initialize as an offline renderer of a given target size of the given rendering type
 - (instancetype __nullable)initWithSize:(CGSize)size mode:(MaplyRenderType)renderType;
 
 /// Initialize as an offline renderer of a given target size with default renderer (Metal)
 - (instancetype __nullable)initWithSize:(CGSize)size;
+
+/// Initialize as an offline renderer with a map view
+- (instancetype __nullable)initWithSize:(CGSize)size mode:(MaplyRenderType)renderType mapView:(int)mapView;
+
+/// Set center and height.  No bounds checking.
+- (void)setPosition:(MaplyCoordinate)newPos height:(float)height;
 
 /// If set up in offline mode, this is how we draw
 - (UIImage * __nullable)renderToImage;

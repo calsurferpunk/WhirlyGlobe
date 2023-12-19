@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 3/28/11.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -31,9 +31,8 @@ namespace WhirlyKit
     pretend we're dealing with individual textures.  You can use their IDs
     in place of texture IDs for most of the layers.
   */
-class SubTexture : public Identifiable
+struct SubTexture : public Identifiable
 {
-public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
     
     SubTexture() : texId(EmptyIdentity) { trans.setIdentity(); }

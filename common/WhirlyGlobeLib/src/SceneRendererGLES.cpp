@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 5/13/19.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@
 #import "DynamicTextureAtlasGLES.h"
 #import "MaplyView.h"
 #import "WhirlyKitLog.h"
+#import "Expect.h"
 
 using namespace Eigen;
 using namespace WhirlyKit;
@@ -56,12 +57,7 @@ RenderTargetContainerRef WorkGroupGLES::makeRenderTargetContainer(RenderTargetRe
 {
     return std::make_shared<RenderTargetContainerGLES>(renderTarget);
 }
-    
-RendererFrameInfoGLES::RendererFrameInfoGLES()
-    : glesVersion(0)
-{
-}
-    
+
 SceneRendererGLES::SceneRendererGLES() :
     extraFrameCount(0)
 {
@@ -115,7 +111,7 @@ bool SceneRendererGLES::setup(int apiVersion,int sizeX,int sizeY,float inScale)
     // We need a texture to draw to in this case
     if (framebufferWidth > 0)
     {
-        TextureGLESRef framebufferTexGL = TextureGLESRef(new TextureGLES("Framebuffer Texture"));
+        auto framebufferTexGL = std::make_shared<TextureGLES>("Framebuffer Texture");
         framebufferTexGL->setWidth(framebufferWidth);
         framebufferTexGL->setHeight(framebufferHeight);
         framebufferTexGL->setIsEmptyTexture(true);
@@ -155,7 +151,7 @@ void SceneRendererGLES::setScene(Scene *newScene)
 {
     SceneRenderer::setScene(newScene);
     auto *sceneGL = (SceneGLES *)newScene;
-    setupInfo.memManager = sceneGL->getMemManager();
+    setupInfo.memManager = sceneGL ? sceneGL->getMemManager() : nullptr;
 }
     
 bool SceneRendererGLES::resize(int sizeX,int sizeY)
@@ -208,7 +204,7 @@ class DrawListSortStruct2
 {
 public:
     DrawListSortStruct2() = delete;
-    DrawListSortStruct2(bool useZBuffer,RendererFrameInfo *frameInfo) : useZBuffer(useZBuffer), frameInfo(frameInfo)
+    DrawListSortStruct2(bool useZBuffer,const RendererFrameInfo *frameInfo) : useZBuffer(useZBuffer), frameInfo(frameInfo)
     {
     }
     DrawListSortStruct2(const DrawListSortStruct2 &that) = default;
@@ -216,7 +212,7 @@ public:
     {
         if (this != &that)
         {
-            useZBuffer= that.useZBuffer;
+            useZBuffer = that.useZBuffer;
             frameInfo = that.frameInfo;
         }
         return *this;
@@ -235,13 +231,21 @@ public:
                 if (bufferA != bufferB)
                     return !bufferA;
             }
+            // Ensure a stable order among items with identical priority and z-buffering
+            const auto idA = a->getId();
+            const auto idB = b->getId();
+            if (idA == idB) {
+                // Different offsets of the same item
+                return (&conA < &conB);
+            }
+            return (idA < idB);
         }
         
         return a->getDrawPriority() < b->getDrawPriority();
     }
     
     bool useZBuffer;
-    RendererFrameInfo *frameInfo;
+    const RendererFrameInfo *frameInfo;
 };
 
 void SceneRendererGLES::setExtraFrameMode(bool newMode)
@@ -256,7 +260,7 @@ bool SceneRendererGLES::hasChanges()
     return SceneRenderer::hasChanges();
 }
 
-void SceneRendererGLES::render(TimeInterval duration)
+void SceneRendererGLES::render(TimeInterval duration, RenderInfo *)
 {
     if (!scene)
         return;
@@ -265,49 +269,52 @@ void SceneRendererGLES::render(TimeInterval duration)
         
     theView->animate();
     
-    TimeInterval now = scene->getCurrentTime();
+    const TimeInterval now = scene->getCurrentTime();
 
     lastDraw = now;
-    
-    if (perfInterval > 0)
+
+    // Don't start reporting mid-frame.
+    const bool reportStats = (perfInterval > 0);
+
+    if (UNLIKELY(reportStats))
         perfTimer.startTiming("Render Frame");
     
-    if (perfInterval > 0)
+    if (UNLIKELY(reportStats))
         perfTimer.startTiming("Render Setup");
     
-    //    if (!renderSetup)
+    //if (!renderSetup)
     {
         // Turn on blending
         glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
         glEnable(GL_BLEND);
     }
-    
+
     // See if we're dealing with a globe or map view
     float overlapMarginX = 0.0;
-    if (auto mapView = dynamic_cast<Maply::MapView *>(theView))
+    if (__unused const auto mapView = dynamic_cast<Maply::MapView *>(theView))
     {
         overlapMarginX = (float)scene->getOverlapMargin();
     }
     
     // Get the model and view matrices
-    Eigen::Matrix4d modelTrans4d = theView->calcModelMatrix();
-    Eigen::Matrix4f modelTrans = Matrix4dToMatrix4f(modelTrans4d);
-    Eigen::Matrix4d viewTrans4d = theView->calcViewMatrix();
-    Eigen::Matrix4f viewTrans = Matrix4dToMatrix4f(viewTrans4d);
-    
+    const Eigen::Matrix4d modelTrans4d = theView->calcModelMatrix();
+    const Eigen::Matrix4f modelTrans = Matrix4dToMatrix4f(modelTrans4d);
+    const Eigen::Matrix4d viewTrans4d = theView->calcViewMatrix();
+    const Eigen::Matrix4f viewTrans = Matrix4dToMatrix4f(viewTrans4d);
+
     // Set up a projection matrix
-    Point2f frameSize(framebufferWidth,framebufferHeight);
-    Eigen::Matrix4d projMat4d = theView->calcProjectionMatrix(frameSize,0.0);
-    
-    Eigen::Matrix4f projMat = Matrix4dToMatrix4f(projMat4d);
+    const Point2f frameSize(framebufferWidth,framebufferHeight);
+    const Eigen::Matrix4d projMat4d = theView->calcProjectionMatrix(frameSize,0.0);
+
+    const Eigen::Matrix4f projMat = Matrix4dToMatrix4f(projMat4d);
     Eigen::Matrix4f modelAndViewMat = viewTrans * modelTrans;
     Eigen::Matrix4d modelAndViewMat4d = viewTrans4d * modelTrans4d;
     Eigen::Matrix4d pvMat = projMat4d * viewTrans4d;
-    Eigen::Matrix4f mvpMat = projMat * (modelAndViewMat);
+    const Eigen::Matrix4f mvpMat = projMat * (modelAndViewMat);
     Eigen::Matrix4f mvpNormalMat4f = mvpMat.inverse().transpose();
     Eigen::Matrix4d modelAndViewNormalMat4d = modelAndViewMat4d.inverse().transpose();
     Eigen::Matrix4f modelAndViewNormalMat = Matrix4dToMatrix4f(modelAndViewNormalMat4d);
-    
+
     switch (zBufferMode)
     {
         case zBufferOn:
@@ -326,20 +333,21 @@ void SceneRendererGLES::render(TimeInterval duration)
             break;
     }
     
-    //    if (!renderSetup)
+    //if (!renderSetup)
     {
         glEnable(GL_CULL_FACE);
         CheckGLError("SceneRendererES2: glEnable(GL_CULL_FACE)");
     }
     
-    if (perfInterval > 0)
+    if (UNLIKELY(reportStats))
         perfTimer.stopTiming("Render Setup");
     
-    if (scene)
+    if (LIKELY(scene))
     {
         int numDrawables = 0;
-        
-        RendererFrameInfoGLES baseFrameInfo;
+
+        const auto frameInfoRef = std::make_shared<RendererFrameInfoGLES>();
+        auto &baseFrameInfo = *frameInfoRef;
         baseFrameInfo.glesVersion = setupInfo.glesVersion;
         baseFrameInfo.sceneRenderer = this;
         baseFrameInfo.theView = theView;
@@ -348,7 +356,7 @@ void SceneRendererGLES::render(TimeInterval duration)
         baseFrameInfo.modelTrans = modelTrans;
         baseFrameInfo.modelTrans4d = modelTrans4d;
         baseFrameInfo.scene = scene;
-        baseFrameInfo.frameLen = duration;
+        baseFrameInfo.frameLen = (float)duration;
         baseFrameInfo.currentTime = scene->getCurrentTime();
         baseFrameInfo.projMat = projMat;
         baseFrameInfo.projMat4d = projMat4d;
@@ -362,10 +370,12 @@ void SceneRendererGLES::render(TimeInterval duration)
         baseFrameInfo.pvMat = Matrix4dToMatrix4f(pvMat);
         baseFrameInfo.pvMat4d = pvMat;
         theView->getOffsetMatrices(baseFrameInfo.offsetMatrices, frameSize, overlapMarginX);
-        Point2d screenSize = theView->screenSizeInDisplayCoords(frameSize);
+        const Point2d screenSize = theView->screenSizeInDisplayCoords(frameSize);
         baseFrameInfo.screenSizeInDisplayCoords = screenSize;
         baseFrameInfo.lights = &lights;
-        
+
+        lastFrameInfo = frameInfoRef;
+
         // We need a reverse of the eye vector in model space
         // We'll use this to determine what's pointed away
         Eigen::Matrix4f modelTransInv = modelTrans.inverse();
@@ -381,64 +391,64 @@ void SceneRendererGLES::render(TimeInterval duration)
         baseFrameInfo.heightAboveSurface = (float)theView->heightAboveSurface();
         baseFrameInfo.eyePos = Vector3d(eyeVec4d.x(),eyeVec4d.y(),eyeVec4d.z()) * (1.0+baseFrameInfo.heightAboveSurface);
         
-        if (perfInterval > 0)
+        if (UNLIKELY(reportStats))
             perfTimer.startTiming("Scene preprocessing");
         
         // Run the preprocess for the changes.  These modify things the active models need.
-        int numPreProcessChanges = scene->preProcessChanges(theView, this, now);
+        // Since the results won't actually be drawn instantly, consider changes up to half a frame ahead.
+        const int numPreProcessChanges = scene->preProcessChanges(theView, this, now + duration / 2);
         
-        if (perfInterval > 0)
+        if (UNLIKELY(reportStats))
             perfTimer.addCount("Preprocess Changes", numPreProcessChanges);
         
-        if (perfInterval > 0)
+        if (UNLIKELY(reportStats))
             perfTimer.stopTiming("Scene preprocessing");
         
-        if (perfInterval > 0)
+        if (UNLIKELY(reportStats))
             perfTimer.startTiming("Active Model Runs");
         
         // Let the active models to their thing
         // That thing had better not take too long
-        auto activeModels = scene->getActiveModels();
+        const auto &activeModels = scene->getActiveModels();
         for (const auto &activeModel : activeModels) {
             activeModel->updateForFrame(&baseFrameInfo);
             // Note: We were setting the GL context here.  Do we need to?
         }
-        if (perfInterval > 0)
+        if (UNLIKELY(reportStats))
             perfTimer.addCount("Active Models", (int)activeModels.size());
         
-        if (perfInterval > 0)
+        if (UNLIKELY(reportStats))
             perfTimer.stopTiming("Active Model Runs");
         
-        if (perfInterval > 0)
+        if (UNLIKELY(reportStats))
             perfTimer.addCount("Scene changes", scene->getNumChangeRequests());
         
-        if (perfInterval > 0)
+        if (UNLIKELY(reportStats))
             perfTimer.startTiming("Scene processing");
         
         // Merge any outstanding changes into the scenegraph
-        scene->processChanges(theView,this,now);
-        
-        if (perfInterval > 0)
+        scene->processChanges(theView,this,now + duration / 2);
+
+        if (UNLIKELY(reportStats))
             perfTimer.stopTiming("Scene processing");
         
         // Work through the available offset matrices (only 1 if we're not wrapping)
-        std::vector<Matrix4d> &offsetMats = baseFrameInfo.offsetMatrices;
+        const Matrix4dVector &offsetMats = baseFrameInfo.offsetMatrices;
         // Turn these drawables in to a vector
         std::vector<DrawableContainer> drawList;
         std::vector<DrawableRef> screenDrawables;
         std::vector<DrawableRef> generatedDrawables;
-        std::vector<Matrix4d> mvpMats;
-        std::vector<Matrix4d> mvpInvMats;
-        std::vector<Matrix4f> mvpMats4f;
-        std::vector<Matrix4f> mvpInvMats4f;
+        Matrix4dVector mvpMats;
+        Matrix4dVector mvpInvMats;
+        Matrix4fVector mvpMats4f;
+        Matrix4fVector mvpInvMats4f;
         mvpMats.resize(offsetMats.size());
         mvpInvMats.resize(offsetMats.size());
         mvpMats4f.resize(offsetMats.size());
         mvpInvMats4f.resize(offsetMats.size());
-        bool calcPassDone = false;
         for (unsigned int off=0;off<offsetMats.size();off++)
         {
-            RendererFrameInfo offFrameInfo(baseFrameInfo);  // NOLINT: slicing from GLES frame
+            RendererFrameInfoGLES offFrameInfo(baseFrameInfo);
             // Tweak with the appropriate offset matrix
             modelAndViewMat4d = viewTrans4d * offsetMats[off] * modelTrans4d;
             pvMat = projMat4d * viewTrans4d * offsetMats[off];
@@ -449,7 +459,7 @@ void SceneRendererGLES::render(TimeInterval duration)
             mvpInvMats4f[off] = Matrix4dToMatrix4f(mvpInvMats[off]);
             modelAndViewNormalMat4d = modelAndViewMat4d.inverse().transpose();
             modelAndViewNormalMat = Matrix4dToMatrix4f(modelAndViewNormalMat4d);
-            Matrix4d &thisMvpMat = mvpMats[off];
+            const Matrix4d &thisMvpMat = mvpMats[off];
             offFrameInfo.mvpMat = mvpMats4f[off];
             offFrameInfo.mvpInvMat = mvpInvMats4f[off];
             mvpNormalMat4f = Matrix4dToMatrix4f(mvpMats[off].inverse().transpose());
@@ -460,54 +470,59 @@ void SceneRendererGLES::render(TimeInterval duration)
             offFrameInfo.pvMat = Matrix4dToMatrix4f(pvMat);
             offFrameInfo.pvMat4d = pvMat;
 
-            auto rawDrawables = scene->getDrawables();
-            for (auto draw : rawDrawables)
+            const auto rawDrawables = scene->getDrawables();
+            drawList.reserve(rawDrawables.size());
+            for (auto *draw : rawDrawables)
             {
                 auto *theDrawable = dynamic_cast<DrawableGLES *>(draw);
-                if (theDrawable->isOn(&offFrameInfo))
+                if (theDrawable && theDrawable->isOn(&offFrameInfo))
                 {
-                    const Matrix4d *localMat = theDrawable->getMatrix();
-                    if (localMat)
+                    if (const Matrix4d *localMat = theDrawable->getMatrix())
                     {
-                        Eigen::Matrix4d newMvpMat = thisMvpMat * (*localMat);
-                        Eigen::Matrix4d newMvMat = modelAndViewMat4d * (*localMat);
-                        Eigen::Matrix4d newMvNormalMat = newMvMat.inverse().transpose();
+                        Matrix4d newMvpMat = thisMvpMat * (*localMat);
+                        Matrix4d newMvMat = modelAndViewMat4d * (*localMat);
+                        Matrix4d newMvNormalMat = newMvMat.inverse().transpose();
                         drawList.emplace_back(theDrawable,newMvpMat,newMvMat,newMvNormalMat);
-                    } else
+                    }
+                    else
+                    {
                         drawList.emplace_back(theDrawable,thisMvpMat,modelAndViewMat4d,modelAndViewNormalMat4d);
+                    }
                 }
             }
         }
         
         // Sort the drawables (possibly multiple of the same if we have offset matrices)
-        bool sortLinesToEnd = (zBufferMode == zBufferOffDefault);
+        const bool sortLinesToEnd = (zBufferMode == zBufferOffDefault);
         std::sort(drawList.begin(),drawList.end(),DrawListSortStruct2(sortLinesToEnd,&baseFrameInfo));
         
-        if (perfInterval > 0)
+        if (UNLIKELY(reportStats))
             perfTimer.startTiming("Calculation Shaders");
-        
+
+#if 0   // Not doing any calculation passes in OpenGL anymore.
         // Run any calculation shaders
         // These should be independent of screen space, so we only run them once and ignore offsets.
+        bool calcPassDone = false;
         if (!calcPassDone) {
             // But do we have any
             bool haveCalcShader = false;
-            for (unsigned int ii=0;ii<drawList.size();ii++)
-                if (drawList[ii].drawable->getCalculationProgram() != EmptyIdentity) {
+            for (auto & ii : drawList)
+                if (ii.drawable->getCalculationProgram() != EmptyIdentity) {
                     haveCalcShader = true;
                     break;
                 }
-            
+
             if (haveCalcShader) {
                 // Have to set an active framebuffer for our empty fragment shaders to write to
-                RenderTargetGLESRef renderTarget = std::dynamic_pointer_cast<RenderTargetGLES>(renderTargets[0]);
-                renderTarget->setActiveFramebuffer(this);
-                
+                if (const auto renderTarget = dynamic_cast<RenderTargetGLES *>(renderTargets[0].get())) {
+                    renderTarget->setActiveFramebuffer(this);
+                }
+
                 glEnable(GL_RASTERIZER_DISCARD);
-                
-                for (unsigned int ii=0;ii<drawList.size();ii++) {
-                    DrawableContainer &drawContain = drawList[ii];
-                    SimpleIdentity calcProgID = drawContain.drawable->getCalculationProgram();
-                    
+
+                for (auto &drawContain : drawList) {
+                    const SimpleIdentity calcProgID = drawContain.drawable->getCalculationProgram();
+
                     // Figure out the program to use for drawing
                     if (calcProgID == EmptyIdentity)
                         continue;
@@ -517,24 +532,25 @@ void SceneRendererGLES::render(TimeInterval duration)
                         glUseProgram(program->getProgram());
                         baseFrameInfo.program = program;
                     }
-                    
+
                     // Tweakers probably not necessary, but who knows
                     drawContain.drawable->runTweakers(&baseFrameInfo);
-                    
+
                     // Run the calculation phase
                     drawContain.drawable->calculate(&baseFrameInfo,scene);
                 }
-                
+
                 glDisable(GL_RASTERIZER_DISCARD);
             }
-            
+
             calcPassDone = true;
         }
-        
-        if (perfInterval > 0)
+#endif
+
+        if (UNLIKELY(reportStats))
             perfTimer.stopTiming("Calculation Shaders");
         
-        if (perfInterval > 0)
+        if (UNLIKELY(reportStats))
             perfTimer.startTiming("Draw Execution");
         
         SimpleIdentity curProgramId = EmptyIdentity;
@@ -542,7 +558,11 @@ void SceneRendererGLES::render(TimeInterval duration)
         // Iterate through rendering targets here
         for (const RenderTargetRef &inRenderTarget : renderTargets)
         {
-            RenderTargetGLESRef renderTarget = std::dynamic_pointer_cast<RenderTargetGLES>(inRenderTarget);
+            const auto renderTarget = dynamic_cast<RenderTargetGLES*>(inRenderTarget.get());
+            if (!renderTarget)
+            {
+                continue;
+            }
             
             renderTarget->setActiveFramebuffer(this);
             
@@ -550,21 +570,19 @@ void SceneRendererGLES::render(TimeInterval duration)
             {
                 renderTarget->clearOnce = false;
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                CheckGLError("SceneRendererES2: glClear");
+                CheckGLError("SceneRendererGLES: glClear");
             }
             
-            bool depthMaskOn = (zBufferMode == zBufferOn);
-            for (unsigned int ii=0;ii<drawList.size();ii++)
+            //bool depthMaskOn = (zBufferMode == zBufferOn);
+            for (const auto &drawContain : drawList)
             {
-                DrawableContainer &drawContain = drawList[ii];
-                                
                 // For this mode we turn the z buffer off until we get a request to turn it on
                 if (zBufferMode == zBufferOffDefault)
                 {
                     if (drawContain.drawable->getRequestZBuffer())
                     {
                         glDepthFunc(GL_LESS);
-                        depthMaskOn = true;
+                        //depthMaskOn = true;
                     } else {
                         glDepthFunc(GL_ALWAYS);
                     }
@@ -580,19 +598,20 @@ void SceneRendererGLES::render(TimeInterval duration)
                 }
                 
                 // Set up transforms to use right now
-                Matrix4f currentMvpMat = Matrix4dToMatrix4f(drawContain.mvpMat);
-                Matrix4f currentMvpInvMat = Matrix4dToMatrix4f(drawContain.mvpMat.inverse());
-                Matrix4f currentMvMat = Matrix4dToMatrix4f(drawContain.mvMat);
-                Matrix4f currentMvNormalMat = Matrix4dToMatrix4f(drawContain.mvNormalMat);
+                const Matrix4f currentMvpMat = Matrix4dToMatrix4f(drawContain.mvpMat);
+                const Matrix4f currentMvpInvMat = Matrix4dToMatrix4f(drawContain.mvpMat.inverse());
+                const Matrix4f currentMvMat = Matrix4dToMatrix4f(drawContain.mvMat);
+                const Matrix4f currentMvNormalMat = Matrix4dToMatrix4f(drawContain.mvNormalMat);
                 baseFrameInfo.mvpMat = currentMvpMat;
                 baseFrameInfo.mvpInvMat = currentMvpInvMat;
                 baseFrameInfo.viewAndModelMat = currentMvMat;
                 baseFrameInfo.viewModelNormalMat = currentMvNormalMat;
                 
                 // Figure out the program to use for drawing
-                SimpleIdentity drawProgramId = drawContain.drawable->getProgram();
+                const SimpleIdentity drawProgramId = drawContain.drawable->getProgram();
                 if (drawProgramId == EmptyIdentity) {
-                    wkLogLevel(Error, "Drawable missing program ID.  Skipping.");
+                    wkLogLevel(Warn, "Drawable %lld (%s) missing program ID.  Skipping.",
+                               drawContain.drawable->getId(), drawContain.drawable->getName().c_str());
                     continue;
                 }
                 if (drawProgramId != curProgramId)
@@ -601,8 +620,8 @@ void SceneRendererGLES::render(TimeInterval duration)
                     auto program = (ProgramGLES *)scene->getProgram(drawProgramId);
                     if (program)
                     {
-                        //                    [renderStateOptimizer setUseProgram:program->getProgram()];
                         glUseProgram(program->getProgram());
+
                         // Assign the lights if we need to
                         if (program->hasLights() && !lights.empty())
                             program->setLights(lights, lightsLastUpdated, &defaultMat, currentMvpMat);
@@ -615,19 +634,31 @@ void SceneRendererGLES::render(TimeInterval duration)
                         continue;
                     }
                 }
-                if (drawProgramId == EmptyIdentity || !baseFrameInfo.program)
+                if (!baseFrameInfo.program)
                     continue;
                 
                 // Only draw drawables that are active for the current render target
                 if (drawContain.drawable->getRenderTarget() != renderTarget->getId())
                     continue;
-                
+
+                if (UNLIKELY(reportStats))
+                    perfTimer.startTiming("Run Tweakers");
+
                 // Run any tweakers right here
                 drawContain.drawable->runTweakers(&baseFrameInfo);
-                
+
+                if (UNLIKELY(reportStats))
+                    perfTimer.stopTiming("Run Tweakers");
+
+                if (UNLIKELY(reportStats))
+                    perfTimer.startTiming("Draw Drawables");
+
                 // Draw using the given program
                 drawContain.drawable->draw(&baseFrameInfo,scene);
-                
+
+                if (UNLIKELY(reportStats))
+                    perfTimer.stopTiming("Draw Drawables");
+
                 // If we had a local matrix, set the frame info back to the general one
                 //            if (localMat)
                 //                offFrameInfo.mvpMat = mvpMat;
@@ -636,35 +667,37 @@ void SceneRendererGLES::render(TimeInterval duration)
             }
         }
         
-        if (perfInterval > 0)
-            perfTimer.addCount("Drawables drawn", numDrawables);
-        
-        if (perfInterval > 0)
+        if (UNLIKELY(reportStats))
             perfTimer.stopTiming("Draw Execution");
-        
+
+        if (UNLIKELY(reportStats))
+            perfTimer.addCount("Drawables drawn", numDrawables);
+
         // Anything generated needs to be cleaned up
         generatedDrawables.clear();
         drawList.clear();
     }
     
-    //    if (perfInterval > 0)
+    //    if (UNLIKELY(reportStats))
     //        perfTimer.startTiming("glFinish");
     
     //    glFlush();
     //    glFinish();
     
-    //    if (perfInterval > 0)
+    //    if (UNLIKELY(reportStats))
     //        perfTimer.stopTiming("glFinish");
     
-    if (perfInterval > 0)
+    if (UNLIKELY(reportStats))
         perfTimer.startTiming("Present Renderbuffer");
 
-#ifndef __ANDROID__
-    // Explicitly discard the depth buffer
-    const GLenum discards[]  = {GL_DEPTH_ATTACHMENT};
-    glInvalidateFramebuffer(GL_FRAMEBUFFER,1,discards);
-    CheckGLError("SceneRendererES2: glInvalidateFramebuffer");
-#endif
+    if (invalidateGLDepth)
+    {
+        // Explicitly discard the depth buffer
+        const GLenum discards[] = {GL_DEPTH_ATTACHMENT};
+        glInvalidateFramebuffer(GL_FRAMEBUFFER, 1, discards);
+        CheckGLError("SceneRendererGLES: glInvalidateFramebuffer");
+    }
+
     
     // Subclass with do the presentation
     presentRender();
@@ -672,24 +705,53 @@ void SceneRendererGLES::render(TimeInterval duration)
     // Snapshots tend to be platform specific
     snapshotCallback(now);
     
-    if (perfInterval > 0)
+    if (UNLIKELY(reportStats))
         perfTimer.stopTiming("Present Renderbuffer");
     
-    if (perfInterval > 0)
+    if (UNLIKELY(reportStats))
         perfTimer.stopTiming("Render Frame");
-    
-    // Update the frames per sec
-    if (perfInterval > 0 && frameCount > perfInterval)
+
+    const TimeInterval newNow = scene->getCurrentTime();
+    const TimeInterval frameDuration = newNow - now;
+
+    // If we've finished faster than is necessary to achieve the target frame rate, process
+    // changes that came in or became active since we started so that the next frame is faster.
+    if (frameDuration < duration)
     {
-        const TimeInterval newNow = scene->getCurrentTime();
+        if (UNLIKELY(reportStats))
+            perfTimer.startTiming("Scene processing 2");
+
+        scene->processChanges(theView, this, newNow + duration / 2);
+
+        if (UNLIKELY(reportStats))
+            perfTimer.stopTiming("Scene processing 2");
+    }
+
+    // Update the frames per sec
+    if (UNLIKELY(reportStats && frameCount >= perfInterval))
+    {
         const TimeInterval howLong =  newNow - frameCountStart;
         framesPerSec = (float)(frameCount / howLong);
         frameCountStart = newNow;
         frameCount = 0;
-        
+
         wkLogLevel(Verbose,"---Rendering Performance---");
-        wkLogLevel(Verbose," Frames per sec = %.2f",framesPerSec);
-        perfTimer.log();
+
+        const auto frameTime = perfTimer.getTiming("Render Frame");
+        if (frameTime.numRuns > 0)
+        {
+            wkLogLevel(Verbose, "FPS min, max, mean, actual: %.1f, %.1f, %.1f, %.1f",
+                       (frameTime.maxDur > 0) ? (1.0 / frameTime.maxDur) : 0.0,
+                       (frameTime.minDur > 0) ? (1.0 / frameTime.minDur) : 0.0,
+                       (frameTime.avgDur > 0) ? (frameTime.numRuns / frameTime.avgDur) : 0.0,
+                       framesPerSec);
+        }
+        else
+        {
+            wkLogLevel(Verbose," Frames per sec = %.2f",framesPerSec);
+        }
+
+        perfTimer.log(0.0001);
         perfTimer.clear();
     }
 }
@@ -751,6 +813,3 @@ DynamicTextureRef SceneRendererGLES::makeDynamicTexture(const std::string &name)
 }
 
 }
-
-
-#include <utility>

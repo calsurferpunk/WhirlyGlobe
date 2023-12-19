@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 7/17/11.
- *  Copyright 2011-2013 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ public:
     
     /// @brief Return the attributes for the first shape or NULL
     MutableDictionaryRef getAttributes() const;
-    void setAttributes(MutableDictionaryRef newDict);
+    void setAttributes(const MutableDictionaryRef &newDict);
     
     /// Make a complete company (nothing shared) and return it
     VectorObjectRef deepCopy() const;
@@ -91,7 +91,7 @@ public:
     bool linearMiddle(Point2d &mid,double &rot) const;
     
     /// Converts to the display coordinate system before calculating
-    bool linearMiddle(Point2d &mid,double &rot,CoordSystem *coordSys) const;
+    bool linearMiddle(Point2d &mid,double &rot,const CoordSystem *coordSys) const;
     
     /// Return the point right in the middle (index-wise) of a linear feature
     bool middleCoordinate(Point2d &mid) const;
@@ -101,7 +101,9 @@ public:
     
     // Fuzzy matching for selecting Linear features
     // This will project the features to the screen
-    bool pointNearLinear(const Point2d &coord,float maxDistance,ViewStateRef viewState,const Point2f &frameBufferSize) const;
+    bool pointNearLinear(const Point2d &coord,float maxDistance,
+                         const ViewStateRef &viewState,
+                         const Point2f &frameBufferSize) const;
     
     /// Calculate the area of all the loops together
     double areaOfOuterLoops() const;
@@ -124,6 +126,17 @@ public:
      This version samples a great circle to display on a flat map.
      */
     void subdivideToFlatGreatCircle(float epsilon);
+    
+    /**
+     Subdivide the edges in this feature to a given tolerance, using great circle math.
+     */
+    void subdivideToGlobeGreatCirclePrecise(float epsilon);
+    
+    /**
+     Subdivide the edges in this feature to a given tolerance, using great circle math.
+     This version samples a great circle to display on a flat map.
+     */
+    void subdivideToFlatGreatCirclePrecise(float epsilon);
 
     /// Tesselate areal features and return a new vector object
     VectorObjectRef tesselate() const;
@@ -163,12 +176,45 @@ public:
      */
     VectorObjectRef filterClippedEdges() const;
 
-    // Convert any linear features into areals and return a new vector object
+    /// @brief Convert any linear features into areals and return a new vector object
     VectorObjectRef linearsToAreals() const;
     
-    // Convert any areal features into linears and return a new vector object
+    /// @brief Convert any areal features into linears and return a new vector object
     VectorObjectRef arealsToLinears() const;
-    
+
+    /// @brief The number of linear features
+    int countLinears() const;
+
+    /// @brief The number of areal features
+    int countAreals() const;
+
+    /// @brief Reverse the direction of areal loops
+    void reverseAreals();
+
+    /// @brief Create a copy with reversed loops
+    VectorObjectRef reversedAreals() const;
+
+    /// @brief The number of areal loops that are closed
+    int countClosedLoops() const;
+
+    /// @brief The number of areal loops that are not closed
+    int countUnClosedLoops() const;
+
+    /// @brief Ensure that loops are closed
+    void closeLoops();
+
+    /// @brief Ensure that loops are closed, returning a new object
+    VectorObjectRef closedLoops() const;
+
+    /// @brief Ensure that loops are not closed
+    void unCloseLoops();
+
+    /// @brief Ensure that loops are not closed, returning a new object
+    VectorObjectRef unClosedLoops() const;
+
+    /// @brief Check if any segments intersect any others
+    bool anyIntersections() const;
+
     /// @brief Add objects form the given GeoJSON string.
     /// @param json The GeoJSON data as a std::string
     /// @return True on success, false on failure.
@@ -179,20 +225,24 @@ public:
     /// @return True on success, false on failure.
     bool fromShapeFile(const std::string &fileName);
     
-    /// @brief Assemblies are just concattenated JSON
+    /// @brief Assemblies are just concatenated JSON
     static bool FromGeoJSONAssembly(const std::string &json,std::map<std::string,VectorObject *> &vecData);
 
+    static bool FromGeoJSONAssembly(const std::string &json,std::map<std::string,VectorObjectRef> &vecData);
+
 public:
-    void subdivideToInternal(float epsilon,WhirlyKit::CoordSystemDisplayAdapter *adapter,bool edgeMode);
-    
-    bool selectable;
+    void subdivideToInternal(float epsilon,WhirlyKit::CoordSystemDisplayAdapter *adapter,bool geolib,bool edgeMode);
+
+    bool selectable = true;
     ShapeSet shapes;
 };
 
 // Sample a great circle and throw in an interpolated height at each point
-void SampleGreatCircle(const Point2d &startPt,const Point2d &endPt,double height,Point3dVector &pts,WhirlyKit::CoordSystemDisplayAdapter *coordAdapter,double eps);
+void SampleGreatCircle(const Point2d &startPt,const Point2d &endPt,double height,Point3dVector &pts,
+                       const WhirlyKit::CoordSystemDisplayAdapter *coordAdapter,double eps);
 
 // Sample a great circle and throw in an interpolated height at each point
-void SampleGreatCircleStatic(const Point2d &startPt,const Point2d &endPt,double height,Point3dVector &pts,WhirlyKit::CoordSystemDisplayAdapter *coordAdapter,double samples);
+void SampleGreatCircleStatic(const Point2d &startPt,const Point2d &endPt,double height,Point3dVector &pts,
+                             const WhirlyKit::CoordSystemDisplayAdapter *coordAdapter,int minSamples);
     
 }

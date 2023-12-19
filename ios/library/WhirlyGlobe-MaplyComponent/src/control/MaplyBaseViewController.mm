@@ -1,9 +1,8 @@
-/*
- *  MaplyBaseViewController.mm
+/*  MaplyBaseViewController.mm
  *  MaplyComponent
  *
  *  Created by Steve Gifford on 12/14/12.
- *  Copyright 2012-2021 mousebird consulting
+ *  Copyright 2012-2023 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,25 +14,27 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "control/MaplyBaseViewController.h"
-#import "MaplyBaseViewController_private.h"
+#import "private/MaplyBaseViewController_private.h"
 #import "UIKit/NSData+Zlib.h"
 
 #import "MaplyTexture_private.h"
-#import "MaplyAnnotation_private.h"
 #import "UIKit/NSDictionary+StyleRules.h"
-#import "gestures/Maply3dTouchPreviewDelegate.h"
 #import "MaplyTexture_private.h"
 #import "MaplyRenderTarget_private.h"
-#import "FontTextureManager_iOS.h"
 #import "UIColor+Stuff.h"
 #import "MTLView.h"
 #import "WorkRegion_private.h"
-
+#import "MaplyURLSessionManager+Private.h"
 #import <sys/utsname.h>
+
+#if !MAPLY_MINIMAL
+# import "MaplyAnnotation_private.h"
+# import "gestures/Maply3dTouchPreviewDelegate.h"
+# import "FontTextureManager_iOS.h"
+#endif //!MAPLY_MINIMAL
 
 using namespace Eigen;
 using namespace WhirlyKit;
@@ -116,6 +117,15 @@ using namespace WhirlyKit;
 @implementation MaplyBaseViewController
 {
     MaplyLocationTracker *_locationTracker;
+    bool _layoutFade;
+    NSMutableArray<InitCompletionBlock> *_postInitCalls;
+}
+
+- (instancetype)init{
+    self = [super init];
+    _layoutFade = false;
+    _postInitCalls = [NSMutableArray new];
+    return self;
 }
 
 - (void) clear
@@ -143,9 +153,11 @@ using namespace WhirlyKit;
     renderControl->scene = NULL;
     renderControl->sceneRenderer = NULL;
     
+#if !MAPLY_MINIMAL
     viewTrackers = nil;
     annotations = nil;
-    
+#endif //!MAPLY_MINIMAL
+
     [renderControl clear];
     renderControl = nil;
 }
@@ -156,6 +168,7 @@ using namespace WhirlyKit;
         [self teardown];
 }
 
+
 - (ViewRef) loadSetup_view
 {
     return ViewRef(NULL);
@@ -164,14 +177,13 @@ using namespace WhirlyKit;
 - (void)loadSetup_mtlView
 {
     SceneRendererMTL *renderMTL = (SceneRendererMTL *)renderControl->sceneRenderer.get();
-    
-    WhirlyKitMTLView *mtlView = [[WhirlyKitMTLView alloc] initWithDevice:((RenderSetupInfoMTL *) renderMTL->getRenderSetupInfo())->mtlDevice];
+    RenderSetupInfoMTL *setupInfo = (RenderSetupInfoMTL *) renderMTL->getRenderSetupInfo();
+
+    WhirlyKitMTLView *mtlView = [[WhirlyKitMTLView alloc] initWithDevice:setupInfo->mtlDevice];
+    mtlView.preferredFramesPerSecond = (_frameInterval > 0) ? (60.0 / _frameInterval) : 120;
+    mtlView.wrapperDelegate = self;
+
     wrapView = mtlView;
-    if (_frameInterval <= 0)
-        mtlView.preferredFramesPerSecond = 120;
-    else {
-        mtlView.preferredFramesPerSecond = 60 / _frameInterval;
-    }
 }
 
 - (MaplyBaseInteractionLayer *) loadSetup_interactionLayer
@@ -188,6 +200,24 @@ using namespace WhirlyKit;
 {
     return renderControl.screenObjectDrawPriorityOffset;
 }
+
+#if !MAPLY_MINIMAL
+- (void)setLayoutFade:(bool)enable
+{
+    _layoutFade = enable;
+    if (auto rc = renderControl)
+    if (auto scene = rc->scene)
+    if (auto layoutManager = scene->getManager<LayoutManager>(kWKLayoutManager))
+    {
+        layoutManager->setFadeEnabled(enable);
+    }
+}
+
+- (bool)layoutFade
+{
+    return _layoutFade;
+}
+#endif //!MAPLY_MINIMAL
 
 // Kick off the analytics logic.  First we need the server name.
 - (void)startAnalytics
@@ -224,7 +254,7 @@ using namespace WhirlyKit;
     NSString *build = infoDict[@"CFBundleVersion"];
     NSString *bundleVersion = infoDict[@"CFBundleShortVersionString"];
     // WGMaply version
-    NSString *wgmaplyVersion = @"3.0";
+    NSString *wgmaplyVersion = @"3.5";
     // OS version
     NSOperatingSystemVersion osversionID = [[NSProcessInfo processInfo] operatingSystemVersion];
     NSString *osversion = [NSString stringWithFormat:@"%d.%d.%d",(int)osversionID.majorVersion,(int)osversionID.minorVersion,(int) osversionID.patchVersion];
@@ -238,7 +268,12 @@ using namespace WhirlyKit;
     [req setHTTPMethod:@"POST"];
     [req setHTTPBody:[postArgs dataUsingEncoding:NSASCIIStringEncoding]];
     
+#if !MAPLY_MINIMAL
+    NSURLSession *session = [[MaplyURLSessionManager sharedManager] createURLSession];
+#else
     NSURLSession *session = [NSURLSession sharedSession];
+#endif //!MAPLY_MINIMAL
+
     NSURLSessionDataTask *dataTask = [session dataTaskWithRequest:req completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         TimeInterval now = TimeGetCurrent();
         NSHTTPURLResponse *resp = (NSHTTPURLResponse *)response;
@@ -280,17 +315,22 @@ using namespace WhirlyKit;
     [renderControl loadSetup_scene:[self loadSetup_interactionLayer]];
     [self loadSetup_lighting];
 
+#if !MAPLY_MINIMAL
     viewTrackers = [NSMutableArray array];
     annotations = [NSMutableArray array];
         
     // View placement manager
-    viewPlacementModel = ViewPlacementActiveModelRef(new ViewPlacementActiveModel());
+    viewPlacementModel = std::make_shared<ViewPlacementActiveModel>();
     renderControl->scene->addActiveModel(viewPlacementModel);
-    
+#endif //!MAPLY_MINIMAL
+
+    // Apply layout fade option set before init to the newly-created manager
+    [self setLayoutFade:_layoutFade];
+
     // Set up defaults for the hints
     NSDictionary *newHints = [NSDictionary dictionary];
     [self setHints:newHints];
-        
+
     _selection = true;
 
     [[NSNotificationCenter defaultCenter] addObserver:self
@@ -402,9 +442,16 @@ using namespace WhirlyKit;
 
 - (void)viewWillLayoutSubviews
 {
-    if (wrapView) {
+    if (wrapView)
+    {
         wrapView.frame = self.view.bounds;
     }
+}
+
+- (void)viewDidLayoutSubviews
+{
+    // The layout hasn't actually run yet, it's only been kicked off
+    // See `layoutDidRun:`
 }
 
 - (void)didReceiveMemoryWarning
@@ -444,6 +491,31 @@ static const float PerfOutputDelay = 15.0;
     }
 }
 
+#if !MAPLY_MINIMAL
+- (void)setShowDebugLayoutBoundaries:(bool)show
+{
+    self->_showDebugLayoutBoundaries = show;
+    if (renderControl && renderControl->scene)
+    {
+        if (const auto layoutManager = renderControl->scene->getManager<LayoutManager>(kWKLayoutManager))
+        {
+            layoutManager->setShowDebugBoundaries(show);
+            [renderControl->layoutLayer scheduleUpdateNow];
+        }
+    }
+}
+#endif //!MAPLY_MINIMAL
+
+
+- (NSObject<MaplyErrorReportingDelegate> * __nullable)errorReportingDelegate
+{
+    return renderControl.errorReportingDelegate;
+}
+- (void)setErrorReportingDelegate:(NSObject<MaplyErrorReportingDelegate> *)delegate
+{
+    renderControl.errorReportingDelegate = delegate;
+}
+
 // Run every so often to dump out stats
 - (void)periodicPerfOutput
 {
@@ -459,7 +531,7 @@ static const float PerfOutputDelay = 15.0;
     }
     NSLog(@"Sampling layers: %lu",renderControl->samplingLayers.size());
     
-    [self performSelector:@selector(periodicPerfOutput) withObject:nil afterDelay:PerfOutputDelay];    
+    [self performSelector:@selector(periodicPerfOutput) withObject:nil afterDelay:PerfOutputDelay];
 }
 
 - (bool)performanceOutput
@@ -467,6 +539,7 @@ static const float PerfOutputDelay = 15.0;
     return _performanceOutput;
 }
 
+#if !MAPLY_MINIMAL
 // Build an array of lights and send them down all at once
 - (void)updateLights
 {
@@ -492,13 +565,14 @@ static const float PerfOutputDelay = 15.0;
 {
     [renderControl removeLight:light];
 }
+#endif //!MAPLY_MINIMAL
 
 - (void)addShaderProgram:(MaplyShader *)shader
 {
     [renderControl addShaderProgram:shader];
 }
 
-- (MaplyShader *)getShaderByName:(NSString *)name
+- (MaplyShader *)getShaderByName:(const NSString *)name
 {
     return [renderControl getShaderByName:name];
 }
@@ -528,6 +602,7 @@ static const float PerfOutputDelay = 15.0;
 
 #pragma mark - Geometry related methods
 
+#if !MAPLY_MINIMAL
 - (MaplyComponentObject *)addScreenMarkers:(NSArray *)markers desc:(NSDictionary *)desc mode:(MaplyThreadMode)threadMode;
 {
     MaplyComponentObject *compObj = [renderControl addScreenMarkers:markers desc:desc mode:threadMode];
@@ -656,12 +731,11 @@ static const float PerfOutputDelay = 15.0;
 {
     [self changeVector:compObj desc:desc mode:MaplyThreadAny];
 }
+#endif //!MAPLY_MINIMAL
 
 - (MaplyComponentObject *)addShapes:(NSArray *)shapes desc:(NSDictionary *)desc mode:(MaplyThreadMode)threadMode
 {
-    MaplyComponentObject *compObj = [renderControl addShapes:shapes desc:desc mode:threadMode];
-
-    return compObj;
+    return [renderControl addShapes:shapes desc:desc mode:threadMode];
 }
 
 - (MaplyComponentObject *)addShapes:(NSArray *)shapes desc:(NSDictionary *)desc
@@ -669,6 +743,15 @@ static const float PerfOutputDelay = 15.0;
     return [self addShapes:shapes desc:desc mode:MaplyThreadAny];
 }
 
+- (MaplyComponentObject * _Nullable)addShapes:(NSArray * _Nonnull)shapes
+                                         info:(WhirlyKit::ShapeInfo &)shapeInfo
+                                         desc:(NSDictionary * _Nullable)desc
+                                         mode:(MaplyThreadMode)threadMode
+{
+    return [renderControl addShapes:shapes info:shapeInfo desc:desc mode:threadMode];
+}
+
+#if !MAPLY_MINIMAL
 - (MaplyComponentObject *)addModelInstances:(NSArray *)modelInstances desc:(NSDictionary *)desc mode:(MaplyThreadMode)threadMode
 {
     MaplyComponentObject *compObj = [renderControl addModelInstances:modelInstances desc:desc mode:threadMode];
@@ -782,6 +865,7 @@ static const float PerfOutputDelay = 15.0;
         }
     }
 }
+#endif //!MAPLY_MINIMAL
 
 // Overridden by the subclasses
 - (CGPoint)screenPointFromGeo:(MaplyCoordinate)geoCoord
@@ -795,11 +879,19 @@ static const float PerfOutputDelay = 15.0;
     return false;
 }
 
+#if !MAPLY_MINIMAL
 - (void)addAnnotation:(MaplyAnnotation *)annotate forPoint:(MaplyCoordinate)coord offset:(CGPoint)offset
+{
+    [self addAnnotation:annotate forPoint:coord offset:offset arrowDirection:SMCalloutArrowDirectionDown];
+}
+
+- (void)addAnnotation:(MaplyAnnotation *)annotate forPoint:(MaplyCoordinate)coord offset:(CGPoint)offset arrowDirection:(NSInteger)arrowDirection
 {
     if (!renderControl)
         return;
-    
+
+    annotate.calloutView.permittedArrowDirection = arrowDirection;
+
     // See if we're already representing the annotation
     bool alreadyHere = [annotations containsObject:annotate];
     
@@ -914,6 +1006,7 @@ static const float PerfOutputDelay = 15.0;
     for (MaplyAnnotation *annotation in allAnnotations)
         [self removeAnnotation:annotation];
 }
+#endif //!MAPLY_MINIMAL
 
 - (MaplyTexture *)addTexture:(UIImage *)image imageFormat:(MaplyQuadImageFormat)imageFormat wrapFlags:(int)wrapFlags mode:(MaplyThreadMode)threadMode
 {
@@ -930,12 +1023,14 @@ static const float PerfOutputDelay = 15.0;
     return maplyTex;
 }
 
+#if !MAPLY_MINIMAL
 - (MaplyTexture *__nullable)addSubTexture:(MaplyTexture *__nonnull)tex xOffset:(int)x yOffset:(int)y width:(int)width height:(int)height mode:(MaplyThreadMode)threadMode
 {
     MaplyTexture *maplyTex = [renderControl addSubTexture:tex xOffset:x yOffset:y width:width height:height mode:threadMode];
     
     return maplyTex;
 }
+#endif //!MAPLY_MINIMAL
 
 - (MaplyTexture *__nullable)createTexture:(NSDictionary * _Nullable)inDesc sizeX:(int)sizeX sizeY:(int)sizeY mode:(MaplyThreadMode)threadMode
 {
@@ -946,6 +1041,9 @@ static const float PerfOutputDelay = 15.0;
 
 - (void)removeTexture:(MaplyTexture *)texture mode:(MaplyThreadMode)threadMode
 {
+    if (!texture) {
+        return;
+    }
     [renderControl removeTextures:@[texture] mode:threadMode];
 }
 
@@ -954,6 +1052,7 @@ static const float PerfOutputDelay = 15.0;
     [renderControl removeTextures:textures mode:threadMode];
 }
 
+#if !MAPLY_MINIMAL
 - (MaplyTexture *)addTextureToAtlas:(UIImage *)image mode:(MaplyThreadMode)threadMode
 {
     MaplyTexture *maplyTex = [self addTextureToAtlas:image imageFormat:MaplyImageIntRGBA wrapFlags:0 mode:threadMode];
@@ -968,6 +1067,7 @@ static const float PerfOutputDelay = 15.0;
                                          kMaplyTexWrapY: @(wrapFlags & MaplyImageWrapY),
                                          kMaplyTexAtlas: @(YES)} mode:threadMode];
 }
+#endif //!MAPLY_MINIMAL
 
 - (void)addRenderTarget:(MaplyRenderTarget *)renderTarget
 {
@@ -989,25 +1089,28 @@ static const float PerfOutputDelay = 15.0;
     [renderControl removeRenderTarget:renderTarget];
 }
 
+#if !MAPLY_MINIMAL
 - (void)setMaxLayoutObjects:(int)maxLayoutObjects
 {
-    LayoutManagerRef layoutManager = std::dynamic_pointer_cast<LayoutManager>(renderControl->scene->getManager(kWKLayoutManager));
-    if (layoutManager)
+    if (const auto layoutManager = renderControl->scene->getManager<LayoutManager>(kWKLayoutManager))
+    {
         layoutManager->setMaxDisplayObjects(maxLayoutObjects);
+    }
 }
 
 - (void)setLayoutOverrideIDs:(NSArray *)uuids
 {
     std::set<std::string> uuidSet;
     for (NSString *uuid in uuids) {
-        std::string uuidStr = [uuid cStringUsingEncoding:NSASCIIStringEncoding];
+        std::string uuidStr = [uuid cStringUsingEncoding:NSASCIIStringEncoding withDefault:""];
         if (!uuidStr.empty())
             uuidSet.insert(uuidStr);
     }
     
-    LayoutManagerRef layoutManager = std::dynamic_pointer_cast<LayoutManager>(renderControl->scene->getManager(kWKLayoutManager));
-    if (layoutManager)
+    if (const auto layoutManager = renderControl->scene->getManager<LayoutManager>(kWKLayoutManager))
+    {
         layoutManager->setOverrideUUIDs(uuidSet);
+    }
 }
 
 - (void)runLayout
@@ -1145,6 +1248,7 @@ static const float PerfOutputDelay = 15.0;
     }
     [renderControl setRepresentation:repName fallbackRepName:fallbackRepName ofUUIDs:theUUIDs mode:threadMode];
 }
+#endif //!MAPLY_MINIMAL
 
 - (void)setUniformBlock:(NSData *__nonnull)uniBlock buffer:(int)bufferID forObjects:(NSArray<MaplyComponentObject *> *__nonnull)compObjs mode:(MaplyThreadMode)threadMode
 {
@@ -1169,13 +1273,23 @@ static const float PerfOutputDelay = 15.0;
     }
 }
 
--(NSArray*)objectsAtCoord:(MaplyCoordinate)coord
+#if !MAPLY_MINIMAL
+- (NSArray*)objectsAtCoord:(MaplyCoordinate)coord
 {
     if (!renderControl)
         return nil;
-    
-    return [renderControl->interactLayer findVectorsInPoint:Point2f(coord.x,coord.y)];
+
+    return [renderControl->interactLayer findVectorsInPoint:Point2f(coord.x,coord.y) inView:self multi:true];
 }
+
+- (NSArray*)labelsAndMarkersAtCoord:(MaplyCoordinate)coord
+{
+    if (!renderControl)
+        return nil;
+
+    return [renderControl->interactLayer selectMultipleLabelsAndMarkersForScreenPoint:[self screenPointFromGeo:coord]];
+}
+#endif //!MAPLY_MINIMAL
 
 #pragma mark - Properties
 
@@ -1202,14 +1316,35 @@ static const float PerfOutputDelay = 15.0;
 
 - (MaplyCoordinate3d)displayPointFromGeo:(MaplyCoordinate)geoCoord
 {
-    MaplyCoordinate3d displayCoord = {0,0,0};
     if (!renderControl)
-        return displayCoord;
+        return { 0, 0, 0 };
     
-    Point3f pt = renderControl->visualView->coordAdapter->localToDisplay(renderControl->visualView->coordAdapter->getCoordSystem()->geographicToLocal(GeoCoord(geoCoord.x,geoCoord.y)));
+    const auto adapter = renderControl->visualView->getCoordAdapter();
+    const Point3f pt = adapter->localToDisplay(adapter->getCoordSystem()->geographicToLocal(GeoCoord(geoCoord.x,geoCoord.y)));
+
+    return { pt.x(), pt.y(), pt.z() };
+}
+
+- (MaplyCoordinate3dD)displayPointFromGeoD:(MaplyCoordinate)geoCoord
+{
+    if (!renderControl)
+        return { 0, 0, 0 };
     
-    displayCoord.x = pt.x();    displayCoord.y = pt.y();    displayCoord.z = pt.z();
-    return displayCoord;
+    const auto adapter = renderControl->visualView->getCoordAdapter();
+    const Point3d pt = adapter->localToDisplay(adapter->getCoordSystem()->geographicToLocal3d(GeoCoord(geoCoord.x,geoCoord.y)));
+    
+    return { pt.x(), pt.y(), pt.z() };
+}
+
+- (MaplyCoordinate3dD)displayPointFromGeoDD:(MaplyCoordinateD)geoCoord
+{
+    if (!renderControl)
+        return { 0, 0, 0 };
+    
+    const auto adapter = renderControl->visualView->getCoordAdapter();
+    const Point3d pt = adapter->localToDisplay(adapter->getCoordSystem()->geographicToLocal(Point2d(geoCoord.x,geoCoord.y)));
+    
+    return { pt.x(), pt.y(), pt.z() };
 }
 
 - (float)currentMapScale
@@ -1217,7 +1352,7 @@ static const float PerfOutputDelay = 15.0;
     if (!renderControl)
         return 0.0;
     
-    Point2f frameSize(renderControl->sceneRenderer->framebufferWidth,renderControl->sceneRenderer->framebufferHeight);
+    const Point2f frameSize = renderControl->sceneRenderer->getFramebufferSize();
     if (frameSize.x() == 0)
         return MAXFLOAT;
     return (float)renderControl->visualView->currentMapScale(frameSize);
@@ -1228,7 +1363,7 @@ static const float PerfOutputDelay = 15.0;
     if (!renderControl)
         return 0.0;
     
-    Point2f frameSize(renderControl->sceneRenderer->framebufferWidth,renderControl->sceneRenderer->framebufferHeight);
+    const Point2f frameSize = renderControl->sceneRenderer->getFramebufferSize();
     if (frameSize.x() == 0)
         return -1.0;
     return (float)renderControl->visualView->heightForMapScale(scale,frameSize);
@@ -1345,7 +1480,7 @@ static const float PerfOutputDelay = 15.0;
     
     sceneRenderMTL->addSnapshotDelegate(target);
     sceneRenderMTL->forceDrawNextFrame();
-    sceneRenderMTL->render(0.0, nil, nil);
+    sceneRenderMTL->render(0.0, nil);
     sceneRenderMTL->removeSnapshotDelegate(target);
     
     return target.data;
@@ -1378,7 +1513,7 @@ static const float PerfOutputDelay = 15.0;
     if (!renderControl)
         return 0.0;
     
-    Point2f frameSize(renderControl->sceneRenderer->framebufferWidth,renderControl->sceneRenderer->framebufferHeight);
+    const Point2f frameSize = renderControl->sceneRenderer->getFramebufferSize();
     if (frameSize.x() == 0)
         return MAXFLOAT;
     return (float)renderControl->visualView->currentMapZoom(frameSize,coordinate.y);
@@ -1394,33 +1529,35 @@ static const float PerfOutputDelay = 15.0;
 
 - (MaplyCoordinate3d)displayCoordFromLocal:(MaplyCoordinate3d)localCoord
 {
-    Point3d pt = renderControl->visualView->coordAdapter->localToDisplay(Point3d(localCoord.x,localCoord.y,localCoord.z));
-    
-    MaplyCoordinate3d ret;
-    ret.x = pt.x();  ret.y = pt.y();  ret.z = pt.z();
-    return ret;
+    const auto adapter = renderControl->visualView->getCoordAdapter();
+    const Point3f pt = adapter->localToDisplay(Point3d(localCoord.x,localCoord.y,localCoord.z)).cast<float>();
+    return { pt.x(), pt.y(), pt.z() };
 }
 
 - (MaplyCoordinate3d)displayCoord:(MaplyCoordinate3d)localCoord fromSystem:(MaplyCoordinateSystem *)coordSys
 {
-    Point3d loc3d = CoordSystemConvert3d(coordSys->coordSystem.get(), renderControl->visualView->coordAdapter->getCoordSystem(), Point3d(localCoord.x,localCoord.y,localCoord.z));
-    Point3d pt = renderControl->visualView->coordAdapter->localToDisplay(loc3d);
-    
-    MaplyCoordinate3d ret;
-    ret.x = pt.x();  ret.y = pt.y();  ret.z = pt.z();
-    return ret;
+    const auto adapter = renderControl->visualView->getCoordAdapter();
+    const Point3d loc3d = CoordSystemConvert3d(coordSys->coordSystem.get(), adapter->getCoordSystem(), Point3d(localCoord.x,localCoord.y,localCoord.z));
+    const Point3f pt = adapter->localToDisplay(loc3d).cast<float>();
+    return { pt.x(), pt.y(), pt.z() };
 }
 
 - (MaplyCoordinate3dD)displayCoordD:(MaplyCoordinate3dD)localCoord fromSystem:(MaplyCoordinateSystem *)coordSys
 {
-    Point3d loc3d = CoordSystemConvert3d(coordSys->coordSystem.get(), renderControl->visualView->coordAdapter->getCoordSystem(), Point3d(localCoord.x,localCoord.y,localCoord.z));
-    Point3d pt = renderControl->visualView->coordAdapter->localToDisplay(loc3d);
-    
-    MaplyCoordinate3dD ret;
-    ret.x = pt.x();  ret.y = pt.y();  ret.z = pt.z();
-    return ret;
+    const auto adapter = renderControl->visualView->getCoordAdapter();
+    const Point3d loc3d = CoordSystemConvert3d(coordSys->coordSystem.get(), adapter->getCoordSystem(), Point3d(localCoord.x,localCoord.y,localCoord.z));
+    const Point3d pt = adapter->localToDisplay(loc3d);
+    return { pt.x(), pt.y(), pt.z() };
 }
 
+- (MaplyCoordinate3dD)displayCoordFromLocalD:(MaplyCoordinate3dD)localCoord
+{
+    const auto adapter = renderControl->visualView->getCoordAdapter();
+    const Point3d pt = adapter->localToDisplay(Point3d(localCoord.x,localCoord.y,localCoord.z));
+    return { pt.x(), pt.y(), pt.z() };
+}
+
+#if !MAPLY_MINIMAL
 - (BOOL)enable3dTouchSelection:(NSObject<Maply3dTouchPreviewDatasource>*)previewDataSource
 {
     if (!renderControl)
@@ -1452,9 +1589,28 @@ static const float PerfOutputDelay = 15.0;
         previewingContext = nil;
     }
 }
+#endif //!MAPLY_MINIMAL
 
 - (void)requirePanGestureRecognizerToFailForGesture:(UIGestureRecognizer *__nullable)other {
     // Implement in derived class.
+}
+
+#if !MAPLY_MINIMAL
+
+- (void)handleStartMoving:(bool)userMotion
+{
+    if (renderControl && renderControl->visualView)
+    {
+        renderControl->visualView->setUserMotion(userMotion);
+    }
+}
+
+- (void)handleStopMoving:(bool)userMotion
+{
+    if (renderControl && renderControl->visualView)
+    {
+        renderControl->visualView->setUserMotion(false);
+    }
 }
 
 - (void)startLocationTrackingWithDelegate:(NSObject<MaplyLocationTrackerDelegate> *)delegate
@@ -1512,6 +1668,7 @@ static const float PerfOutputDelay = 15.0;
         return nil;
     return _locationTracker.locationManager;
 }
+#endif //!MAPLY_MINIMAL
 
 -(NSArray *)loadedLayers
 {
@@ -1528,7 +1685,8 @@ static const float PerfOutputDelay = 15.0;
     if (!renderControl || !renderControl->sceneRenderer)
         return CGSizeZero;
     
-    return CGSizeMake(renderControl->sceneRenderer->framebufferWidth,renderControl->sceneRenderer->framebufferHeight);
+    const Point2f frameSize = renderControl->sceneRenderer->getFramebufferSize();
+    return CGSizeMake(frameSize.x(), frameSize.y());
 }
 
 - (MaplyRenderType)getRenderType
@@ -1547,48 +1705,124 @@ static const float PerfOutputDelay = 15.0;
 
 - (void)addActiveObject:(MaplyActiveObject *__nonnull)theObj
 {
-    if (renderControl)
-        [renderControl addActiveObject:theObj];
+    [renderControl addActiveObject:theObj];
 }
 
 - (void)removeActiveObject:(MaplyActiveObject *__nonnull)theObj
 {
-    if (renderControl)
-        [renderControl removeActiveObject:theObj];
+    [renderControl removeActiveObject:theObj];
 }
 
 - (void)removeActiveObjects:(NSArray *__nonnull)theObjs
 {
-    if (renderControl)
-        [renderControl removeActiveObjects:theObjs];
+    [renderControl removeActiveObjects:theObjs];
 }
 
 - (bool)addLayer:(MaplyControllerLayer *__nonnull)layer
 {
-    return renderControl && [renderControl addLayer:layer];
+    return [renderControl addLayer:layer];
 }
 
 - (void)removeLayer:(MaplyControllerLayer *__nonnull)layer
 {
-    if (renderControl)
-        [renderControl removeLayer:layer];
+    [renderControl removeLayer:layer];
 }
 
 - (void)removeLayers:(NSArray *__nonnull)layers
 {
-    if (renderControl)
-        [renderControl removeLayers:layers];
+    [renderControl removeLayers:layers];
 }
 
 - (void)removeAllLayers
 {
-    if (renderControl)
-        [renderControl removeAllLayers];
+    [renderControl removeAllLayers];
+}
+
+- (int)getTileFetcherConnections
+{
+    return renderControl.tileFetcherConnections;
+}
+
+- (void)setTileFetcherConnections:(int)value
+{
+    renderControl.tileFetcherConnections = value;
 }
 
 - (MaplyRemoteTileFetcher *)addTileFetcher:(NSString * __nonnull)name
 {
-    return renderControl ? [renderControl addTileFetcher:name] : nil;
+    return [renderControl addTileFetcher:name];
+}
+
+- (MaplyRemoteTileFetcher * _Nullable)addTileFetcher:(NSString * _Nonnull)name withMaxConnections:(int)maxConnections {
+    return [renderControl addTileFetcher:name withMaxConnections:maxConnections];
+}
+
+- (MaplyRemoteTileFetcher * __nullable)getTileFetcher:(NSString * __nonnull)name
+{
+    return [renderControl getTileFetcher:name];
+}
+
+- (void)layoutDidRun
+{
+    // Layout complete, we can do stuff like `findHeightToViewBounds` now
+    for (InitCompletionBlock block in _postInitCalls)
+    {
+        block();
+    }
+    _postInitCalls = nil;
+}
+
+- (void)addPostInitBlock:(_Nonnull InitCompletionBlock)block
+{
+    if (block)
+    {
+        if (_postInitCalls)
+        {
+            [_postInitCalls addObject:block];
+        }
+        else
+        {
+            block();
+        }
+    }
+}
+
+- (int)retainZoomSlotMinZoom:(double)minZoom
+                   maxHeight:(double)maxHeight
+                     maxZoom:(double)maxZoom
+                   minHeight:(double)minHeight
+{
+    if (const auto render = renderControl ? renderControl->sceneRenderer : nullptr)
+    {
+        return render->retainZoomSlot(minZoom, maxHeight, maxZoom, minHeight);
+    }
+    return -1;
+}
+
+- (void)releaseZoomSlotIndex:(int)index
+{
+    if (const auto render = renderControl ? renderControl->sceneRenderer : nullptr)
+    {
+        render->releaseZoomSlot(index);
+    }
+}
+
+- (void)report:(NSString * __nonnull)tag error:(NSError * __nonnull)error
+{
+    if (self && tag && error)
+    if (MaplyRenderController *rc = renderControl)
+    {
+        [rc report:tag error:error];
+    }
+}
+
+- (void)report:(NSString * __nonnull)tag exception:(NSException * __nonnull)error
+{
+    if (self && tag && error)
+    if (MaplyRenderController *rc = renderControl)
+    {
+        [rc report:tag exception:error];
+    }
 }
 
 @end

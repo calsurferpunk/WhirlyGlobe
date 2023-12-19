@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 10/20/12.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -29,33 +29,35 @@ namespace WhirlyKit
 class PerformanceTimer
 {
 public:
-    /// Used to track a category of timing
-    class TimeEntry
+    struct Entry
     {
-    public:
-        TimeEntry();
-        TimeEntry & operator = (const TimeEntry &that);
+        std::string name;
+        int numRuns = 0;
+    };
+
+    /// Used to track a category of timing
+    struct TimeEntry : public Entry
+    {
         bool operator < (const TimeEntry &that) const;
         
         void addTime(TimeInterval dur);
         
-        std::string name;
-        TimeInterval minDur,maxDur,avgDur;
-        int numRuns;
+        TimeInterval minDur = std::numeric_limits<TimeInterval>::max();
+        TimeInterval maxDur = 0.0;
+        TimeInterval avgDur = 0.0;
     };
     
     /// Used to track a category of counts
-    class CountEntry
+    struct CountEntry : public Entry
     {
-    public:
-        CountEntry();
         bool operator < (const CountEntry &that) const;
         
         void addCount(int count);
         
-        std::string name;
-        int minCount,maxCount,avgCount;
-        int numRuns;
+        int minCount = std::numeric_limits<int>::max();
+        int maxCount = 0;
+        int avgCount = 0;
+        int lastCount = 0;
     };
     
     /// Start timing the given thing
@@ -63,7 +65,10 @@ public:
     
     /// Stop timing the given thing and add it to the existing timings
     void stopTiming(const std::string &);
-    
+
+    /// Get a timing entry
+    TimeEntry getTiming(const std::string &) const;
+
     /// Add a count for a particular instance
     void addCount(const std::string &what,int count);
     
@@ -73,8 +78,8 @@ public:
     /// Clean out existing timings
     void clear();
     
-    /// Write out the timings to NSLog
-    void log();
+    /// Write out the timings to the log
+    void log(double min = 0.0);
     
 protected:
     std::map<std::string,TimeInterval> actives;

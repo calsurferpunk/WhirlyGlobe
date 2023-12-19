@@ -1,9 +1,8 @@
-/*
- *  ViewPlacementGenerator.mm
+/*  ViewPlacementActiveModel.mm
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 7/25/12.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,12 +14,12 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "ViewPlacementActiveModel.h"
 #import "MaplyView.h"
 #import "SceneRenderer.h"
+#import "WhirlyKitLog.h"
 
 using namespace Eigen;
 using namespace WhirlyKit;
@@ -36,7 +35,11 @@ ViewPlacementManager::ViewPlacementManager()
     
 ViewPlacementManager::~ViewPlacementManager()
 {
-    viewInstanceSet.clear();
+    try
+    {
+        viewInstanceSet.clear();
+    }
+    WK_STD_DTOR_CATCH()
 }
 
 void ViewPlacementManager::addView(GeoCoord loc,const Point2d &offset2,UIView *view,float minVis,float maxVis)
@@ -134,20 +137,20 @@ void ViewPlacementManager::updateLocations(RendererFrameInfo *frameInfo)
 
     // Overall extents we'll look at.  Everything else is tossed.
     // Note: This is too simple
-    Mbr frameMbr;
-    float marginX = frameInfo->sceneRenderer->framebufferWidth * 1.1;
-    float marginY = frameInfo->sceneRenderer->framebufferHeight * 1.1;
-    frameMbr.ll() = Point2f(0 - marginX,0 - marginY);
-    frameMbr.ur() = Point2f(frameInfo->sceneRenderer->framebufferWidth + marginX,frameInfo->sceneRenderer->framebufferHeight + marginY);
-    
-    std::vector<Eigen::Matrix4d> modelAndViewMats; // modelAndViewNormalMats;
-    for (unsigned int offi=0;offi<frameInfo->offsetMatrices.size();offi++)
+    const float margin = 0.1f;
+    const Mbr frameMbr = frameInfo->sceneRenderer->getFramebufferBound(margin);
+
+    Matrix4dVector modelAndViewMats; // modelAndViewNormalMats;
+    modelAndViewMats.reserve(frameInfo->offsetMatrices.size());
+    for (const auto &mat : frameInfo->offsetMatrices)
     {
         // Project the world location to the screen
-        Eigen::Matrix4d modelAndViewMat = frameInfo->viewTrans4d * frameInfo->offsetMatrices[offi] * frameInfo->modelTrans4d;
-//        Eigen::Matrix4d modelAndViewNormalMat = modelAndViewMat.inverse().transpose();
-        modelAndViewMats.push_back(modelAndViewMat);
-//        modelAndViewNormalMats.push_back(modelAndViewNormalMat);
+        modelAndViewMats.push_back(frameInfo->viewTrans4d * mat * frameInfo->modelTrans4d);
+    }
+    for (const auto &mat : frameInfo->offsetMatrices)
+    {
+        // Project the world location to the screen
+        modelAndViewMats.push_back(frameInfo->viewTrans4d * mat * frameInfo->modelTrans4d);
     }
     
     std::set<ViewInstance> localViewSet;
@@ -157,16 +160,14 @@ void ViewPlacementManager::updateLocations(RendererFrameInfo *frameInfo)
         changedSinceUpdate = false;
     }
     
-    auto frameSizeScaled = frameInfo->sceneRenderer->getFramebufferSize();
+    const auto frameSizeScaled = frameInfo->sceneRenderer->getFramebufferSize();
     
-    for (std::set<ViewInstance>::iterator it = localViewSet.begin();
-         it != localViewSet.end(); ++it)
+    for (const auto &viewInst : localViewSet)
     {
-        const ViewInstance &viewInst = *it;
         bool hidden = NO;
         Point2f screenPt;
         
-        if (!it->active)
+        if (!viewInst.active)
             continue;
         
         // Height above globe test
@@ -258,19 +259,11 @@ void ViewPlacementManager::dumpStats()
 
 namespace WhirlyKit
 {
-ViewPlacementActiveModel::ViewPlacementActiveModel()
-{
-}
-
-ViewPlacementManager *ViewPlacementActiveModel::getManager()
-{
-    return &manager;
-}
 
 void ViewPlacementActiveModel::startWithScene(Scene *scene) {
 }
 
-bool ViewPlacementActiveModel::hasUpdate() {
+bool ViewPlacementActiveModel::hasUpdate() const {
     return manager.getChangedSinceUpdate();
 }
 
@@ -280,7 +273,7 @@ void ViewPlacementActiveModel::updateForFrame(RendererFrameInfo *frameInfo) {
 }
 
 /// Time to clean up your toys
-void ViewPlacementActiveModel::teardown() {
+void ViewPlacementActiveModel::teardown(PlatformThreadInfo *) {
 }
 
 }

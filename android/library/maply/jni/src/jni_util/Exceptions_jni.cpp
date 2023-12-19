@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Tim Sylvester on 3/8/2021
- *  Copyright 2021-2021 mousebird consulting
+ *  Copyright 2021-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -132,7 +132,7 @@ bool logAndClearJVMException(JNIEnv* env, const char* where, android_LogPriority
 {
     if (auto ex = env->ExceptionOccurred())
     {
-        env->ExceptionClear();
+        env->ExceptionClear();  // exception must be cleared before making any more calls
         logJVMException(env,ex,where,priority);
         return true;
     }

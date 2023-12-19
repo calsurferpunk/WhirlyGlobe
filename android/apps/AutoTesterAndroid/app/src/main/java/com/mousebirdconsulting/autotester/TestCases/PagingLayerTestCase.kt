@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by sjg
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@ class PagingLayerTestCase(activity: Activity) : MaplyTestCase(activity) {
         params.maxZoom = 22
         params.minImportance = 256.0*256.0
         params.singleLevel = true
+//        params.setBoundsScale(2.0f)
         params.coordSystem = SphericalMercatorCoordSystem()
 
         // This will put an outline around a tile and a number in the middle

@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 4/26/15.
- *  Copyright 2011-2019 mousebird consulting.
+ *  Copyright 2011-2022 mousebird consulting.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -37,37 +37,44 @@ typedef enum {ParticleSystemPoint,ParticleSystemRectangle} ParticleSystemType;
 class ParticleSystem : public Identifiable
 {
 public:
-    ParticleSystem();
-    virtual ~ParticleSystem();
+    ParticleSystem() = default;
+    virtual ~ParticleSystem() = default;
     
-    bool enable;
+    bool enable = true;
     std::string name;
-    int64_t drawOrder;
-    int drawPriority;
-    float pointSize;
-    ParticleSystemType type;
-    SimpleIdentity calcShaderID;
-    SimpleIdentity renderShaderID;
-    TimeInterval lifetime,baseTime;
-    int totalParticles,batchSize,vertexSize;
-    bool continuousUpdate;
-    bool zBufferRead,zBufferWrite;
-    SimpleIdentity renderTargetID;
+    int64_t drawOrder = BaseInfo::DrawOrderTiles;
+    int drawPriority = 0;
+    float pointSize = 1.0;
+    ParticleSystemType type = ParticleSystemPoint;
+    SimpleIdentity calcShaderID = EmptyIdentity;
+    SimpleIdentity renderShaderID = EmptyIdentity;
+    SimpleIdentity renderTargetID = EmptyIdentity;
+    TimeInterval lifetime = 0.0;
+    TimeInterval baseTime = 0.0;
+    int trianglesPerParticle = 2;
+    int totalParticles = 0;
+    int batchSize = 0;
+    int vertexSize = 0;
+    bool continuousUpdate = true;
+    bool zBufferRead = false;
+    bool zBufferWrite = false;
+    bool blendPremultipliedAlpha = false;
     std::vector<SingleVertexAttributeInfo> vertAttrs;
     std::vector<SingleVertexAttributeInfo> varyingAttrs;
     std::vector<SimpleIdentity> varyNames;
     std::vector<SimpleIdentity> texIDs;
+    std::vector<RawDataRef> partData;  // Used for Metal particles
 };
 
 /// Holds the data for a batch of particles
 class ParticleBatch
 {
 public:
-    ParticleBatch();
-    virtual ~ParticleBatch();
+    ParticleBatch() = default;
+    virtual ~ParticleBatch() = default;
     
     // Should match the particle systems batch size
-    int batchSize;
+    int batchSize = 0;
     // For OpenGL ES: One entry per vertex attribute.  Order corresponds to the vertAttrs array in the ParticleSystem.
     std::vector<const void *> attrData;
     // For Metal: We just pass through a mass of data without looking at it.
@@ -78,15 +85,19 @@ public:
 class ParticleSystemSceneRep : public Identifiable
 {
 public:
-    ParticleSystemSceneRep();
+    ParticleSystemSceneRep() = default;
     ParticleSystemSceneRep(SimpleIdentity inId);
-    ~ParticleSystemSceneRep();
+    virtual ~ParticleSystemSceneRep() = default;
     
     void clearContents(ChangeSet &changes);
     void enableContents(bool enable,ChangeSet &changes);
     
     ParticleSystem partSys;
+    // We have a special drawable for OpenGL
     std::set<ParticleSystemDrawable *> draws;
+    // For Metal we just use instances
+    SimpleIDSet basicIDs;
+    SimpleIDSet instIDs;
 };
     
 typedef std::map<SimpleIdentity,ParticleSystemSceneRep *> ParticleSystemSceneRepSet;
@@ -95,7 +106,7 @@ typedef std::map<SimpleIdentity,ParticleSystemSceneRep *> ParticleSystemSceneRep
 class ParticleSystemManager : public SceneManager
 {
 public:
-    ParticleSystemManager();
+    ParticleSystemManager() = default;
     virtual ~ParticleSystemManager();
     
     /// Add a particle system

@@ -3,10 +3,11 @@
 //  AutoTester
 //
 //  Created by Steve Gifford on 2/8/21.
-//  Copyright © 2021 mousebird consulting. All rights reserved.
+//  Copyright 2021-2022 mousebird consulting. All rights reserved.
 //
 
 import Foundation
+import WhirlyGlobe
 
 // A very dumb graph builder
 class GraphBuilder {
@@ -40,24 +41,21 @@ class GraphBuilder {
 class AirwayTestCase: MaplyTestCase {
     
     override init() {
-        super.init()
-        
-        self.name = "Airways & Airspaces"
-        self.implementations = [.globe, .map]
+        super.init(name: "Airways & Airspaces", supporting: [.globe, .map])
     }
     
     let baseCase = StamenWatercolorRemote()
     
     let buildPointMarkers = true
     let buildPointLabels = false
-    let buildAirways = false
+    let buildAirways = true
     let buildAirspaces = true
-    let buildLineLabels = true
+    let buildLineLabels = false
     let buildCenterLabels = false
     
     func setupAirways(_ viewC: MaplyBaseViewController) {
         DispatchQueue.global(qos: .default).async {
-            guard let vecObj = MaplyVectorObject(fromShapeFile: "ATS_Route") else {
+            guard let vecObj = MaplyVectorObject(shapeFile: "ATS_Route") else {
                 print("Failed to load ATS_Route shapefile")
                 return
             }
@@ -121,7 +119,7 @@ class AirwayTestCase: MaplyTestCase {
             var labels: [MaplyScreenLabel] = []
             var lines: [MaplyVectorObject] = []
             for seg in segments {
-                var include = true
+                let include = true
 //                if let highVal = seg.attributes?["US_HIGH"] as? Int {
 //                    if highVal > 0 {
 //                        include = true
@@ -160,7 +158,7 @@ class AirwayTestCase: MaplyTestCase {
                 }
             }
 
-            viewC.addWideVectors(lines, desc: [kMaplyVecWidth: 2.0,
+            viewC.addWideVectors(lines, desc: [kMaplyVecWidth: 4.0,
                                                kMaplyWideVecImpl: kMaplyWideVecImplPerf,
                                                   kMaplyColor: UIColor.blue],
                                  mode: .any)
@@ -177,7 +175,7 @@ class AirwayTestCase: MaplyTestCase {
     }
     
     func setupAirspaces(_ viewC: MaplyBaseViewController) {
-        guard let vecObj = MaplyVectorObject(fromShapeFile: "Airspace_Boundary") else {
+        guard let vecObj = MaplyVectorObject(shapeFile: "Airspace_Boundary") else {
             print("Failed to load Airspace_Boundary shapefile")
             return
         }
@@ -256,7 +254,8 @@ class AirwayTestCase: MaplyTestCase {
         baseCase.setUpWithGlobe(globeVC)
 
 //        globeVC.keepNorthUp = false
-        globeVC.animate(toPosition: MaplyCoordinateMakeWithDegrees(-110.0, 40.5023056), time: 1.0)
+        globeVC.animate(toPosition: MaplyCoordinateMakeWithDegrees(-110.0, 40.5023056),
+                        height:1.0, heading:0.0, time: 1.0)
 
         if buildAirways {
             setupAirways(globeVC)
@@ -270,7 +269,8 @@ class AirwayTestCase: MaplyTestCase {
     override func setUpWithMap(_ mapVC: MaplyViewController) {
         baseCase.setUpWithMap(mapVC)
         
-        mapVC.animate(toPosition: MaplyCoordinateMakeWithDegrees(-110.0, 40.5023056), time: 1.0)
+        mapVC.animate(toPosition: MaplyCoordinateMakeWithDegrees(-110.0, 40.5023056),
+                      height:1.0, heading:0.0, time: 1.0)
         
         if buildAirways {
             setupAirways(mapVC)

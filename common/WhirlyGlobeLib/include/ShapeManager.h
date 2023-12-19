@@ -1,9 +1,8 @@
-/*
- *  ShapeManager.h
+/*  ShapeManager.h
  *  WhirlyGlobeLib
  *
  *  Created by jmnavarro
- *  Copyright 2011-2019 mousebird consulting.
+ *  Copyright 2011-2022 mousebird consulting.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 #import "Identifiable.h"
 #import "WhirlyVector.h"
@@ -31,22 +29,21 @@ namespace WhirlyKit {
 class GeometryRaw;
 
 /// Used internally to track shape related resources
-class ShapeSceneRep : public Identifiable
+struct ShapeSceneRep : public Identifiable
 {
-public:
-    ShapeSceneRep(){};
-    ShapeSceneRep(SimpleIdentity inId): Identifiable(inId){};
-    ~ShapeSceneRep(){};
+    ShapeSceneRep() = default;
+    ShapeSceneRep(SimpleIdentity inId): Identifiable(inId) { }
+    ~ShapeSceneRep() = default;
 
     // Enable/disable the contents
-    void enableContents(WhirlyKit::SelectionManagerRef &selectManager,bool enable,ChangeSet &changes);
+    void enableContents(const SelectionManagerRef &selectManager,bool enable,ChangeSet &changes);
 
     // Clear the contents out of the scene
-    void clearContents(WhirlyKit::SelectionManagerRef &selectManager,ChangeSet &changes,TimeInterval when);
+    void clearContents(const SelectionManagerRef &selectManager,ChangeSet &changes,TimeInterval when);
 
     SimpleIDSet drawIDs;  // Drawables created for this
     SimpleIDSet selectIDs;  // IDs in the selection layer
-    float fade;  // Time to fade away for removal
+    float fadeOut = 0.0;  // Time to fade away for removal
 };
     
 typedef std::set<ShapeSceneRep *,IdentifiableSorter> ShapeSceneRepSet;
@@ -59,17 +56,18 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
     Shape();
-    virtual ~Shape();
+    virtual ~Shape() = default;
 
 	virtual void makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder, WhirlyKit::ShapeDrawableBuilderTri *triBuilder, WhirlyKit::Scene *scene, SelectionManagerRef &selectManager, ShapeSceneRep *sceneRep);
     virtual Point3d displayCenter(CoordSystemDisplayAdapter *coordAdapter, const ShapeInfo &shapeInfo);
 
 public:
     bool isSelectable;
-    WhirlyKit::SimpleIdentity selectID;
     bool useColor;
-    WhirlyKit::RGBAColor color;
     bool clipCoords;
+    WhirlyKit::SimpleIdentity selectID;
+    WhirlyKit::RGBAColor color;
+    std::string label;
 };
 
 
@@ -79,7 +77,7 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
     Circle();
-    virtual ~Circle();
+    virtual ~Circle() = default;
     
     virtual void makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder, WhirlyKit::ShapeDrawableBuilderTri *triBuilder, WhirlyKit::Scene *scene, SelectionManagerRef &selectManager, ShapeSceneRep *sceneRep);
     virtual Point3d displayCenter(CoordSystemDisplayAdapter *coordAdapter, const ShapeInfo &shapeInfo);
@@ -102,7 +100,7 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
     
     Sphere();
-    virtual ~Sphere();
+    virtual ~Sphere() = default;
 
     virtual void makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder, WhirlyKit::ShapeDrawableBuilderTri *triBuilder, WhirlyKit::Scene *scene, SelectionManagerRef &selectManager, ShapeSceneRep *sceneRep);
     virtual Point3d displayCenter(CoordSystemDisplayAdapter *coordAdapter, const ShapeInfo &shapeInfo);
@@ -114,14 +112,14 @@ public:
     int sampleX, sampleY;
 };
     
-/// This puts a cylinder with its base at the locaton
+/// This puts a cylinder with its base centered at the location
 class Cylinder : public Shape
 {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
     Cylinder();
-    virtual ~Cylinder();
+    virtual ~Cylinder() = default;
     
     virtual void makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder, WhirlyKit::ShapeDrawableBuilderTri *triBuilder, WhirlyKit::Scene *scene, SelectionManagerRef &selectManager, ShapeSceneRep *sceneRep);
     virtual Point3d displayCenter(CoordSystemDisplayAdapter *coordAdapter, const ShapeInfo &shapeInfo);
@@ -149,7 +147,7 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
     Linear();
-    virtual ~Linear();
+    virtual ~Linear() = default;
     
     virtual void makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder, WhirlyKit::ShapeDrawableBuilderTri *triBuilder, WhirlyKit::Scene *scene, SelectionManagerRef &selectManager, ShapeSceneRep *sceneRep);
     virtual Point3d displayCenter(CoordSystemDisplayAdapter *coordAdapter, const ShapeInfo &shapeInfo);
@@ -172,7 +170,7 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
     
     Extruded();
-    virtual ~Extruded();
+    virtual ~Extruded() = default;
     
     virtual void makeGeometryWithBuilder(WhirlyKit::ShapeDrawableBuilder *regBuilder, WhirlyKit::ShapeDrawableBuilderTri *triBuilder, WhirlyKit::Scene *scene, SelectionManagerRef &selectManager, ShapeSceneRep *sceneRep);
     virtual Point3d displayCenter(CoordSystemDisplayAdapter *coordAdapter, const ShapeInfo &shapeInfo);
@@ -198,7 +196,7 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
     
     Rectangle();
-    virtual ~Rectangle();
+    virtual ~Rectangle() = default;
 
 	void setLL(const Point3d &inLL) { ll = inLL; }
 	Point3d getLL() { return ll; }
@@ -225,20 +223,20 @@ public:
 class ShapeManager : public SceneManager
 {
 public:
-    ShapeManager();
+    ShapeManager() = default;
     virtual ~ShapeManager();
     
     /// Convert shape to raw geometry
     void convertShape(Shape &shape,std::vector<WhirlyKit::GeometryRaw> &rawGeom);
 
     /// Add an array of shapes.  The returned ID can be used to remove or modify the group of shapes.
-    SimpleIdentity addShapes(std::vector<Shape*> shapes, const ShapeInfo &shapeInfo,ChangeSet &changes);
+    SimpleIdentity addShapes(const std::vector<Shape*> &shapes, const ShapeInfo &shapeInfo,ChangeSet &changes);
 
     /// Remove a group of shapes named by the given ID
-    void removeShapes(SimpleIDSet &shapeIDs,ChangeSet &changes);
+    void removeShapes(const SimpleIDSet &shapeIDs,ChangeSet &changes);
 
     /// Enable/disable a group of shapes
-    void enableShapes(SimpleIDSet &shapeIDs,bool enable,ChangeSet &changes);
+    void enableShapes(const SimpleIDSet &shapeIDs,bool enable,ChangeSet &changes);
     
     /// Pass through a uniform block to use on the given shapes
     void setUniformBlock(const SimpleIDSet &shapeIDs,const RawDataRef &uniBlock,int bufferID,ChangeSet &changes);

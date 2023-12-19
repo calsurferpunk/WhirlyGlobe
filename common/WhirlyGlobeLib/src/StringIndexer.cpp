@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 7/30/18.
- *  Copyright 2011-2021 Saildrone Inc
+ *  Copyright 2011-2023 Saildrone Inc
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -27,6 +27,11 @@ StringIndexer StringIndexer::instance;
 StringIndexer::StringIndexer() : stringToIdent(500)
 {
     identToString.reserve(500);
+}
+
+StringIdentity StringIndexer::getStringID(const char *str)
+{
+    return str ? getStringID(std::string(str)) : EmptyIdentity;
 }
 
 StringIdentity StringIndexer::getStringID(const std::string &str)
@@ -102,6 +107,7 @@ StringIdentity a_maskNameIDs[WhirlyKitMaxMasks];
 StringIdentity a_texCoordNameID;
 StringIdentity u_w2NameID;
 StringIdentity u_Realw2NameID;
+StringIdentity u_wideOffsetNameID;
 StringIdentity u_EdgeNameID;
 StringIdentity u_texScaleNameID;
 StringIdentity u_colorNameID;
@@ -130,17 +136,17 @@ static void SetupDrawableStringsOnce()
     }
     char name[200];
     for (unsigned int index=0;index<8;index++) {
-        sprintf(name,"light[%d].viewdepend",index);
+        snprintf(name,sizeof(name),"light[%d].viewdepend",index);
         lightViewDependNameIDs[index] = StringIndexer::getStringID(name);
-        sprintf(name,"light[%d].direction",index);
+        snprintf(name,sizeof(name),"light[%d].direction",index);
         lightDirectionNameIDs[index] = StringIndexer::getStringID(name);
-        sprintf(name,"light[%d].halfplane",index);
+        snprintf(name,sizeof(name),"light[%d].halfplane",index);
         lightHalfplaneNameIDs[index] = StringIndexer::getStringID(name);
-        sprintf(name,"light[%d].ambient",index);
+        snprintf(name,sizeof(name),"light[%d].ambient",index);
         lightAmbientNameIDs[index] = StringIndexer::getStringID(name);
-        sprintf(name,"light[%d].diffuse",index);
+        snprintf(name,sizeof(name),"light[%d].diffuse",index);
         lightDiffuseNameIDs[index] = StringIndexer::getStringID(name);
-        sprintf(name,"light[%d].specular",index);
+        snprintf(name,sizeof(name),"light[%d].specular",index);
         lightSpecularNameIDs[index] = StringIndexer::getStringID(name);
     }
     u_numLightsNameID = StringIndexer::getStringID("u_numLights");
@@ -174,12 +180,13 @@ static void SetupDrawableStringsOnce()
     a_dirNameID = StringIndexer::getStringID("a_dir");
     a_maskNameID = StringIndexer::getStringID("a_maskID");
     for (unsigned int index=0;index<WhirlyKitMaxMasks;index++) {
-        sprintf(name,"a_maskID%d",index);
+        snprintf(name,sizeof(name),"a_maskID%d",index);
         a_maskNameIDs[index] = StringIndexer::getStringID(name);
     }
     a_texCoordNameID = StringIndexer::getStringID("a_texCoord");
     u_w2NameID = StringIndexer::getStringID("u_w2");
     u_Realw2NameID = StringIndexer::getStringID("u_real_w2");
+    u_wideOffsetNameID = StringIndexer::getStringID("u_wideOffset");
     u_EdgeNameID = StringIndexer::getStringID("u_edge");
     u_texScaleNameID = StringIndexer::getStringID("u_texScale");
     u_colorNameID = StringIndexer::getStringID("u_color");

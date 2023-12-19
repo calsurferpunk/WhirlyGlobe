@@ -2,7 +2,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 3/28/11.
- *  Copyright 2011-2021 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -28,14 +28,13 @@ void SubTexture::setFromTex(const TexCoord &texOrg,const TexCoord &texDest)
 {
     trans = decltype(trans)::Identity();
     trans.translate(texOrg);
-    trans.scale(Point2f(texDest.x()-texOrg.x(),texDest.y()-texOrg.y()));
+    trans.scale(texDest - texOrg);
 }
 
 // Calculate a destination texture coordinate
 TexCoord SubTexture::processTexCoord(const TexCoord &inCoord) const
 {
-    const Vector3f res = trans * Vector3f(inCoord.x(),inCoord.y(),1.0);
-    return TexCoord(res.x(),res.y());
+    return Slice(trans * Pad(inCoord, 1.0f));
 }
 
 // Calculate destination texture coords for a while group
@@ -43,7 +42,7 @@ void SubTexture::processTexCoords(std::vector<TexCoord> &coords) const
 {
     for (auto &coord : coords)
     {
-        const Vector3f res = trans * Vector3f(coord.x(),coord.y(),1.0);
+        const Vector3f res = trans * Vector3f(coord.x(),coord.y(),1.0f);
         coord.x() = res.x();
         coord.y() = res.y();
     }

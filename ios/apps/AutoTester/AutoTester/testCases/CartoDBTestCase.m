@@ -3,14 +3,12 @@
 //  AutoTester
 //
 //  Created by jmnavarro on 6/12/15.
-//  Copyright © 2015-2017 mousebird consulting.
+//  Copyright 2015-2022 mousebird consulting.
 //
 
 #import "CartoDBTestCase.h"
-#import "MaplyBaseViewController.h"
-#import "WhirlyGlobeViewController.h"
 #import "CartoDBInterpreter.h"
-#import "AutoTester-Swift.h"
+#import "SwiftBridge.h"
 
 @implementation CartoDBTestCase
 {
@@ -68,6 +66,7 @@
     interp.maxZoom = params.maxZoom;
 
     loader = [[MaplyQuadPagingLoader alloc] initWithParams:params tileInfo:interp loadInterp:interp viewC:baseViewC];
+    loader.label = @"CartoDB";
     interp.loader = loader;
 }
 

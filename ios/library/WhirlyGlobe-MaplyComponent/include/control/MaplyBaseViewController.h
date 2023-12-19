@@ -1,9 +1,8 @@
-/*
- *  MaplyBaseViewController.h
+/*  MaplyBaseViewController.h
  *  MaplyComponent
  *
  *  Created by Steve Gifford on 12/14/12.
- *  Copyright 2012-2021 mousebird consulting
+ *  Copyright 2012-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,32 +14,38 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import <UIKit/UIKit.h>
 #import <Metal/Metal.h>
-#import "math/MaplyCoordinate.h"
-#import "visual_objects/MaplyScreenMarker.h"
-#import "visual_objects/MaplyVectorObject.h"
-#import "control/MaplyViewTracker.h"
-#import "visual_objects/MaplyComponentObject.h"
-#import "MaplySharedAttributes.h"
-#import "control/MaplyControllerLayer.h"
-#import "rendering/MaplyLight.h"
-#import "rendering/MaplyShader.h"
-#import "control/MaplyActiveObject.h"
-#import "visual_objects/MaplyTexture.h"
-#import "control/MaplyAnnotation.h"
-#import "visual_objects/MaplyParticleSystem.h"
-#import "visual_objects/MaplyPoints.h"
-#import "visual_objects/MaplyCluster.h"
-#import "gestures/Maply3DTouchPreviewDatasource.h"
-#import "helpers/MaplyLocationTracker.h"
-#import "rendering/MaplyRenderTarget.h"
-#import "control/MaplyRenderController.h"
-#import "loading/MaplyRemoteTileFetcher.h"
-#import "rendering/MaplyVertexAttribute.h"
+#import <WhirlyGlobe/MaplyCoordinate.h>
+#import <WhirlyGlobe/MaplyViewTracker.h>
+#import <WhirlyGlobe/MaplyComponentObject.h>
+#import <WhirlyGlobe/MaplySharedAttributes.h>
+#import <WhirlyGlobe/MaplyControllerLayer.h>
+#import <WhirlyGlobe/MaplyLight.h>
+#import <WhirlyGlobe/MaplyShader.h>
+#import <WhirlyGlobe/MaplyActiveObject.h>
+#import <WhirlyGlobe/MaplyTexture.h>
+#import <WhirlyGlobe/MaplyPoints.h>
+#import <WhirlyGlobe/MaplyScreenMarker.h>
+#import <WhirlyGlobe/MaplyVectorObject.h>
+#import <WhirlyGlobe/MaplyAnnotation.h>
+#import <WhirlyGlobe/MaplyParticleSystem.h>
+#import <WhirlyGlobe/MaplyCluster.h>
+#import <WhirlyGlobe/Maply3DTouchPreviewDatasource.h>
+#import <WhirlyGlobe/MaplyLocationTracker.h>
+#import <WhirlyGlobe/MaplyRenderTarget.h>
+#import <WhirlyGlobe/MaplyRenderController.h>
+#import <WhirlyGlobe/MaplyRemoteTileFetcher.h>
+#import <WhirlyGlobe/MaplyVertexAttribute.h>
+
+#if !MAPLY_MINIMAL
+#endif //!MAPLY_MINIMAL
+
+
+typedef double (^ZoomEasingBlock)(double z0,double z1,double t);
+typedef void (__strong ^InitCompletionBlock)(void);
 
 /** 
     When selecting multiple objects, one or more of these is returned.
@@ -93,6 +98,8 @@
 
 
 @protocol MaplyLocationTrackerDelegate;
+
+@protocol MaplyErrorReportingDelegate;
 
 /** 
     Base class for the Maply and WhirlyGlobe view controllers.
@@ -152,6 +159,20 @@
     If you set this to 0, you can control the ordering of everything more precisely.
  */
 @property (nonatomic,assign) int screenObjectDrawPriorityOffset;
+
+/**
+    Controls whether objects with unique IDs fade in and out when added or removed from the layout manager
+ */
+@property (nonatomic,assign) bool layoutFade;
+
+/**
+    Controls the way height changes while animating the view
+    For simple, linear zoom use:
+
+        zoomEasing = ^(double z0,double z1,double t) { return z0 + (z1 - z0) * t; };
+ */
+@property (readwrite,copy) ZoomEasingBlock _Nullable animationZoomEasing;
+
 
 /**
     If in Metal rendering mode, return the Metal device being used.
@@ -839,6 +860,21 @@
   */
 - (void)addAnnotation:(MaplyAnnotation *__nonnull)annotate forPoint:(MaplyCoordinate)coord offset:(CGPoint)offset;
 
+/**
+ Add a single annotation which will track the given point.
+ 
+ This adds a MaplyAnnotation that will follow the given geo coordinate, applying the screen offset as given.
+ 
+ @param annotate The annotation we want to track a given point.
+ 
+ @param coord The location on the map (or globe) we'd like to track.
+ 
+ @param offset The screen offset for the annotation UIView.  You use this to put the annotation above or below objects.
+ 
+ @param arrowDirection Arrow direction from the SMCalloutView package.
+ */
+- (void)addAnnotation:(MaplyAnnotation *__nonnull)annotate forPoint:(MaplyCoordinate)coord offset:(CGPoint)offset arrowDirection:(NSInteger)arrowDirection;
+
 /** 
     Remove the given annotation from the UIView.
     
@@ -1100,6 +1136,8 @@
  */
 - (void)setLayoutOverrideIDs:(NSArray *__nullable)uuids;
 
+
+
 /**
     Normally the layout layer runs periodically if you change something or when you move around.
     You can ask it to run ASAP right here.  Layout runs on its own thread, so there may still be a delay.
@@ -1194,7 +1232,6 @@
 
     @param objects Array of ComponentObject, the UUIDs to update
     @param repName The representation value to apply, nil to return to the default
-    @param fallbackRepName The representation to use if there are no matches
 */
 - (void)setRepresentation:(NSString *__nullable)repName
                 ofObjects:(NSArray<MaplyComponentObject *> *__nonnull)objects;
@@ -1260,6 +1297,17 @@
 /// Remove all the user created MaplyControllerLayer objects from the globe or map.
 - (void)removeAllLayers;
 
+
+/// Find or create  a tile fetcher we may share between loaders
+- (MaplyRemoteTileFetcher * __nullable)addTileFetcher:(NSString * __nonnull)name;
+
+/// Find or create  a tile fetcher we may share between loaders
+- (MaplyRemoteTileFetcher * __nullable)addTileFetcher:(NSString * __nonnull)name
+                                   withMaxConnections:(int)maxConnections;
+
+/// Return a tile fetcher we may share between loaders
+- (MaplyRemoteTileFetcher * __nullable)getTileFetcher:(NSString * __nonnull)name;
+
 /** 
     Utility routine to convert from a lat/lon (in radians) to display coordinates
     
@@ -1268,6 +1316,24 @@
     @return The input coordinate in display coordinates.
   */
 - (MaplyCoordinate3d)displayPointFromGeo:(MaplyCoordinate)geoCoord;
+
+/**
+    Utility routine to convert from a lat/lon (in radians) to display coordinates
+    
+    This is a simple routine to get display coordinates from geocoordinates.  Display coordinates for the globe are based on a radius of 1.0 and an origin of (0,0,0).
+    
+    @return The input coordinate in display coordinates.
+  */
+- (MaplyCoordinate3dD)displayPointFromGeoD:(MaplyCoordinate)geoCoord;
+
+/**
+    Utility routine to convert from a lat/lon (in radians) to display coordinates
+    
+    This is a simple routine to get display coordinates from geocoordinates.  Display coordinates for the globe are based on a radius of 1.0 and an origin of (0,0,0).
+    
+    @return The input coordinate in display coordinates.
+  */
+- (MaplyCoordinate3dD)displayPointFromGeoDD:(MaplyCoordinateD)geoCoord;
 
 /** 
     If you've paused the animation earlier, this will start it again.
@@ -1314,7 +1380,7 @@
     
     @return Returns the registered shader if it found one.
   */
-- (MaplyShader *__nullable)getShaderByName:(NSString *__nonnull)name;
+- (MaplyShader *__nullable)getShaderByName:(const NSString *__nonnull)name;
 
 /**
     Remove a shader that was added earlier.
@@ -1393,6 +1459,13 @@
   */
 - (MaplyCoordinate3d)displayCoordFromLocal:(MaplyCoordinate3d)localCoord;
 
+/**
+    Convert from a local coordinate (probably spherical mercator) to a display coordinate.
+    
+    This converts from a local coordinate (x,y,height) in the view controller's coordinate system (probably spherical mercator) to a coordinate in display space.  For the globe display space is based on a radius of 1.0.  For the flat map it's just stretched with a similar factor.
+  */
+- (MaplyCoordinate3dD)displayCoordFromLocalD:(MaplyCoordinate3dD)localCoord;
+
 /** 
     Convert from a coordinate in the given system to display space.
     
@@ -1422,7 +1495,7 @@
 - (void)disable3dTouchSelection;
 
 /** 
-    Return all the selectable objects at the given location.
+    Return all the selectable vector objects at the given location.
     
     Objects can be selected via the delegate or the search can be run directly here.
     
@@ -1430,8 +1503,26 @@
   */
 - (NSArray * _Nullable)objectsAtCoord:(MaplyCoordinate)coord;
 
+/**
+    Return all the selectable labels and markers at the given location.
+
+    Objects can be selected via the delegate or the search can be run directly here.
+
+    This is not thread safe and will block the main thread.
+ */
+- (NSArray * _Nullable)labelsAndMarkersAtCoord:(MaplyCoordinate)coord;
+
+/// The default max number of connections per fetcher
+@property (nonatomic) int tileFetcherConnections;
+
 /// Turn on/off performance output (goes to the log periodically).
 @property (nonatomic,assign) bool performanceOutput;
+
+/// Turn on/off debug outlines for layout objects
+@property (nonatomic,assign) bool showDebugLayoutBoundaries;
+
+/// Set a delegate for error reporting
+@property (nonatomic,assign) NSObject<MaplyErrorReportingDelegate> * __nullable errorReportingDelegate;
 
 /** 
     See derived class method.
@@ -1519,5 +1610,28 @@
 
 /// Return the renderer type being used
 - (MaplyRenderType)getRenderType;
+
+/**
+    Blocks to be called after the view is set up, or immediately if it is already set up.
+    Similar to `addPostSurfaceRunnable` on Android.
+*/
+- (void)addPostInitBlock:(_Nonnull InitCompletionBlock)block;
+
+/// Set up a zoom slot that doesn't depend on a loader
+- (int)retainZoomSlotMinZoom:(double)minZoom
+                   maxHeight:(double)maxHeight
+                     maxZoom:(double)maxZoom
+                   minHeight:(double)minHeight;
+
+/// Release a zoom slot previously retained
+- (void)releaseZoomSlotIndex:(int)index;
+
+/**
+ By default most gestures will wait patiently for other gestures to complete.  This lets you attach your own custom gestures
+ successfully.  But if you don't have your own gestures there's a lot of waiting.
+ If this mode is set, we short wait times and ignore what other gestures might want.  It's much faster interaction.
+ This can only be modified before the controller initializes.
+ */
+@property(nonatomic,assign) bool fastGestures;
 
 @end

@@ -1,9 +1,8 @@
-/*
- *  LineAndPointShaders.cpp
+/*  LineAndPointShadersGLES.cpp
  *  WhirlyGlobe-MaplyComponent
  *
  *  Created by Steve Gifford on 8/21/18.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,7 +14,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
  */
 
 #import "LineAndPointShadersGLES.h"
@@ -46,7 +44,8 @@ void main()
    vec4 testNorm = u_mvNormalMatrix * vec4(a_normal,0.0);
    v_dot = dot(-pt.xyz,testNorm.xyz);
    v_color = a_color * u_fade;
-   gl_Position = u_mvpMatrix * vec4(a_position,1.0);
+   vec4 screenPos = u_mvpMatrix * vec4(a_position,1.0);
+   gl_Position = vec4(screenPos.xyz / screenPos.w, 1.0);
 }
 )";
 
@@ -64,15 +63,15 @@ void main()
 }
 )";
 
-ProgramGLES *BuildDefaultLineShaderCullingGLES(const std::string &name,SceneRenderer *renderer)
+ProgramGLES *BuildDefaultLineShaderCullingGLES(const std::string &name,SceneRenderer *)
 {
-    ProgramGLES *shader = new ProgramGLES(name,vertexShaderLine,fragmentShaderLine);
+    auto *shader = new ProgramGLES(name,vertexShaderLine,fragmentShaderLine);
     if (!shader->isValid())
     {
         delete shader;
-        shader = NULL;
+        shader = nullptr;
     }
-    
+
     return shader;
 }
 
@@ -93,7 +92,8 @@ varying vec4      v_color;
 void main()
 {
    v_color = a_color * u_fade;
-   gl_Position = u_mvpMatrix * vec4(a_position,1.0);
+   vec4 screenPos = u_mvpMatrix * vec4(a_position,1.0);
+   gl_Position = vec4(screenPos.xyz / screenPos.w, 1.0);
 }
 )";
 
@@ -108,13 +108,13 @@ void main()
 }
 )";
 
-ProgramGLES *BuildDefaultLineShaderNoCullingGLES(const std::string &name,SceneRenderer *sceneRender)
+ProgramGLES *BuildDefaultLineShaderNoCullingGLES(const std::string &name,SceneRenderer *)
 {
-    ProgramGLES *shader = new ProgramGLES(name,vertexShaderLineNoBack,fragmentShaderLineNoBack);
+    auto *shader = new ProgramGLES(name,vertexShaderLineNoBack,fragmentShaderLineNoBack);
     if (!shader->isValid())
     {
         delete shader;
-        shader = NULL;
+        shader = nullptr;
     }
     
     return shader;

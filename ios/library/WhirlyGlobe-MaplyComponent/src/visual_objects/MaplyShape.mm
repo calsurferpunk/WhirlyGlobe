@@ -3,7 +3,7 @@
  *  WhirlyGlobe-MaplyComponent
  *
  *  Created by Steve Gifford on 9/28/12.
- *  Copyright 2012-2019 mousebird consulting
+ *  Copyright 2012-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
  */
 
 #import "visual_objects/MaplyShape.h"
-#import "WhirlyGlobe.h"
+#import "WhirlyGlobeLib.h"
 #import "MaplySharedAttributes.h"
 #import "MaplyMatrix_private.h"
 #import "UIColor+Stuff.h"
@@ -34,6 +34,8 @@ using namespace WhirlyKit;
 }
 
 @end
+
+#if !MAPLY_MINIMAL
 
 @implementation MaplyShapeCircle
 
@@ -141,6 +143,8 @@ using namespace WhirlyKit;
 
 @end
 
+#endif //!MAPLY_MINIMAL
+
 @implementation MaplyShapeRectangle
 
 - (instancetype)init
@@ -165,17 +169,27 @@ using namespace WhirlyKit;
     newRect->ur.x() = _ur.x;  newRect->ur.y() = _ur.y;  newRect->ur.z() = _ur.z;
     newRect->clipCoords = self.clipCoords;
     
+    if (NSObject *obj = [desc objectForKey:kMaplyDrawableName])
+    {
+        if ([obj isKindOfClass:NSString.class])
+        {
+            newRect->label = ((NSString*)obj).UTF8String;
+        }
+    }
+
     return newRect;
 }
 
 @end
+
+#if !MAPLY_MINIMAL
 
 @implementation MaplyShapeLinear
 {
     /// Number of coordinates to display in linear
     int numCoords;
     /// Coordinates we'll display for the linear (lon,lat,Z in display units)
-    MaplyCoordinate3d *coords;    
+    MaplyCoordinate3d *coords;
 }
 
 - (instancetype)initWithCoords:(MaplyCoordinate3d *)inCoords numCoords:(int)inNumCoords
@@ -306,3 +320,4 @@ using namespace WhirlyKit;
 
 @end
 
+#endif //!MAPLY_MINIMAL

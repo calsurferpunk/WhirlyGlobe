@@ -3,7 +3,7 @@
  *  WhirlyGlobe-MaplyComponent
  *
  *  Created by Steve Gifford on 6/15/18.
- *  Copyright 2011-2019 Saildrone Inc
+ *  Copyright 2011-2022 Saildrone Inc
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,8 +18,8 @@
  *
  */
 
-#import "loading/MaplyTileSourceNew.h"
-#import "math/MaplyCoordinateSystem.h"
+#import <WhirlyGlobe/MaplyTileSourceNew.h>
+#import <WhirlyGlobe/MaplyCoordinateSystem.h>
 
 /**
  Remote Tile Info Object (New)
@@ -68,11 +68,16 @@
  
  In general, we want to cache.  The globe, in particular,
  is going to fetch the same tiles over and over, quite a lot.
- The cacheing behavior is a little dumb.  It will just write
+ The caching behavior is a little dumb.  It will just write
  files to the given directory forever.  If you're interacting
  with a giant image pyramid, that could be problematic.
  */
 @property (nonatomic, retain,nullable) NSString *cacheDir;
+
+/**
+ Control the cache policy on NSUrlRequest
+ */
+@property (nonatomic) NSURLRequestCachePolicy systemCachePolicy;
 
 /**
  Optional headers to add to the NSURLRequest.
@@ -134,12 +139,12 @@
  fetchInfo is a MaplyRemoteTileFetchInfo describing the rest of the tile characteristics.
  tileID is the tile in question.
  */
-- (NSData * __nullable)dataForTile:(MaplyRemoteTileFetchInfo * __nonnull)fetchInfo tileID:(MaplyTileID)tileID;
+- (id __nullable)dataForTile:(MaplyRemoteTileFetchInfo * __nonnull)fetchInfo tileID:(MaplyTileID)tileID;
 
 @end
 
 /**
-    If a tile fetch request fails, this object allows you  second change to provide the data.
+    If a tile fetch request fails, this object allows you  second chance to provide the data.
     Maybe you have an old version in a cache somewhere.  Provide that.  Or fail and
     the tile fetch will continue to fail.
  */
@@ -150,7 +155,7 @@
  This might be an old version of the data you have lying around.  It's up to you.
  Returning nil means the fetch fails as normal.
  */
-- (NSData * __nullable)dataForTile:(MaplyRemoteTileFetchInfo * __nonnull)fetchInfo tileID:(MaplyTileID)tileID;
+- (id __nullable)dataForTile:(MaplyRemoteTileFetchInfo * __nonnull)fetchInfo tileID:(MaplyTileID)tileID;
 
 @end
 
@@ -173,11 +178,11 @@
 
 /// Local storage is for pre-downloaded tiles, rather than a cache.  This is consulted *before* we go out to the network.
 /// If it fails, then we hit the local file cache and then we hit the network
-- (void)setLocalStorage:(NSObject<MaplyTileLocalStorage> * __nonnull)localStorage;
+- (void)setLocalStorage:(NSObject<MaplyTileLocalStorage> * __nullable)localStorage;
 
 /// After a tile fails to load from local storage, local cache and then a remote request, you have one more chance to provide the data
 /// Useful if you've got an old version of the tile lying around you might use in a pinch
-- (void)setSecondChance:(NSObject<MaplyTileSecondChance> * __nonnull)secondChance;
+- (void)setSecondChance:(NSObject<MaplyTileSecondChance> * __nullable)secondChance;
 
 /// Return the fetching stats since the beginning or since the last reset
 - (MaplyRemoteTileFetcherStats * __nullable)getStats:(bool)allTime;
@@ -226,7 +231,13 @@
 @property (nonatomic) int localData;
 
 // Total time spent waiting for successful remote data requests
-@property (nonatomic) NSTimeInterval totalLatency;
+@property (nonatomic) NSTimeInterval totalResponseTime;
+
+// Total number of up-stream (not local) cache hits
+@property (nonatomic) int remoteCacheHits;
+
+// Total number of up-stream (not local) cache misses
+@property (nonatomic) int remoteCacheMisses;
 
 // The maximum number of requests we've had at once (since the last reset)
 @property (nonatomic) int maxActiveRequests;

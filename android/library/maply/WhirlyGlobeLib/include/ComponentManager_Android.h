@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by Steve Gifford on 3/4/19.
- *  Copyright 2011-2019 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -37,7 +37,10 @@ public:
     void clearJNI(JNIEnv *env);
 
     /// This version of remove calls back to notify the Java side
-    virtual void removeComponentObjects(PlatformThreadInfo *threadInfo,const SimpleIDSet &compIDs,ChangeSet &changes) override;
+    virtual void removeComponentObjects(PlatformThreadInfo *threadInfo,
+                                        const SimpleIDSet &compIDs,
+                                        ChangeSet &changes,
+                                        bool disposeAfterRemoval) override;
 
 protected:
     virtual ComponentObjectRef makeComponentObject(const Dictionary *desc = nullptr) override;

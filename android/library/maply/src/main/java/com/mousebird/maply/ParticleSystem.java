@@ -3,7 +3,7 @@
  *  WhirlyGlobeLib
  *
  *  Created by jmnavarro on 18/1/16
- *  Copyright 2011-2016 mousebird consulting
+ *  Copyright 2011-2022 mousebird consulting
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ public class ParticleSystem {
      */
     public void setPositionShader(Shader shader)
     {
-        setPositionShaderID(shader.getID());
+        setPositionShaderID((shader != null) ? shader.getID() : 0);
     }
 
     /**
@@ -103,7 +103,7 @@ public class ParticleSystem {
      */
     public void setRenderShader(Shader shader)
     {
-        setRenderShaderID(shader.getID());
+        setRenderShaderID((shader != null) ? shader.getID() : 0);
     }
 
     /**

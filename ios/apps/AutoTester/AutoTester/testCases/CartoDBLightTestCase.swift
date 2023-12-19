@@ -1,19 +1,20 @@
 //
-//  GlobeSamplerTestCase.swift
+//  CartoDBLightTestCase.swift
 //  AutoTester
 //
 //  Created by Stephen Gifford on 3/27/18.
-//  Copyright © 2018 mousebird consulting.
+//  Copyright 2018-2022 mousebird consulting.
 //
 
 import UIKit
+import WhirlyGlobe
 
 class CartoDBLightTestCase: MaplyTestCase {
     
     override init() {
         super.init()
         
-        self.name = "CartoDB Light Test Case"
+        self.name = "CartoDB Light"
         self.implementations = [.globe,.map]
     }
     
@@ -43,8 +44,8 @@ class CartoDBLightTestCase: MaplyTestCase {
 #if !targetEnvironment(simulator)
         imageLoader.imageFormat = .imageUShort565;
 #endif
-        //        imageLoader.debugMode = true
-        
+        //imageLoader.debugMode = true
+
         return imageLoader
     }
     
@@ -54,5 +55,10 @@ class CartoDBLightTestCase: MaplyTestCase {
     
     override func setUpWithMap(_ mapVC: MaplyViewController) {
         imageLoader = setupLoader(mapVC)
+    }
+    
+    override func stop() {
+        imageLoader?.shutdown()
+        imageLoader = nil
     }
 }

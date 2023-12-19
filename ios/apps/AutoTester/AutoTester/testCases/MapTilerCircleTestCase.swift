@@ -3,9 +3,10 @@
 //  AutoTester
 //
 //  Created by Tim Sylvester on 3/23/21.
-//  Copyright © 2021 mousebird consulting. All rights reserved.
+//  Copyright 2021-2022 mousebird consulting. All rights reserved.
 //
 import UIKit
+import WhirlyGlobe
 
 class MapTilerCircleTestCase: MapTilerTestCase {
 
@@ -19,10 +20,8 @@ class MapTilerCircleTestCase: MapTilerTestCase {
         map.styleSettings.markerScale = 1.0
     }
 
-    override func getStyles() -> [(name: String, sheet: String)] {
-        return [
-            ("Custom", "maptiler_test_circles")
-        ]
+    override func getStyles() -> [(name: String, sheet: String, bg: Bool)] {
+        return [ ("Custom", "maptiler_test_circles", false) ]
     }
 
 }
