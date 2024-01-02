@@ -30,7 +30,7 @@ class VectorStyleTestCase(activity: Activity) :
 
     private fun setupOverlay(control: BaseController) {
         val json = activity.assets.open("country_json_50m/USA.geojson").use { stream ->
-            Okio.buffer(Okio.source(stream)).readUtf8()
+            stream.source().buffer().readUtf8()
         }
 
         val vecObj = VectorObject.createFromGeoJSON(json)

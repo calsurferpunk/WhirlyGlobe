@@ -71,8 +71,8 @@ open class MapTilerTestCase : MaplyTestCase
             Toast.makeText(activity.applicationContext, "Loading ${it.first}", Toast.LENGTH_SHORT).show()
             try {
                 activity.assets.open(it.first).use { stream ->
-                    Okio.source(stream).use { source ->
-                        Okio.buffer(source).use { buffer ->
+                    stream.source().use { source ->
+                        source.buffer().use { buffer ->
                             Pair(buffer.readUtf8(), it.second)
                         }
                     }

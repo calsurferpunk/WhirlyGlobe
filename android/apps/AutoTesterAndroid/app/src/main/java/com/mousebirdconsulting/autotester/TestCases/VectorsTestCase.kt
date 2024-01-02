@@ -8,6 +8,8 @@ import android.widget.Toast
 import com.mousebird.maply.*
 import com.mousebirdconsulting.autotester.Framework.MaplyTestCase
 import okio.Okio
+import okio.buffer
+import okio.source
 import java.util.*
 
 class VectorsTestCase(activity: Activity?) :
@@ -40,8 +42,8 @@ class VectorsTestCase(activity: Activity?) :
                 msg?.show()
             }
             val json = assetMgr.open("country_json_50m/$path").use { stream ->
-                Okio.source(stream).use { source ->
-                    Okio.buffer(source).use { buf ->
+                stream.source().use { source ->
+                    source.buffer().use { buf ->
                         buf.readUtf8()
                     }
                 }

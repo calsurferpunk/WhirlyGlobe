@@ -317,10 +317,10 @@ open class MapboxKindaMap(
                     response.use {
                         if (finished) return@use    // already done loading, how?
                         if (!response.isSuccessful) {
-                            reportLoadError("JSON stylesheet request failed: ${response.code()} ${response.message()}")
+                            reportLoadError("JSON stylesheet request failed: ${response.code} ${response.message}")
                             return@use
                         }
-                        response.body()?.use {
+                        response.body?.use {
                             // Convert to string, treat empty as null
                             val s = String(it.bytes())
                             if (s.isNotEmpty()) s else null
@@ -389,10 +389,10 @@ open class MapboxKindaMap(
                 override fun onResponse(call: Call, response: Response) {
                     response.use {
                         if (!response.isSuccessful) {
-                            reportLoadError("Tile JSON request failed: ${response.code()} ${response.message()}")
+                            reportLoadError("Tile JSON request failed: ${response.code} ${response.message}")
                             return@use
                         }
-                        response.body()?.use {
+                        response.body?.use {
                             // Convert to string, treat empty as null
                             val s = String(it.bytes())
                             if (s.isNotEmpty()) s else null
@@ -445,10 +445,10 @@ open class MapboxKindaMap(
                     response.use {
                         if (finished) return@use
                         if (!response.isSuccessful) {
-                            reportLoadError("Sprite sheet request failed: ${response.code()} ${response.message()}")
+                            reportLoadError("Sprite sheet request failed: ${response.code} ${response.message}")
                             return@use
                         }
-                        response.body()?.use {
+                        response.body?.use {
                             // Convert to string, treat empty as null
                             val s = String(it.bytes())
                             if (s.isNotEmpty()) s else null
@@ -487,10 +487,10 @@ open class MapboxKindaMap(
                     response.use {
                         if (finished) return@use
                         if (!response.isSuccessful) {
-                            reportLoadError("Sprite image request failed with ${response.code()}: ${response.message()}")
+                            reportLoadError("Sprite image request failed with ${response.code}: ${response.message}")
                             return@use
                         }
-                        spritePNG = response.body()?.use { body ->
+                        spritePNG = response.body?.use { body ->
                             try {
                                 val bytes = body.bytes()
                                 BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.also {
