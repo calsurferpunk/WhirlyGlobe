@@ -35,7 +35,7 @@ class StamenRemoteTestCase(activity: Activity?) :
         val cacheDir = File(activity.cacheDir, cacheDirName)
         cacheDir.mkdirs()
         
-        val url = "http://tile.stamen.com/watercolor/{z}/{x}/{y}.png"
+        val url = "https://tiles.stadiamaps.com/tiles/stamen_terrain_background/{z}/{x}/{y}@2x.png?api_key=$stamenKey"
         val tileInfo = RemoteTileInfoNew(url, 0, 18)
         tileInfo.cacheDir = cacheDir
         

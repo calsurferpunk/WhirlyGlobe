@@ -11,6 +11,7 @@ import com.mousebird.maply.QuadImageLoader;
 import com.mousebird.maply.RemoteTileInfoNew;
 import com.mousebird.maply.SamplingParams;
 import com.mousebird.maply.SphericalMercatorCoordSystem;
+import com.mousebirdconsulting.autotester.R;
 
 import java.io.File;
 
@@ -75,6 +76,7 @@ public class WallpaperDemoService extends WallpaperService
             super.onCreate(surfaceHolder);
 
             File cacheDir = new File(WallpaperDemoService.this.getCacheDir(), "stamen_watercolor6");
+            String stamenKey = getString(R.string.stamen_map_key);
             SamplingParams params;
             RemoteTileInfoNew tileInfo;
             GlobeController globeController;
@@ -85,7 +87,7 @@ public class WallpaperDemoService extends WallpaperService
             globeController = new GlobeController(WallpaperDemoService.this, wallpaperView, globeSettings);
             globeController.setKeepNorthUp(true);
 
-            tileInfo = new RemoteTileInfoNew("http://tile.stamen.com/watercolor/{z}/{x}/{y}.png", 0, 18);
+            tileInfo = new RemoteTileInfoNew("https://tiles.stadiamaps.com/tiles/stamen_terrain_background/{z}/{x}/{y}@2x.png?api_key=" + stamenKey, 0, 18);
             tileInfo.cacheDir = cacheDir;
 
             params = new SamplingParams();

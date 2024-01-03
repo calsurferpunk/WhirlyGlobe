@@ -51,6 +51,7 @@ public class MaplyTestCase
 	}
 
 	protected String testName;
+	protected String stamenKey;
 	protected int icon = R.drawable.ic_action_selectall;
 	protected ConfigOptions.TestType options;
 	protected WeakReference<Activity> weakActivity;
@@ -77,6 +78,7 @@ public class MaplyTestCase
 	public MaplyTestCase(Activity activity) {
 		super();
 		weakActivity = new WeakReference<>(activity);
+		stamenKey = activity.getString(R.string.stamen_map_key);
 	}
 
 	public MaplyTestCase(Activity activity, String testName) {

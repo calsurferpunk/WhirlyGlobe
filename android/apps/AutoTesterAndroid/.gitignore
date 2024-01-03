@@ -11,3 +11,4 @@ Maply/*.aar
 build
 captures
 .cxx
+/app/src/main/res/values/keys.xml

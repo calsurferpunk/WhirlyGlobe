@@ -43,7 +43,7 @@ class ImageReloadTestCase : MaplyTestCase {
 
     fun setupImageLoader(control: BaseController,testType: ConfigOptions.TestType) {
         // Where we're getting the tile from
-        val tileInfo = RemoteTileInfoNew("http://tile.stamen.com/watercolor/{z}/{x}/{y}.png",
+        val tileInfo = RemoteTileInfoNew("https://tiles.stadiamaps.com/tiles/stamen_terrain_background/{z}/{x}/{y}@2x.png?api_key=" + stamenKey,
                 0, maxZoom)
 
         // Sampling params define how the globe is broken up, including the depth
