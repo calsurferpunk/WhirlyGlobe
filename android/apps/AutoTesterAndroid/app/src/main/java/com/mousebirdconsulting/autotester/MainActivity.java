@@ -306,7 +306,7 @@ public class MainActivity extends AppCompatActivity implements NavigationDrawer.
 	}
 
 	private void runTests() {
-		ActionMenuItemView playButton = (ActionMenuItemView) findViewById(R.id.playTests);
+		MenuItem playButton = findViewById(R.id.playTests);
 		playButton.setIcon(getResources().getDrawable(R.drawable.ic_stop_action));
 		getSupportActionBar().setTitle("Running tests...");
 		this.testResults.clear();
@@ -381,7 +381,7 @@ public class MainActivity extends AppCompatActivity implements NavigationDrawer.
 	}
 
 	private void finishTests() {
-		ActionMenuItemView playButton = (ActionMenuItemView) findViewById(R.id.playTests);
+		MenuItem playButton = findViewById(R.id.playTests);
 		playButton.setIcon(getResources().getDrawable(R.drawable.ic_play_action));
 		getSupportActionBar().setTitle(R.string.app_name);
 		executing = false;

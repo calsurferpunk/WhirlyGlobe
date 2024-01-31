@@ -161,8 +161,8 @@ class WideVectorsTestCase(activity: Activity?) :
 
             it.zoomSlot = baseTestCase.loader?.zoomSlot ?: -1
 
-            val c1 = Color.argb(1.0f, 0.0f, 1.0f, 0.8f)
-            val c2 = Color.argb(0.0f, 0.0f, 1.0f, 0.8f)
+            val c1 = Color.argb(255, 0, 255, 204);
+            val c2 = Color.argb(0, 0, 255, 204);
             it.colorExp = ColorExpressionInfo.createLinear(2.0f, c1, 6.0f, c2)
             it.opacityExp = FloatExpressionInfo.createLinear(2.0f, 0.2f, 6.0f, 0.9f)
             it.widthExp = FloatExpressionInfo.createLinear(2.0f, 1.0f, 6.0f, 20.0f)
