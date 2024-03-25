@@ -107,7 +107,7 @@ class MapboxVectorStyleSet : VectorStyleInterface {
             for (key in sourcesDict.keys ?: emptyArray()) {
                 try {
                     sourcesDict.getDict(key)?.let { dict ->
-                        sources.add(Source(key, dict, this))
+                        key?.let { Source(it, dict, this) }?.let { sources.add(it) }
                     }
                 } catch (e: Exception) {
                     Log.w("Maply", "Error while adding source '$key': ${e.message}")
@@ -511,7 +511,7 @@ class MapboxVectorStyleSet : VectorStyleInterface {
         var url: String?
 
         // If the TileJSON spec is inline, it's here
-        var tileSpec: Array<AttrDictionaryEntry>?
+        var tileSpec: Array<AttrDictionaryEntry?>
 
         val minZoom: Int? = styleEntry.getInt("minzoom")
         val maxZoom: Int? = styleEntry.getInt("maxzoom")
@@ -525,7 +525,7 @@ class MapboxVectorStyleSet : VectorStyleInterface {
             }
             url = styleEntry.getString("url")
             tileSpec = styleEntry.getArray("tiles")
-            if (url == null && tileSpec == null) {
+            if (url == null) {
                 Log.w("Maply", "Expecting either URL or tileSpec in source $name")
                 throw IllegalArgumentException("Expecting either URL or tileSpec in source $name")
             }

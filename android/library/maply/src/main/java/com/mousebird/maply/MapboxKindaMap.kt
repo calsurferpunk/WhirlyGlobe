@@ -538,12 +538,14 @@ open class MapboxKindaMap(
 
         styleSheet?.sources?.forEach { source ->
             source.tileSpec?.forEach { specItem ->
-                specItem.dict?.let {
-                    val itemMinZoom = it.getInt("minzoom")
-                    val itemMaxZoom = it.getInt("maxzoom")
-                    if (fetchSources) {
-                        minZoom = (itemMinZoom ?: minZoom).coerceAtMost(minZoom)
-                        maxZoom = (itemMaxZoom ?: maxZoom).coerceAtLeast(maxZoom)
+                if (specItem != null) {
+                    specItem.dict?.let {
+                        val itemMinZoom = it.getInt("minzoom")
+                        val itemMaxZoom = it.getInt("maxzoom")
+                        if (fetchSources) {
+                            minZoom = (itemMinZoom ?: minZoom).coerceAtMost(minZoom)
+                            maxZoom = (itemMaxZoom ?: maxZoom).coerceAtLeast(maxZoom)
+                        }
                     }
                 }
             }
@@ -676,15 +678,13 @@ open class MapboxKindaMap(
                                   localFetchers: ArrayList<MBTileFetcher>) {
         val control = control.get() ?: return
         // Put together the tileInfoNew objects
-        styleSheet?.sources?.mapNotNull { it.tileSpec }?.flatMap { it.asIterable() }
-                           ?.mapNotNull { it.dict }?.forEach { tileSpec ->
+        styleSheet?.sources?.map { it.tileSpec }?.flatMap { it.asIterable() }
+                           ?.mapNotNull { it?.dict }?.forEach { tileSpec ->
             val minZoom = tileSpec.getInt("minzoom")
             val maxZoom = tileSpec.getInt("maxzoom")
             if (minZoom != null && maxZoom != null && minZoom < maxZoom) {
                 // A tile source may list multiple URLs, but we only support one.
-                tileSpec.getArray("tiles")
-                        ?.mapNotNull { it.string }
-                        ?.firstOrNull()?.let { tileUrl ->
+                tileSpec.getArray("tiles")?.firstNotNullOfOrNull { it?.string }?.let { tileUrl ->
                     tileInfos.add(RemoteTileInfoNew(tileUrl, minZoom, maxZoom).also { tileSource ->
                        if (cacheDir != null) {
                             val cacheName = cacheNamePattern.replace(tileUrl, "_")
@@ -716,11 +716,13 @@ open class MapboxKindaMap(
                 val imageLayers = imageStyleDict.getArray("layers")
                 val newImageLayers = ArrayList<AttrDictionaryEntry>()
                 for (layer in imageLayers ?: emptyArray()) {
-                    if (layer.type == AttrDictionaryEntry.Type.DictTypeDictionary) {
-                        val layerDict = layer.dict
-                        val type = layerDict?.getString("type")
-                        if (type != null && (type == "background" || type == "fill"))
-                            newImageLayers.add(layer)
+                    if (layer != null) {
+                        if (layer.type == AttrDictionaryEntry.Type.DictTypeDictionary) {
+                            val layerDict = layer.dict
+                            val type = layerDict?.getString("type")
+                            if (type != null && (type == "background" || type == "fill"))
+                                layer.let { newImageLayers.add(it) }
+                        }
                     }
                 }
                 imageStyleDict.setArray("layers", newImageLayers.toTypedArray())
@@ -738,11 +740,13 @@ open class MapboxKindaMap(
             val vectorLayers = vectorStyleDict.getArray("layers")
             val newVectorLayers = ArrayList<AttrDictionaryEntry>()
             for (layer in vectorLayers ?: emptyArray()) {
-                if (layer.type == AttrDictionaryEntry.Type.DictTypeDictionary) {
-                    val layerDict = layer.dict
-                    val type = layerDict?.getString("type")
-                    if (type != null && (type != "background" && type != "fill"))
-                        newVectorLayers.add(layer)
+                if (layer != null) {
+                    if (layer.type == AttrDictionaryEntry.Type.DictTypeDictionary) {
+                        val layerDict = layer?.dict
+                        val type = layerDict?.getString("type")
+                        if (type != null && (type != "background" && type != "fill"))
+                            layer.let { newVectorLayers.add(it) }
+                    }
                 }
             }
             vectorStyleDict.setArray("layers", newVectorLayers.toTypedArray())
