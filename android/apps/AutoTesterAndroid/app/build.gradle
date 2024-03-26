@@ -42,7 +42,7 @@ android {
             signingConfig signingConfigs.debug
         }
     }
-    ndkVersion '26.1.10909125'
+    ndkVersion '26.2.11394342'
     externalNativeBuild {
         cmake {
             path file('../../../library/maply/CMakeLists.txt')
