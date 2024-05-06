@@ -26,6 +26,7 @@ using namespace WhirlyKit;
 
 template<> ViewStateRefClassInfo *ViewStateRefClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ViewState_nativeInit
   (JNIEnv *env, jclass cls)
 {
@@ -34,6 +35,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_ViewState_nativeInit
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ViewState_dispose
 		(JNIEnv *env, jobject obj)
 {
@@ -56,6 +58,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_ViewState_dispose
 	}
 }
 
+extern "C"
 JNIEXPORT jboolean JNICALL Java_com_mousebird_maply_ViewState_isEqual
   (JNIEnv *env, jobject obj, jobject otherObj)
 {
@@ -75,6 +78,7 @@ JNIEXPORT jboolean JNICALL Java_com_mousebird_maply_ViewState_isEqual
     return false;
 }
 
+extern "C"
 JNIEXPORT jobject JNICALL Java_com_mousebird_maply_ViewState_getEyePos
 		(JNIEnv *env, jobject obj)
 {

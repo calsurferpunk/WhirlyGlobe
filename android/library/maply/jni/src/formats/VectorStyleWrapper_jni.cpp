@@ -30,12 +30,14 @@ using namespace Eigen;
 
 template<> VectorStyleSetWrapperClassInfo *VectorStyleSetWrapperClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_VectorStyleWrapper_nativeInit
 (JNIEnv *env, jclass cls)
 {
     VectorStyleSetWrapperClassInfo::getClassInfo(env, cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_VectorStyleWrapper_initialise
     (JNIEnv *env, jobject obj, jlongArray idArray, jobjectArray categoryArray,
      jbooleanArray geomAddArray, jobjectArray identArray)
@@ -63,6 +65,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_VectorStyleWrapper_initialise
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_VectorStyleWrapper_dispose
 (JNIEnv *env, jobject obj)
 {

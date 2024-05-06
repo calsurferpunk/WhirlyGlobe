@@ -27,12 +27,14 @@ using namespace WhirlyKit;
 
 template<> ViewClassInfo *ViewClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_View_nativeInit
   (JNIEnv *env, jclass cls)
 {
 	ViewClassInfo::getClassInfo(env,cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_View_runViewUpdates
   (JNIEnv *env, jobject obj)
 {
@@ -50,6 +52,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_View_runViewUpdates
 	}
 }
 
+extern "C"
 JNIEXPORT jobject JNICALL Java_com_mousebird_maply_View_calcModelViewMatrix
   (JNIEnv *env, jobject obj)
 {
@@ -71,6 +74,7 @@ JNIEXPORT jobject JNICALL Java_com_mousebird_maply_View_calcModelViewMatrix
     return NULL;
 }
 
+extern "C"
 JNIEXPORT jdouble JNICALL Java_com_mousebird_maply_View_heightForMapScale
 (JNIEnv *env, jobject obj, jdouble scale, jdouble frameSizeX, jdouble frameSizeY)
 {
@@ -96,6 +100,7 @@ JNIEXPORT jdouble JNICALL Java_com_mousebird_maply_View_heightForMapScale
  * Method:    currentMapZoom
  * Signature: (Lcom/mousebird/maply/Point2d;D)D
  */
+extern "C"
 JNIEXPORT jdouble JNICALL Java_com_mousebird_maply_View_currentMapZoom
 (JNIEnv *env, jobject obj, jdouble frameSizeX, jdouble frameSizeY, jdouble lat)
 {
@@ -122,6 +127,7 @@ JNIEXPORT jdouble JNICALL Java_com_mousebird_maply_View_currentMapZoom
  * Method:    currentMapScale
  * Signature: (Lcom/mousebird/maply/Point2d;D)D
  */
+extern "C"
 JNIEXPORT jdouble JNICALL Java_com_mousebird_maply_View_currentMapScale
 (JNIEnv *env, jobject obj, jdouble frameSizeX, jdouble frameSizeY)
 {
