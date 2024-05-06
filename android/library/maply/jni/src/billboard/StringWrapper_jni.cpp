@@ -26,12 +26,14 @@ using namespace WhirlyKit;
 
 template<> StringWrapperClassInfo *StringWrapperClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_StringWrapper_nativeInit
 (JNIEnv *env, jclass cls)
 {
     StringWrapperClassInfo::getClassInfo(env, cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_StringWrapper_initialise
 (JNIEnv *env, jobject obj)
 {
@@ -47,7 +49,8 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_StringWrapper_initialise
     }
 }
 
-JNIEXPORT void JNICALL Java_com_mousebird_maply_StringWrapper_initialise__IILcom_mousebird_maply_Matrix3d_2
+extern "C"
+JNIEXPORT void JNICALL Java_com_mousebird_maply_StringWrapper_initialise2
 (JNIEnv *env, jobject obj, jint height, jint width, jobject matrixObj)
 {
     try
@@ -70,6 +73,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_StringWrapper_initialise__IILcom
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_StringWrapper_dispose
 (JNIEnv *env, jobject obj)
 {
@@ -91,6 +95,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_StringWrapper_dispose
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_StringWrapper_setSize
 (JNIEnv *env, jobject obj, jint height, jint width)
 {
@@ -109,6 +114,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_StringWrapper_setSize
     }
 }
 
+extern "C"
 JNIEXPORT jintArray JNICALL Java_com_mousebird_maply_StringWrapper_getSize
 (JNIEnv *env, jobject obj)
 {
@@ -136,6 +142,7 @@ JNIEXPORT jintArray JNICALL Java_com_mousebird_maply_StringWrapper_getSize
     return NULL;
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_StringWrapper_setMat
 (JNIEnv *env, jobject obj, jobject matObj)
 {
@@ -154,6 +161,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_StringWrapper_setMat
     }
 }
 
+extern "C"
 JNIEXPORT jobject JNICALL Java_com_mousebird_maply_StringWrapper_getMat
 (JNIEnv *env, jobject obj)
 {

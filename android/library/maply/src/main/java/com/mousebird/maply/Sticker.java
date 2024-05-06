@@ -17,7 +17,7 @@ public class Sticker
      */
     public Sticker() { initialise(); }
 
-    public void finalize()
+    protected void finalize()
     {
         dispose();
     }

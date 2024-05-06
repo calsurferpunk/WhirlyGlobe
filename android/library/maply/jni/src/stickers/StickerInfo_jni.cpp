@@ -25,12 +25,14 @@ using namespace WhirlyKit;
 
 template<> SphericalChunkInfoClassInfo *SphericalChunkInfoClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_StickerInfo_nativeInit
 (JNIEnv *env, jclass cls)
 {
     SphericalChunkInfoClassInfo::getClassInfo(env,cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_StickerInfo_initialise
 (JNIEnv *env, jobject obj)
 {
@@ -47,6 +49,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_StickerInfo_initialise
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_StickerInfo_dispose
 (JNIEnv *env, jobject obj)
 {
@@ -69,6 +72,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_StickerInfo_dispose
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_StickerInfo_setColor
         (JNIEnv *env, jobject obj, jfloat r, jfloat g, jfloat b, jfloat a)
 {

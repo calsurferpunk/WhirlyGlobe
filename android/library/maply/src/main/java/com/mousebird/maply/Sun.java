@@ -79,7 +79,7 @@ public class Sun
     {
         nativeInit();
     }
-    public void finalize() {
+    protected void finalize() {
         dispose();
     }
     private static native void nativeInit();

@@ -11,7 +11,7 @@ public class StickerManager
 
     StickerManager(Scene scene) { initialise(scene); }
 
-    public void finalize() { dispose(); }
+    protected void finalize() { dispose(); }
 
     // Only supporting texture changes at the moment
     public void changeSticker(long stickerID,StickerInfo stickerInfo,ChangeSet changes)
@@ -31,10 +31,10 @@ public class StickerManager
     public native boolean modifyDrawPriority(long stickerID,int drawPriority,ChangeSet changes);
 
     // Enable/disable stickers by ID
-    public native void enableStickers(long ids[],boolean enable,ChangeSet changes);
+    public native void enableStickers(long[] ids, boolean enable, ChangeSet changes);
 
     // Remove stickers by ID
-    public native void removeStickers(long ids[],ChangeSet changes);
+    public native void removeStickers(long[] ids, ChangeSet changes);
 
     static
     {

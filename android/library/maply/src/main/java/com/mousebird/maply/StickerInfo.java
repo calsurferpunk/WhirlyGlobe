@@ -46,7 +46,7 @@ public class StickerInfo extends BaseInfo
      */
     public native void setColor(float r,float g,float b,float a);
 
-    public void finalize() {
+    protected void finalize() {
             dispose();
     }
 
