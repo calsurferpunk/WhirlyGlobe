@@ -20,6 +20,7 @@ package com.mousebird.maply;
 import android.graphics.Color;
 
 import androidx.annotation.ColorInt;
+import androidx.annotation.NonNull;
 
 /**
  * The Vector Info class holds visual information related to groups of vectors.
@@ -47,7 +48,7 @@ public class VectorInfo extends BaseInfo
 		setDrawPriority(VectorPriorityDefault);
 	}
 	
-	public void finalize() {
+	protected void finalize() {
 		dispose();
 	}
 
@@ -176,7 +177,7 @@ public class VectorInfo extends BaseInfo
 	public native boolean getCloseAreals();
 
 	// Convert to a string for debugging
-	public native String toString();
+	@NonNull public native String toString();
 
 	static {
 		nativeInit();

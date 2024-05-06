@@ -20,6 +20,8 @@
 
 package com.mousebird.maply;
 
+import androidx.annotation.NonNull;
+
 /**
  * A tile ID represents a single tile for paging.  Tile IDs
  * will show up when you're implementing a tile source.
@@ -48,7 +50,7 @@ public class TileID implements Comparable<TileID>
 		level = inLevel;
 	}
 
-	public String toString()
+	@NonNull public String toString()
 	{
 		return level + ": (" + x + "," + y + ")";
 	}

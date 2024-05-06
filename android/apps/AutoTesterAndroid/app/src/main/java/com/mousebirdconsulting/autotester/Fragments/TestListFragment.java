@@ -149,7 +149,7 @@ public class TestListFragment extends Fragment {
 				}
 				adapter.notifyDataSetChanged();
 			}
-			if (incompleteTest.size() > 0) {
+			if (!incompleteTest.isEmpty()) {
 				MaplyDownloadManager.MaplyDownloadManagerListener listener = new MaplyDownloadManager.MaplyDownloadManagerListener() {
 					@Override
 					public void onFinish() {

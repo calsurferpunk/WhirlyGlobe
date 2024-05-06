@@ -35,7 +35,7 @@ public class VariableTarget
     public boolean valid = true;
     protected boolean setup = false;
 
-    WeakReference<RenderControllerInterface> vc = null;
+    WeakReference<RenderControllerInterface> vc;
 
     /**
      * A plausible draw priority for render targets.
@@ -47,7 +47,7 @@ public class VariableTarget
      * This version can be set up explicitly later.
      */
     public VariableTarget(RenderControllerInterface inVc,boolean setupNow) {
-        vc = new WeakReference<RenderControllerInterface>(inVc);
+        vc = new WeakReference<>(inVc);
         renderTarget = new RenderTarget();
 
         if (setupNow) {
@@ -106,7 +106,7 @@ public class VariableTarget
     public boolean buildRectangle = true;
 
     // Other variable targets we're hooking up to
-    private ArrayList<VariableTarget> auxTargets = new ArrayList<VariableTarget>();
+    private ArrayList<VariableTarget> auxTargets = new ArrayList<>();
 
     /**
      * Passing in another variable target will let us assign that target to the
@@ -120,7 +120,7 @@ public class VariableTarget
 
 
     protected MaplyTexture renderTex = null;
-    public RenderTarget renderTarget = null;
+    public RenderTarget renderTarget;
     public ComponentObject compObj = null;
 
     /**
@@ -180,7 +180,7 @@ public class VariableTarget
                     target.delayedSetup();
                 rect.addTexture(target.renderTex);
             }
-            ArrayList<Shape> shapes = new ArrayList<Shape>();
+            ArrayList<Shape> shapes = new ArrayList<>();
             shapes.add(rect);
 
             ShapeInfo shapeInfo = new ShapeInfo();

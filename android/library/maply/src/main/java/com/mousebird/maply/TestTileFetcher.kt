@@ -128,7 +128,8 @@ class TestTileFetcher(
     /**
      * Update an active request with a new priority and importance.
      */
-    override fun updateTileFetch(fetchID: Any?, priority: Int, importance: Float): Any? = null
+    override fun updateTileFetch(fetchID: Any?, priority: Int, importance: Float) {
+    }
     
     /**
      * Cancel a group of requests at once

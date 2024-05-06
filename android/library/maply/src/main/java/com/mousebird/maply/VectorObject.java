@@ -18,6 +18,7 @@
 
 package com.mousebird.maply;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import org.jetbrains.annotations.NotNull;
@@ -145,7 +146,7 @@ public class VectorObject implements Iterable<VectorObject>
 	 * Vector objects can be made of lots of smaller objects.  If you need to access
 	 * each of this individually, this iterator will handle that efficiently.
 	 */
-	@Override
+	@NonNull @Override
 	public VectorIterator iterator() {
 		return new VectorIterator(this);
 	}
@@ -492,7 +493,7 @@ public class VectorObject implements Iterable<VectorObject>
 	 */
 	static public native Map<String,VectorObject> FromGeoJSONAssembly(String json);
 
-	public void finalize() {
+	protected void finalize() {
 		dispose();
 	}
 

@@ -27,7 +27,7 @@ import android.graphics.Bitmap;
  * use a MaplyTexture instead.
  *
  */
-class Texture 
+public class Texture
 {
 	/**
 	 * Create an empty texture.
@@ -50,7 +50,7 @@ class Texture
      */
 	public native void setSettings(boolean wrapU,boolean wrapV);
 
-	public void finalize()
+	protected void finalize()
 	{
 		dispose();
 	}

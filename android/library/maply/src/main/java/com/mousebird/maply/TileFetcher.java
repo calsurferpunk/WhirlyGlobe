@@ -31,27 +31,27 @@ public interface TileFetcher
     /**
      * Name of this tile fetcher.  Used for coordinating tile sources.
      */
-    public String getFetcherName();
+    String getFetcherName();
 
     /**
      * Add a whole group of requests at once.
      * This is useful if we want to avoid low priority tiles grabbing the slots first
      */
-    public void startTileFetches(TileFetchRequest[] requests);
+    void startTileFetches(TileFetchRequest[] requests);
 
     /**
      * Update an active request with a new priority and importance.
      */
-    public Object updateTileFetch(Object fetchID,int priority,float importance);
+    void updateTileFetch(Object fetchID, int priority, float importance);
 
     /**
      * Cancel a group of requests at once
      * Use the object returned by the startTileFetch call (which is just a Request object)
      */
-    public void cancelTileFetches(Object[] fetchIDs);
+    void cancelTileFetches(Object[] fetchIDs);
 
     /**
      * Kill all outstanding connections and clean up.
      */
-    public void shutdown();
+    void shutdown();
 }

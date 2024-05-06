@@ -40,12 +40,14 @@ public:
 typedef JavaClassInfo<VectorIterator> VectorIteratorClassInfo;
 template<> VectorIteratorClassInfo *VectorIteratorClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_VectorIterator_nativeInit
   (JNIEnv *env, jclass cls)
 {
 	VectorIteratorClassInfo::getClassInfo(env,cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_VectorIterator_initialise
   (JNIEnv *env, jobject obj, jobject vecObj)
 {
@@ -63,6 +65,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_VectorIterator_initialise
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_VectorIterator_dispose
   (JNIEnv *env, jobject obj)
 {
@@ -85,6 +88,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_VectorIterator_dispose
 	}
 }
 
+extern "C"
 JNIEXPORT jboolean JNICALL Java_com_mousebird_maply_VectorIterator_hasNext
   (JNIEnv *env, jobject obj)
 {
@@ -105,6 +109,7 @@ JNIEXPORT jboolean JNICALL Java_com_mousebird_maply_VectorIterator_hasNext
     return false;
 }
 
+extern "C"
 JNIEXPORT jobject JNICALL Java_com_mousebird_maply_VectorIterator_next
   (JNIEnv *env, jobject obj)
 {
@@ -131,6 +136,7 @@ JNIEXPORT jobject JNICALL Java_com_mousebird_maply_VectorIterator_next
     return NULL;
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_VectorIterator_remove
   (JNIEnv *env, jobject obj)
 {

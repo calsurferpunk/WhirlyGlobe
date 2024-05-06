@@ -26,12 +26,14 @@ using namespace WhirlyKit;
 
 template<> TextureClassInfo *TextureClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Texture_nativeInit
   (JNIEnv *env, jclass cls)
 {
 	TextureClassInfo::getClassInfo(env,cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Texture_initialise
   (JNIEnv *env, jobject obj)
 {
@@ -48,6 +50,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_Texture_initialise
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Texture_dispose
   (JNIEnv *env, jobject obj)
 {
@@ -70,6 +73,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_Texture_dispose
 	}
 }
 
+extern "C"
 JNIEXPORT jboolean JNICALL Java_com_mousebird_maply_Texture_setBitmap
   (JNIEnv *env, jobject obj, jobject bitmapObj, jint format)
 {
@@ -116,6 +120,7 @@ JNIEXPORT jboolean JNICALL Java_com_mousebird_maply_Texture_setBitmap
 	return false;
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Texture_setSize
 (JNIEnv *env, jobject obj, jint sizeX, jint sizeY)
 {
@@ -135,6 +140,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_Texture_setSize
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Texture_setIsEmpty
 (JNIEnv *env, jobject obj, jboolean isEmpty)
 {
@@ -153,6 +159,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_Texture_setIsEmpty
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Texture_setSettings
 (JNIEnv *env, jobject obj, jboolean wrapU, jboolean wrapV)
 {
@@ -164,6 +171,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_Texture_setSettings
     tex->setWrap(wrapU,wrapV);
 }
 
+extern "C"
 JNIEXPORT jlong JNICALL Java_com_mousebird_maply_Texture_getID
   (JNIEnv *env, jobject obj)
 {

@@ -80,7 +80,7 @@ public class TileFetchRequest implements Comparable<TileFetchRequest>
          *  Tile Fetcher failure callback.
          */
         void failure(TileFetchRequest fetchRequest,String errorStr);
-    };
+    }
 
     /**
      * Fill in these callbacks to get status back from a tile fetch.
@@ -128,10 +128,7 @@ public class TileFetchRequest implements Comparable<TileFetchRequest>
 
     @Override
     public int hashCode() {
-        if(Build.VERSION.SDK_INT >= 19)
-            return Objects.hash(id, priority, importance, group, tileSource, fetchInfo);
-        else
-            return Arrays.hashCode(new Object[]{priority, importance, group, tileSource, fetchInfo});
+        return Objects.hash(id, priority, importance, group, tileSource, fetchInfo);
     }
 
     @NotNull

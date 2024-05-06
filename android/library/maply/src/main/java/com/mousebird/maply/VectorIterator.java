@@ -46,7 +46,7 @@ public class VectorIterator implements Iterator<VectorObject>
 	{
 		nativeInit();
 	}
-	public void finalize() {
+	protected void finalize() {
 		dispose();
 	}
 	private static native void nativeInit();

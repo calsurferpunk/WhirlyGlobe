@@ -38,7 +38,7 @@ class VectorManager
 		initialise(scene);
 	}
 	
-	public void finalize()
+	protected void finalize()
 	{
 		dispose();
 	}
@@ -47,13 +47,13 @@ class VectorManager
 	public native long addVectors(VectorObject[] vecs,VectorInfo vecInfo,ChangeSet changes);
 	
 	// Remove vectors by ID
-	public native void removeVectors(long ids[],ChangeSet changes);
+	public native void removeVectors(long[] ids, ChangeSet changes);
 	
 	// Enable/disable vectors by ID
-	public native void enableVectors(long ids[],boolean enable,ChangeSet changes);
+	public native void enableVectors(long[] ids, boolean enable, ChangeSet changes);
 
 	// Change the display of vectors
-	public native void changeVectors(long ids[],VectorInfo vecInfo,ChangeSet changes);
+	public native void changeVectors(long[] ids, VectorInfo vecInfo, ChangeSet changes);
 
 	// Instance one set of vectors for reuse with slightly changed visuals
 	public native long instanceVectors(long vecID,VectorInfo vecInfo,ChangeSet changes);

@@ -33,7 +33,7 @@ import static com.mousebird.maply.RenderController.ImageFormat.MaplyImage4Layer8
  */
 class TextureManager 
 {
-	class TextureWrapper implements Comparable<TextureWrapper>
+	static class TextureWrapper implements Comparable<TextureWrapper>
 	{
 		TextureWrapper(Bitmap inBitmap)
 		{
@@ -41,7 +41,7 @@ class TextureManager
 		}
 				
 		// The bitmap
-		Bitmap bitmap = null;
+		Bitmap bitmap;
 		// Texture ID in the rendering engine
 		long texID = 0;
 		// Number of things using it
@@ -51,15 +51,11 @@ class TextureManager
 		public int compareTo(TextureWrapper that) 
 		{
 			int hash1 = bitmap.hashCode();  int hash2 = that.bitmap.hashCode();
-			if (hash1 == hash2)
-				return 0;
-			if (hash1 < hash2)
-				return -1;
-			return 1;
-		}
-	};
-	
-	TreeSet<TextureWrapper> textures = new TreeSet<TextureWrapper>();
+            return Integer.compare(hash1, hash2);
+        }
+	}
+
+    TreeSet<TextureWrapper> textures = new TreeSet<>();
 	
 	/**
 	 * Create a texture or find an existing one corresponding to the named
