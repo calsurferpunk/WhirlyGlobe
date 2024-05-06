@@ -58,8 +58,7 @@ class RendererWrapper implements GLSurfaceView.Renderer, GLTextureView.Renderer
 		maplyRender = new WeakReference<>(inRenderControl);
 	}
 
-	@Override
-	public void finalize()
+	@Override protected void finalize()
 	{
 	}
 

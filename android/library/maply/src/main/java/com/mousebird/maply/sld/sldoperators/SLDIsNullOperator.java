@@ -59,9 +59,7 @@ public class SLDIsNullOperator extends SLDOperator {
     }
 
     public static boolean matchesElementNamed(String elementName) {
-        if (elementName.equals("PropertyIsNull"))
-            return true;
-        return false;
+        return elementName.equals("PropertyIsNull");
     }
 
 

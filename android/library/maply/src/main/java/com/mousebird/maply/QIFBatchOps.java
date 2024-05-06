@@ -78,7 +78,7 @@ class QIFBatchOps
     // Get the tiles to be removed from the native object
     public native @Nullable TileID[] getDeletes();
 
-    public void finalize() {
+    protected void finalize() {
         dispose();
     }
     native void dispose();

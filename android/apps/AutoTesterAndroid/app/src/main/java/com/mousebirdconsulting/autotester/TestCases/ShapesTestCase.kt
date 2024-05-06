@@ -53,7 +53,7 @@ class ShapesTestCase(activity: Activity) :
     }
 
     private inner class LocationInfo(var name: String, var lat: Double, var lon: Double) {
-        val point = Point2d.FromDegrees(lon, lat)
+        val point: Point2d = Point2d.FromDegrees(lon, lat)
     }
 
     private val locations = listOf(

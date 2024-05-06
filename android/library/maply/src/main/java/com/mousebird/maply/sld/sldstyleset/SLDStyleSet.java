@@ -65,8 +65,8 @@ public class SLDStyleSet implements VectorStyleInterface {
 
     private boolean useLayerNames;
     private int relativeDrawPriority;
-    private HashMap<String, SLDNamedLayer> namedLayers =  new HashMap<String, SLDNamedLayer>();;
-    private HashMap<Long, VectorStyle> stylesByUUID = new HashMap<Long, VectorStyle>();
+    private HashMap<String, SLDNamedLayer> namedLayers = new HashMap<>();
+    private HashMap<Long, VectorStyle> stylesByUUID = new HashMap<>();
     private WeakReference<RenderControllerInterface> viewC;
     private VectorStyleSettings vectorStyleSettings;
     private SLDSymbolizerParams symbolizerParams;
@@ -85,12 +85,11 @@ public class SLDStyleSet implements VectorStyleInterface {
      * @param displayMetrics The DisplayMetrics instance
      * @param useLayerNames Whether to use names of NamedLayer elements as a criteria in matching styles.
      * @param relativeDrawPriority The z-order relative to other vector features. This will be incremented internally for each style rule, so if you have multiple SLDStyleSets, leave some space between the relativeDrawPriority of each.
-     * @throws XmlPullParserException
      * @throws IOException
      */
-    public SLDStyleSet(RenderControllerInterface viewC, AssetWrapper assetWrapper, String sldFileName, DisplayMetrics displayMetrics, boolean useLayerNames, int relativeDrawPriority) throws XmlPullParserException, IOException
+    public SLDStyleSet(RenderControllerInterface viewC, AssetWrapper assetWrapper, String sldFileName, DisplayMetrics displayMetrics, boolean useLayerNames, int relativeDrawPriority) throws IOException
     {
-        this.viewC = new WeakReference<RenderControllerInterface>(viewC);
+        this.viewC = new WeakReference<>(viewC);
         this.useLayerNames = useLayerNames;
         this.relativeDrawPriority = relativeDrawPriority;
 
@@ -161,7 +160,7 @@ public class SLDStyleSet implements VectorStyleInterface {
     @Override
     public VectorStyle[] stylesForFeature(AttrDictionary attrs, TileID tileID, String layerName, RenderControllerInterface controller)
     {
-        List<VectorTileStyle> vectorTileStyles = new ArrayList<VectorTileStyle>();
+        List<VectorTileStyle> vectorTileStyles = new ArrayList<>();
         boolean matched;
         for (SLDNamedLayer namedLayer : namedLayers.values()) {
             vectorTileStyles.addAll(namedLayer.stylesForFeatureAttributes(attrs));

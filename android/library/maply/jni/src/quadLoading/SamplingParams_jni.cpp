@@ -127,6 +127,7 @@ JNIEXPORT jint JNICALL Java_com_mousebird_maply_SamplingParams_getReportedMaxZoo
 	return 0;
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_SamplingParams_setMinZoom
   (JNIEnv *env, jobject obj, jint minZoom)
 {
@@ -316,8 +317,10 @@ JNIEXPORT jboolean JNICALL Java_com_mousebird_maply_SamplingParams_getCoverPoles
 {
 	try
 	{
-		const auto params = SamplingParamsClassInfo::get(env,obj);
-		return params && params->coverPoles;
+		if (const auto params = SamplingParamsClassInfo::get(env,obj))
+        {
+		    return params->coverPoles;
+        }
 	}
 	MAPLY_STD_JNI_CATCH()
 	return false;
@@ -456,6 +459,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_SamplingParams_setLevelLoads
 	MAPLY_STD_JNI_CATCH()
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_SamplingParams_setBoundsScale
 		(JNIEnv *env, jobject obj, jfloat scale)
 {

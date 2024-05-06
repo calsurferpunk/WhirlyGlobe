@@ -59,9 +59,7 @@ public class SLDLiteralExpression extends SLDExpression {
     }
 
     public static boolean matchesElementNamed(String elementName) {
-        if (elementName.equals("Literal"))
-            return true;
-        return false;
+        return elementName.equals("Literal");
     }
 
 }

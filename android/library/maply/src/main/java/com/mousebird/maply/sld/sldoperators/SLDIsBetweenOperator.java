@@ -26,6 +26,7 @@ import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Objects;
 
 import android.util.Log;
 
@@ -48,9 +49,9 @@ public class SLDIsBetweenOperator extends SLDOperator {
             SLDExpression expression = SLDExpressionFactory.expressionForNode(xpp);
             if (expression != null) {
                 this.subExpression = expression;
-            } else if (xpp.getName() == "LowerBoundary") {
+            } else if (Objects.equals(xpp.getName(), "LowerBoundary")) {
                 this.lowerBoundaryExpression = getBoundaryExpression(xpp);
-            } else if (xpp.getName() == "UpperBoundary") {
+            } else if (Objects.equals(xpp.getName(), "UpperBoundary")) {
                 this.upperBoundaryExpression = getBoundaryExpression(xpp);
             } else {
                 SLDParseHelper.skip(xpp);
@@ -73,9 +74,7 @@ public class SLDIsBetweenOperator extends SLDOperator {
     }
 
     public static boolean matchesElementNamed(String elementName) {
-        if (elementName.equals("PropertyIsBetween"))
-            return true;
-        return false;
+        return elementName.equals("PropertyIsBetween");
     }
 
     public boolean evaluateWithAttrs(AttrDictionary attrs) {

@@ -194,7 +194,7 @@ public class SLDTextSymbolizer extends SLDSymbolizer {
                             numericalFontSize = fontSize.replaceAll("%", "");
 
                         if (SLDParseHelper.isStringNumeric(numericalFontSize)) {
-                            float size = Float.valueOf(numericalFontSize).floatValue();
+                            float size = Float.parseFloat(numericalFontSize);
                             if (fontSize.endsWith("px"))
                                 labelInfo.setFontSize(2.0f * size);
                             else if (fontSize.endsWith("em"))
@@ -238,12 +238,12 @@ public class SLDTextSymbolizer extends SLDSymbolizer {
                             if (xpp.getName().equals("AnchorPointX")) {
                                 String sAx = SLDParseHelper.stringForLiteralInNode(xpp);
                                 if (SLDParseHelper.isStringNumeric(sAx))
-                                    ax = Float.valueOf(sAx).floatValue();
+                                    ax = Float.parseFloat(sAx);
 
                             } else if (xpp.getName().equals("AnchorPointY")) {
                                 String sAy = SLDParseHelper.stringForLiteralInNode(xpp);
                                 if (SLDParseHelper.isStringNumeric(sAy))
-                                    ay = Float.valueOf(sAy).floatValue();
+                                    ay = Float.parseFloat(sAy);
                             } else
                                 SLDParseHelper.skip(xpp);
                         }
@@ -272,11 +272,11 @@ public class SLDTextSymbolizer extends SLDSymbolizer {
                             if (xpp.getName().equals("DisplacementX")) {
                                 String sDx = SLDParseHelper.stringForLiteralInNode(xpp);
                                 if (SLDParseHelper.isStringNumeric(sDx))
-                                    dx = Float.valueOf(sDx).floatValue();
+                                    dx = Float.parseFloat(sDx);
                             } else if (xpp.getName().equals("DisplacementY")) {
                                 String sDy = SLDParseHelper.stringForLiteralInNode(xpp);
                                 if (SLDParseHelper.isStringNumeric(sDy))
-                                    dy = Float.valueOf(sDy).floatValue();
+                                    dy = Float.parseFloat(sDy);
                             } else
                                 SLDParseHelper.skip(xpp);
                         }
@@ -296,7 +296,7 @@ public class SLDTextSymbolizer extends SLDSymbolizer {
                     if (xpp.getName().equals("PerpendicularOffset")) {
                         String perpendicularOffset = SLDParseHelper.stringForLiteralInNode(xpp);
                         if (SLDParseHelper.isStringNumeric(perpendicularOffset))
-                            dy = Float.valueOf(perpendicularOffset).floatValue();
+                            dy = Float.parseFloat(perpendicularOffset);
                     } else
                         SLDParseHelper.skip(xpp);
                 }
@@ -324,7 +324,7 @@ public class SLDTextSymbolizer extends SLDSymbolizer {
 
                 String sRadius = SLDParseHelper.stringForLiteralInNode(xpp);
                 if (SLDParseHelper.isStringNumeric(sRadius))
-                    labelInfo.setOutlineSize(Float.valueOf(sRadius).floatValue());
+                    labelInfo.setOutlineSize(Float.parseFloat(sRadius));
 
             } else if (xpp.getName().equals("Fill")) {
 
@@ -345,7 +345,7 @@ public class SLDTextSymbolizer extends SLDSymbolizer {
 
                         if (name.equals("fill")) {
                             try {
-                                int color = Integer.valueOf(Color.parseColor(value)).intValue();
+                                int color = Color.parseColor(value);
                                 labelInfo.setOutlineColor(color);
 
                             } finally {
@@ -382,7 +382,7 @@ public class SLDTextSymbolizer extends SLDSymbolizer {
 
                 if (name.equals("fill")) {
                     try {
-                        fillColor = Integer.valueOf(Color.parseColor(value));
+                        fillColor = Color.parseColor(value);
                     } finally {
                     }
                 } else if (name.equals("fill-opacity")) {
@@ -397,9 +397,9 @@ public class SLDTextSymbolizer extends SLDSymbolizer {
         }
 
         if (fillColor != null) {
-            int color = fillColor.intValue();
+            int color = fillColor;
             if (fillOpacity != null)
-                color = Color.argb(Math.round(fillOpacity.floatValue()*255.f), Color.red(color), Color.green(color), Color.blue(color));
+                color = Color.argb(Math.round(fillOpacity *255.f), Color.red(color), Color.green(color), Color.blue(color));
 
             labelInfo.setTextColor(color);
         }
@@ -411,7 +411,7 @@ public class SLDTextSymbolizer extends SLDSymbolizer {
         if (optionName != null) {
             String sVal = SLDParseHelper.stringForLiteralInNode(xpp);
             if (sVal != null && SLDParseHelper.isStringNumeric(sVal)) {
-                Double d = Double.valueOf(sVal);
+                double d = Double.parseDouble(sVal);
                 if (optionName.equals("markerXScale"))
                     markerXScale = d;
                 else if (optionName.equals("markerXOffset"))
@@ -452,8 +452,6 @@ public class SLDTextSymbolizer extends SLDSymbolizer {
 
 
     public static boolean matchesSymbolizerNamed(String symbolizerName) {
-        if (symbolizerName.equals("TextSymbolizer"))
-            return true;
-        return false;
+        return symbolizerName.equals("TextSymbolizer");
     }
 }

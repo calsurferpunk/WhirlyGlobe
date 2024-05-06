@@ -40,7 +40,7 @@ import android.util.Log;
  */
 public class SLDBinaryOperatorExpression extends SLDExpression {
 
-    private enum ExpressionType { ExpressionTypeAdd, ExpressionTypeSub, ExpressionTypeMul, ExpressionTypeDiv};
+    private enum ExpressionType { ExpressionTypeAdd, ExpressionTypeSub, ExpressionTypeMul, ExpressionTypeDiv}
 
     private ExpressionType expressionType;
     private SLDExpression leftExpression;
@@ -58,7 +58,7 @@ public class SLDBinaryOperatorExpression extends SLDExpression {
         else if (expressionName.equals("Div"))
             expressionType = ExpressionType.ExpressionTypeDiv;
 
-        ArrayList<SLDExpression> expressions = new ArrayList<SLDExpression>();
+        ArrayList<SLDExpression> expressions = new ArrayList<>();
         while (xpp.next() != XmlPullParser.END_TAG) {
             if (xpp.getEventType() != XmlPullParser.START_TAG) {
                 continue;
@@ -89,15 +89,15 @@ public class SLDBinaryOperatorExpression extends SLDExpression {
         Number rightNumber = (Number)rightObject;
 
         if (expressionType == ExpressionType.ExpressionTypeAdd)
-            return Double.valueOf(leftNumber.doubleValue() + rightNumber.doubleValue());
+            return leftNumber.doubleValue() + rightNumber.doubleValue();
         else if (expressionType == ExpressionType.ExpressionTypeSub)
-            return Double.valueOf(leftNumber.doubleValue() - rightNumber.doubleValue());
+            return leftNumber.doubleValue() - rightNumber.doubleValue();
         else if (expressionType == ExpressionType.ExpressionTypeMul)
-            return Double.valueOf(leftNumber.doubleValue() * rightNumber.doubleValue());
+            return leftNumber.doubleValue() * rightNumber.doubleValue();
         else if (expressionType == ExpressionType.ExpressionTypeDiv) {
             try {
                 double d = leftNumber.doubleValue() / rightNumber.doubleValue();
-                return Double.valueOf(d);
+                return d;
             } catch (Exception e) {
                 return null;
             }

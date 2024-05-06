@@ -46,7 +46,7 @@ public class Quaternion
 		initialise(vec1,vec2);
 	}
 	
-	public void finalize()
+	protected void finalize()
 	{
 		dispose();
 	}

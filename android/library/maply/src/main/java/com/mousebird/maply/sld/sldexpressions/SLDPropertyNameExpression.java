@@ -56,9 +56,7 @@ public class SLDPropertyNameExpression extends SLDExpression {
     }
 
     public static boolean matchesElementNamed(String elementName) {
-        if (elementName.equals("PropertyName"))
-            return true;
-        return false;
+        return elementName.equals("PropertyName");
     }
 
 }

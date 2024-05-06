@@ -40,12 +40,12 @@ public class SimplePoly {
      * Creates a polygon based on a texture, color, points and text coordinates
      */
     public SimplePoly(Texture inTexture, float[] color, List<Point2d> pts, List<Point2d> texCoords) {
-        initialise(inTexture.getID(), color[0], color[1], color[2], color[3], pts.toArray(new Point2d[0]), texCoords.toArray(new Point2d[0]));
+        initialise2(inTexture.getID(), color[0], color[1], color[2], color[3], pts.toArray(new Point2d[0]), texCoords.toArray(new Point2d[0]));
     }
 
-    native void initialise(long texID, float red, float green, float blue, float alpha, Point2d[] pts, Point2d[] texCoords);
+    native void initialise2(long texID, float red, float green, float blue, float alpha, Point2d[] pts, Point2d[] texCoords);
 
-    public void finalize() {
+    protected void finalize() {
         dispose();
     }
 

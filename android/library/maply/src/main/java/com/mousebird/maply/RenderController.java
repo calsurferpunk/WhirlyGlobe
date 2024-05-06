@@ -852,7 +852,7 @@ public class RenderController implements RenderControllerInterface
                     return;
                 }
 
-                if (label.text != null && label.text.length() > 0) {
+                if (label.text != null && !label.text.isEmpty()) {
                     InternalLabel intLabel = new InternalLabel(label,labelInfo);
                     intLabels.add(intLabel);
 
@@ -918,7 +918,7 @@ public class RenderController implements RenderControllerInterface
                     return;
                 }
 
-                if (label.text != null && label.text.length() > 0) {
+                if (label.text != null && !label.text.isEmpty()) {
                     InternalLabel intLabel = new InternalLabel(label,labelInfo,now);
                     intLabels.add(intLabel);
 
@@ -1687,7 +1687,7 @@ public class RenderController implements RenderControllerInterface
      */
     public void disableObjects(final Collection<ComponentObject> compObjs,ThreadMode mode)
     {
-        if (compObjs == null || compObjs.size() == 0)
+        if (compObjs == null || compObjs.isEmpty())
             return;
 
         final ComponentObject[] localCompObjs = compObjs.toArray(new ComponentObject[0]);
@@ -2016,7 +2016,7 @@ public class RenderController implements RenderControllerInterface
     static {
         nativeInit();
     }
-    public void finalize() {
+    protected void finalize() {
         setScene(null);
         dispose();
     }

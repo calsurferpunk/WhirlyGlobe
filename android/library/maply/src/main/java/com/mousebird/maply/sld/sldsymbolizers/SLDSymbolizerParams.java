@@ -32,7 +32,7 @@ public class SLDSymbolizerParams {
 
 
     public SLDSymbolizerParams(RenderControllerInterface baseController, AssetWrapper assetWrapper, VectorStyleSettings vectorStyleSettings, String basePath, int relativeDrawPriority) {
-        this.baseController = new WeakReference<RenderControllerInterface>(baseController);
+        this.baseController = new WeakReference<>(baseController);
         this.assetWrapper = assetWrapper;
         this.vectorStyleSettings = vectorStyleSettings;
         this.basePath = basePath;
@@ -48,7 +48,7 @@ public class SLDSymbolizerParams {
     public void resetRuleParams() {
         this.minScaleDenominator = null;
         this.maxScaleDenominator = null;
-        crossSymbolizerParams = new HashMap<String, Object>();
+        crossSymbolizerParams = new HashMap<>();
     }
 
     public Number getMinScaleDenominator() {

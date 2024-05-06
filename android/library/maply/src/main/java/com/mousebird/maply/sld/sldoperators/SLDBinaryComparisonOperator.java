@@ -45,7 +45,7 @@ import com.mousebird.maply.sld.sldexpressions.SLDExpressionFactory;
  */
 public class SLDBinaryComparisonOperator extends SLDOperator {
 
-    private enum ComparisonType { EqualTo, NotEqualTo, LessThan, GreaterThan, LessThanOrEqualTo, GreaterThanOrEqualTo };
+    private enum ComparisonType { EqualTo, NotEqualTo, LessThan, GreaterThan, LessThanOrEqualTo, GreaterThanOrEqualTo }
 
     private ComparisonType comparisonType;
     private boolean matchCase;
@@ -73,7 +73,7 @@ public class SLDBinaryComparisonOperator extends SLDOperator {
         if ((matchCaseStr != null) && (matchCaseStr.equals("false") || matchCaseStr.equals("0")))
             matchCase = false;
 
-        ArrayList<SLDExpression> expressions = new ArrayList<SLDExpression>();
+        ArrayList<SLDExpression> expressions = new ArrayList<>();
         while (xpp.next() != XmlPullParser.END_TAG) {
             if (xpp.getEventType() != XmlPullParser.START_TAG) {
                 continue;

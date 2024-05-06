@@ -95,7 +95,7 @@ public class SLDIsLikeOperator extends SLDOperator {
             if (literalValueObj instanceof String) {
                 String likeStr = (String)literalValueObj;
 
-                String newLikeStr = new String();
+                String newLikeStr = "";
                 int oldLen = likeStr.length();
 
                 char bufc;
@@ -125,9 +125,7 @@ public class SLDIsLikeOperator extends SLDOperator {
     }
 
     public static boolean matchesElementNamed(String elementName) {
-        if (elementName.equals("PropertyIsLike"))
-            return true;
-        return false;
+        return elementName.equals("PropertyIsLike");
     }
 
 

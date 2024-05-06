@@ -624,7 +624,7 @@ public class QuadLoaderBase implements QuadSamplingLayer.ClientInterface
     protected native int getModeNative();
     protected final Mode[] modes = new Mode[]{Mode.SingleFrame,Mode.MultiFrame,Mode.Object};
 
-    public void finalize()
+    protected void finalize()
     {
         dispose();
     }

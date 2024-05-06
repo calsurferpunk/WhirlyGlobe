@@ -47,14 +47,14 @@ import android.util.Log;
  */
 public class SLDRule {
 
-    private List<SLDFilter> filters = new ArrayList<SLDFilter>();
-    private List<SLDFilter> elseFilters = new ArrayList<SLDFilter>();
+    private List<SLDFilter> filters = new ArrayList<>();
+    private List<SLDFilter> elseFilters = new ArrayList<>();
 
     public List<VectorTileStyle> getStyles() {
         return styles;
     }
 
-    private List<VectorTileStyle> styles = new ArrayList<VectorTileStyle>();
+    private List<VectorTileStyle> styles = new ArrayList<>();
 
     public SLDRule(XmlPullParser xpp, SLDSymbolizerParams symbolizerParams) throws XmlPullParserException, IOException {
 
@@ -99,7 +99,7 @@ public class SLDRule {
 
     public List<VectorTileStyle> stylesForFeatureAttributes(AttrDictionary attrs) {
         boolean matched = false;
-        if (filters.size() == 0 && elseFilters.size() == 0)
+        if (filters.isEmpty() && elseFilters.isEmpty())
             matched = true;
         for (SLDFilter filter : filters) {
             if (filter.getOperator().evaluateWithAttrs(attrs)) {
@@ -117,7 +117,7 @@ public class SLDRule {
         }
         if (matched)
             return styles;
-        return new ArrayList<VectorTileStyle>();
+        return new ArrayList<>();
     }
 
 }

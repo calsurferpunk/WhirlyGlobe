@@ -47,7 +47,7 @@ public class SLDNamedLayer {
 
     private String name;
 
-    private List<SLDUserStyle> userStyles = new ArrayList<SLDUserStyle>();
+    private List<SLDUserStyle> userStyles = new ArrayList<>();
 
     public String getName() {
         return this.name;
@@ -71,7 +71,7 @@ public class SLDNamedLayer {
     }
 
     public List<VectorTileStyle> getStyles() {
-        List<VectorTileStyle> styles = new ArrayList<VectorTileStyle>();
+        List<VectorTileStyle> styles = new ArrayList<>();
         for (SLDUserStyle userStyle : userStyles) {
             styles.addAll(userStyle.getStyles());
         }
@@ -79,7 +79,7 @@ public class SLDNamedLayer {
     }
 
     public List<VectorTileStyle> stylesForFeatureAttributes(AttrDictionary attrs) {
-        List<VectorTileStyle> styles = new ArrayList<VectorTileStyle>();
+        List<VectorTileStyle> styles = new ArrayList<>();
         for (SLDUserStyle userStyle : userStyles) {
             styles.addAll(userStyle.stylesForFeatureAttributes(attrs));
         }

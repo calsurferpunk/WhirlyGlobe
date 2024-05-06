@@ -16,7 +16,7 @@ class SelectionManager
 		initialise(scene);
 	}
 	
-	public void finalize() {
+	protected void finalize() {
 		dispose();
 	}
 

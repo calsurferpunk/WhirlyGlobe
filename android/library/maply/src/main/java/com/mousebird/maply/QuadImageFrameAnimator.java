@@ -30,19 +30,19 @@ import java.util.Calendar;
  */
 public class QuadImageFrameAnimator implements ActiveObject
 {
-    WeakReference<BaseController> control = null;
-    WeakReference<QuadImageFrameLoader> loader = null;
-    int numFrames = 0;
+    WeakReference<BaseController> control;
+    WeakReference<QuadImageFrameLoader> loader;
+    int numFrames;
 
-    protected double startTime = 0.0;
+    protected double startTime;
 
     /**
      * Animate the current image on the given image frame loader.
      */
     public QuadImageFrameAnimator(QuadImageFrameLoader inLoader,BaseController inControl)
     {
-        control = new WeakReference<BaseController>(inControl);
-        loader = new WeakReference<QuadImageFrameLoader>(inLoader);
+        control = new WeakReference<>(inControl);
+        loader = new WeakReference<>(inLoader);
         startTime = Calendar.getInstance().getTimeInMillis() / 1000.0;
         numFrames = inLoader.getNumFrames();
 

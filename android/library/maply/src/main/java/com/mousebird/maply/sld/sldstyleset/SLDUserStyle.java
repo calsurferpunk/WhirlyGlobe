@@ -41,7 +41,7 @@ import com.mousebird.maply.sld.sldsymbolizers.SLDSymbolizerParams;
  */
 public class SLDUserStyle {
 
-    private List<SLDFeatureTypeStyle> featureTypeStyles = new ArrayList<SLDFeatureTypeStyle>();
+    private List<SLDFeatureTypeStyle> featureTypeStyles = new ArrayList<>();
 
     public SLDUserStyle(XmlPullParser xpp, SLDSymbolizerParams symbolizerParams) throws XmlPullParserException, IOException {
         while (xpp.next() != XmlPullParser.END_TAG) {
@@ -57,7 +57,7 @@ public class SLDUserStyle {
     }
 
     public List<VectorTileStyle> getStyles() {
-        List<VectorTileStyle> styles = new ArrayList<VectorTileStyle>();
+        List<VectorTileStyle> styles = new ArrayList<>();
         for (SLDFeatureTypeStyle featureTypeStyle : featureTypeStyles) {
             styles.addAll(featureTypeStyle.getStyles());
         }
@@ -65,7 +65,7 @@ public class SLDUserStyle {
     }
 
     public List<VectorTileStyle> stylesForFeatureAttributes(AttrDictionary attrs) {
-        List<VectorTileStyle> styles = new ArrayList<VectorTileStyle>();
+        List<VectorTileStyle> styles = new ArrayList<>();
         for (SLDFeatureTypeStyle featureTypeStyle : featureTypeStyles) {
             styles.addAll(featureTypeStyle.stylesForFeatureAttributes(attrs));
         }

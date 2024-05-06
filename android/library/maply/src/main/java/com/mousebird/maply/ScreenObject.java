@@ -30,7 +30,7 @@ import android.graphics.Bitmap;
  */
 public class ScreenObject {
 
-    public class BoundingBox {
+    public static class BoundingBox {
         public Point2d ll = new Point2d();
         public Point2d ur = new Point2d();
     }
@@ -39,7 +39,7 @@ public class ScreenObject {
         initialise();
     }
 
-    public void finalize() {
+    protected void finalize() {
         dispose();
     }
 

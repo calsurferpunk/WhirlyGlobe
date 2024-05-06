@@ -60,7 +60,7 @@ public class Scene
 	}
 	private static native void nativeInit();
 	native void initialise(CoordSystemDisplayAdapter coordAdapter,RenderController renderControl,CharRenderer charRenderer);
-	public void finalize() {
+	protected void finalize() {
 		dispose();
 	}
 	native void addChangesNative(ChangeSet changes);

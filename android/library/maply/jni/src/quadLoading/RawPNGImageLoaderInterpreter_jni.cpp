@@ -38,12 +38,14 @@ public:
 typedef JavaClassInfo<WhirlyKit::RawPNGImage> RawPNGImageClassInfo;
 template<> RawPNGImageClassInfo *RawPNGImageClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_RawPNGImageLoaderInterpreter_nativeInit
 (JNIEnv *env, jclass cls)
 {
 	RawPNGImageClassInfo::getClassInfo(env,cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_RawPNGImageLoaderInterpreter_initialise
 (JNIEnv *env, jobject obj)
 {
@@ -60,6 +62,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_RawPNGImageLoaderInterpreter_ini
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_RawPNGImageLoaderInterpreter_dispose
 (JNIEnv *env, jobject obj)
 {
@@ -80,6 +83,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_RawPNGImageLoaderInterpreter_dis
 	}
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_RawPNGImageLoaderInterpreter_dataForTileNative
 (JNIEnv *env, jobject obj, jbyteArray inImage,jobject loadReturnObj)
 {
@@ -132,6 +136,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_RawPNGImageLoaderInterpreter_dat
 	}
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_RawPNGImageLoaderInterpreter_addMappingFrom
 (JNIEnv *env, jobject obj, jint inVal, jint outVal)
 {

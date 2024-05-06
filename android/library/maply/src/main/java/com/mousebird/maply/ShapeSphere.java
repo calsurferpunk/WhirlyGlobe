@@ -28,7 +28,7 @@ public class ShapeSphere extends Shape {
         initialise();
     }
 
-    public void finalize() {
+    protected void finalize() {
         dispose();
     }
 

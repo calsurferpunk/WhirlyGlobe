@@ -36,7 +36,7 @@ import okhttp3.Request;
  */
 public class RemoteTileInfoNew extends TileInfoNew
 {
-    protected ArrayList<String> baseURLs = new ArrayList<String>();
+    protected ArrayList<String> baseURLs = new ArrayList<>();
 
     /**
      *  The timeout assigned to the NSMutableURLRequest we're using to fetch tiles.
@@ -148,7 +148,7 @@ public class RemoteTileInfoNew extends TileInfoNew
         double spanX = wholeMbr.ur.getX() - wholeMbr.ll.getX();
         double spanY = wholeMbr.ur.getY() - wholeMbr.ll.getY();
         double dx = spanX/numLevel;  double dy = spanY/numLevel;
-        Point3d pts[] = new Point3d[4];
+        Point3d[] pts = new Point3d[4];
         pts[0] = new Point3d(wholeMbr.ll.getX()+dx*tileID.x,wholeMbr.ll.getY()+dy*tileID.y,0.0);
         pts[1] = new Point3d(wholeMbr.ll.getX()+dx*(tileID.x+1),wholeMbr.ll.getY()+dy*tileID.y,0.0);
         pts[2] = new Point3d(wholeMbr.ll.getX()+dx*(tileID.x+1),wholeMbr.ll.getY()+dy*(tileID.y+1),0.0);
@@ -174,7 +174,7 @@ public class RemoteTileInfoNew extends TileInfoNew
         if (flipY)
             y = ((1<<level)-y)-1;
 
-        String url = null;
+        String url;
         url = baseURLs.get( x % baseURLs.size()).replace("{x}","" + x).replace("{y}","" + y).replace("{z}","" + level);
 
         URL retURL = null;
@@ -191,8 +191,8 @@ public class RemoteTileInfoNew extends TileInfoNew
     // OkHTTP wants to track requests by source
     Object NET_TAG = new Object();
 
-    protected ArrayList<String> headerNames = new ArrayList<String>();
-    protected ArrayList<String> headerVals = new ArrayList<String>();
+    protected ArrayList<String> headerNames = new ArrayList<>();
+    protected ArrayList<String> headerVals = new ArrayList<>();
 
     /**
      * Add a header key/value to the HTTP request before it goes out.

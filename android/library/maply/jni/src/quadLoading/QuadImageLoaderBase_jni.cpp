@@ -27,6 +27,7 @@
 using namespace Eigen;
 using namespace WhirlyKit;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_QuadImageLoaderBase_delayedInitNative
         (JNIEnv *env, jobject obj, jobject sceneObj)
 {
@@ -56,6 +57,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_QuadImageLoaderBase_delayedInitN
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_QuadImageLoaderBase_setBaseDrawPriority
 (JNIEnv *env, jobject obj, jint baseDrawPriority)
 {
@@ -71,6 +73,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_QuadImageLoaderBase_setBaseDrawP
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_QuadImageLoaderBase_setDrawPriorityPerLevel
 (JNIEnv *env, jobject obj, jint perLevel)
 {
@@ -86,6 +89,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_QuadImageLoaderBase_setDrawPrior
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_QuadImageLoaderBase_setColor
 (JNIEnv *env, jobject obj, jfloat red, jfloat green, jfloat blue, jfloat alpha, jobject changeSetObj)
 {
@@ -103,6 +107,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_QuadImageLoaderBase_setColor
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_QuadImageLoaderBase_setZBufferWrite
 (JNIEnv *env, jobject obj, jboolean zBufferWrite)
 {
@@ -118,6 +123,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_QuadImageLoaderBase_setZBufferWr
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_QuadImageLoaderBase_setZBufferRead
 (JNIEnv *env, jobject obj, jboolean)
 {
@@ -133,6 +139,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_QuadImageLoaderBase_setZBufferRe
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_QuadImageLoaderBase_setShaderID
 (JNIEnv *env, jobject obj, jlong shaderID)
 {
@@ -148,6 +155,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_QuadImageLoaderBase_setShaderID
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_QuadImageLoaderBase_setRenderTargetID
 (JNIEnv *env, jobject obj, jlong targetID)
 {
@@ -163,6 +171,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_QuadImageLoaderBase_setRenderTar
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_QuadImageLoaderBase_setImageFormatNative
 (JNIEnv *env, jobject obj, jint imageFormat)
 {
@@ -179,6 +188,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_QuadImageLoaderBase_setImageForm
 
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_QuadImageLoaderBase_setBorderTexel
 (JNIEnv *env, jobject obj, jint borderTexel)
 {

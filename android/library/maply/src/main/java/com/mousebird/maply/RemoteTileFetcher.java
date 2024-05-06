@@ -330,7 +330,7 @@ public class RemoteTileFetcher extends HandlerThread implements TileFetcher
                 }
                 synchronized (toLoad) {
                     if (!toLoad.add(tile)) {
-                        Log.w("RemoteTileFetcher", "Duplicate Tile: " + tile.toString());
+                        Log.w("RemoteTileFetcher", "Duplicate Tile: " + tile);
                     }
                 }
             }
@@ -385,7 +385,7 @@ public class RemoteTileFetcher extends HandlerThread implements TileFetcher
             tile.state = TileInfoState.Loading;
             synchronized (loading) {
                 if (!loading.add(tile)) {
-                    Log.w("RemoteTileFetcher", "Tile already loading: " + tile.toString());
+                    Log.w("RemoteTileFetcher", "Tile already loading: " + tile);
                 }
             }
 
@@ -686,10 +686,10 @@ public class RemoteTileFetcher extends HandlerThread implements TileFetcher
     /**
      * Update an active request with a new priority and importance.
      */
-    public Object updateTileFetch(final Object fetchRequest, final int priority, final float importance)
+    public void updateTileFetch(final Object fetchRequest, final int priority, final float importance)
     {
         if (!valid)
-            return null;
+            return;
 
         if (fetchRequest instanceof TileFetchRequest) {
             // Have to run on our own thread
@@ -707,14 +707,13 @@ public class RemoteTileFetcher extends HandlerThread implements TileFetcher
                         tile.priority = priority;
                         tile.importance = importance;
                         if (!toLoad.add(tile)) {
-                            Log.w("RemoteTileFetcher", "Duplicate tile: " + tile.toString());
+                            Log.w("RemoteTileFetcher", "Duplicate tile: " + tile);
                         }
                     }
                 }
             });
         }
 
-        return fetchRequest;
     }
 
     /**

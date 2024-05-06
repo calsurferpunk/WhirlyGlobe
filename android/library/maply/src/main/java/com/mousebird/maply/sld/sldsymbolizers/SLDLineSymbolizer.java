@@ -65,8 +65,6 @@ public class SLDLineSymbolizer extends SLDSymbolizer {
     }
 
     public static boolean matchesSymbolizerNamed(String symbolizerName) {
-        if (symbolizerName.equals("LineSymbolizer"))
-            return true;
-        return false;
+        return symbolizerName.equals("LineSymbolizer");
     }
 }

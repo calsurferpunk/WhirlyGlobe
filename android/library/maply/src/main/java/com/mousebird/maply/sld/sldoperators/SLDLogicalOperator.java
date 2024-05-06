@@ -41,7 +41,7 @@ import com.mousebird.maply.sld.sldstyleset.SLDParseHelper;
  */
 public class SLDLogicalOperator extends SLDOperator {
 
-    private enum LogicType { LogicTypeAnd, LogicTypeOr };
+    private enum LogicType { LogicTypeAnd, LogicTypeOr }
 
     private LogicType logicType;
     private List<SLDOperator> subOperators;
@@ -56,7 +56,7 @@ public class SLDLogicalOperator extends SLDOperator {
         else
             throw new IllegalArgumentException();
 
-        this.subOperators = new ArrayList<SLDOperator>();
+        this.subOperators = new ArrayList<>();
         while (xpp.next() != XmlPullParser.END_TAG) {
             if (xpp.getEventType() != XmlPullParser.START_TAG) {
                 continue;

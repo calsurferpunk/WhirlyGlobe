@@ -26,12 +26,14 @@ template<> SimplePolyClassInfo *SimplePolyClassInfo::classInfoObj = NULL;
 
 using namespace WhirlyKit;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_nativeInit
 (JNIEnv *env, jclass cls)
 {
     SimplePolyClassInfo::getClassInfo(env, cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_initialise
 (JNIEnv *env, jobject obj)
 {
@@ -46,7 +48,8 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_initialise
     }
 }
 
-JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_initialise__JFFFF_3Lcom_mousebird_maply_Point2d_2_3Lcom_mousebird_maply_Point2d_2
+extern "C"
+JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_initialise2
         (JNIEnv *env, jobject obj, jlong texID, jfloat r, jfloat g, jfloat b, jfloat a, jobjectArray ptsArray, jobjectArray texArray)
 {
     try
@@ -85,6 +88,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_initialise__JFFFF_3Lc
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_dispose
 (JNIEnv *env, jobject obj)
 {
@@ -106,6 +110,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_dispose
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_addTextureNative
         (JNIEnv *env, jobject obj, jlong texID)
 {
@@ -122,6 +127,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_addTextureNative
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_addColor
         (JNIEnv *env, jobject obj, jfloat r, jfloat g, jfloat b, jfloat a)
 {
@@ -140,6 +146,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_addColor
 
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_addPt
 (JNIEnv *env, jobject obj, jobject ptObj)
 {
@@ -158,6 +165,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_addPt
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_addPts
 (JNIEnv *env, jobject obj, jobjectArray ptsArray)
 {
@@ -180,6 +188,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_addPts
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_setPt
 (JNIEnv *env, jobject obj, jint index, jobject ptObj)
 {
@@ -199,6 +208,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_setPt
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_addTexCoord
 (JNIEnv *env, jobject obj, jobject ptObj)
 {
@@ -217,6 +227,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_addTexCoord
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_addTexCoords
 (JNIEnv *env, jobject obj, jobjectArray texArray)
 {
@@ -239,6 +250,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_addTexCoords
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_SimplePoly_setTexCoord
 (JNIEnv *env, jobject obj, jint index, jobject ptObj)
 {

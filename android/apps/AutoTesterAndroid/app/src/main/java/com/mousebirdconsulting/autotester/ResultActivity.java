@@ -2,6 +2,8 @@ package com.mousebirdconsulting.autotester;
 
 import android.content.Context;
 import android.os.Bundle;
+
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -34,9 +36,12 @@ public class ResultActivity extends AppCompatActivity {
 
 		try {
 			Bundle bundle = getIntent().getExtras();
-			@SuppressWarnings("unchecked")	// we'll catch the cast exception if there's a problem
-			ArrayList<MaplyTestResult> listResults = (ArrayList<MaplyTestResult>) bundle.getSerializable("arraylist");
-			ResultsTestsAdapter adapter = new ResultsTestsAdapter(listResults, this);
+            @SuppressWarnings("unchecked")	// we'll catch the cast exception if there's a problem
+            ArrayList<MaplyTestResult> listResults = null;
+            if (bundle != null) {
+                listResults = (ArrayList<MaplyTestResult>) bundle.getSerializable("arraylist");
+            }
+            ResultsTestsAdapter adapter = new ResultsTestsAdapter(listResults, this);
 			resultsList.setAdapter(adapter);
 			resultsList.setLayoutManager(createLayoutManager());
 		} catch (Exception ex) {
@@ -58,7 +63,8 @@ public class ResultActivity extends AppCompatActivity {
 
 		//Add home button
 		ActionBar actionBar = getSupportActionBar();
-		actionBar.setDisplayHomeAsUpEnabled(true);
+        assert actionBar != null;
+        actionBar.setDisplayHomeAsUpEnabled(true);
 		actionBar.setDisplayShowTitleEnabled(true);
 		actionBar.setHomeAsUpIndicator(R.drawable.ic_action_back);
 		actionBar.setTitle("Results...");
@@ -84,8 +90,8 @@ public class ResultActivity extends AppCompatActivity {
 			notifyDataSetChanged();
 		}
 
-		@Override
-		public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+		@NonNull @Override
+		public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
 			View view = LayoutInflater.from(context).inflate(R.layout.testlistitemview, parent, false);
 			return new ResultsTestHolder(view);
 		}
@@ -112,7 +118,7 @@ public class ResultActivity extends AppCompatActivity {
 
 			public ResultsTestHolder(View itemView) {
 				super(itemView);
-				label = (TextView) itemView.findViewById(R.id.testNameLabel);
+				label = itemView.findViewById(R.id.testNameLabel);
 			}
 
 			public void bindViewHolder(final MaplyTestResult result) {

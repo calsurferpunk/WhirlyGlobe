@@ -145,7 +145,7 @@ public abstract class SLDSymbolizer {
                     Integer i = Integer.valueOf(s);
                     componentNumbers.add(i);
                 }
-                if (componentNumbers.size() > 0) {
+                if (!componentNumbers.isEmpty()) {
                     int[] pattern = new int[componentNumbers.size()];
                     repeatLength = 0.0;
                     int which = 0;
@@ -298,7 +298,7 @@ public abstract class SLDSymbolizer {
                 InputStream inputStream = null;
                 String graphicPath;
                 String basePath = symbolizerParams.getBasePath();
-                if (basePath == null || basePath.equals(""))
+                if (basePath == null || basePath.isEmpty())
                     graphicPath = href;
                 else
                     graphicPath = symbolizerParams.getBasePath() + "/" + href;

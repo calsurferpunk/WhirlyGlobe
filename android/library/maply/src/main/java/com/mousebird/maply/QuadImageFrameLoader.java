@@ -4,6 +4,8 @@ package com.mousebird.maply;
 
 import android.os.Handler;
 
+import java.util.Objects;
+
 /**
  * The Maply Quad Image Frame Loader is for paging individual frames of image pyramids.
  * <br>
@@ -23,13 +25,13 @@ public class QuadImageFrameLoader extends QuadImageLoaderBase
         valid = true;
     }
 
-    public QuadImageFrameLoader(final SamplingParams params,TileInfoNew inTileInfos[],BaseController control)
+    public QuadImageFrameLoader(final SamplingParams params, TileInfoNew[] inTileInfos, BaseController control)
     {
         super(control, params, inTileInfos.length);
         tileInfos = inTileInfos;
 
         valid = true;
-        Handler handler = new Handler(control.getContext().getMainLooper());
+        Handler handler = new Handler(Objects.requireNonNull(control.getContext()).getMainLooper());
         handler.post(new Runnable() {
             @Override
             public void run() {
@@ -41,7 +43,7 @@ public class QuadImageFrameLoader extends QuadImageLoaderBase
         });
     }
 
-    public enum FrameLoadMode {Broad,Narrow};
+    public enum FrameLoadMode {Broad,Narrow}
 
     /**
      * How frames are loaded (top down vs broad).  Top down is the default.
@@ -104,7 +106,7 @@ public class QuadImageFrameLoader extends QuadImageLoaderBase
     public void setCurrentImage(int focusID,double where)
     {
 //        double curFrame = std::min(std::max(where,0.0),(double)([loader->frameInfos count]-1));
-        double curFrame = Math.min(Math.max(where,0.0),(double)(tileInfos.length-1));
+        double curFrame = Math.min(Math.max(where,0.0), tileInfos.length-1);
 
         if (setCurrentImageNative(focusID,where) && samplingLayer != null) {
             // setCurrentImage tells us if we changed the actual image
@@ -202,7 +204,7 @@ public class QuadImageFrameLoader extends QuadImageLoaderBase
     /**
      * The Maply Quad Image Frame Loader can generation per-frame stats.  These are them.
      */
-    public class FrameStats
+    public static class FrameStats
     {
         /**
          * Number of tiles this frame is in (loading and loaded)
@@ -242,8 +244,8 @@ public class QuadImageFrameLoader extends QuadImageLoaderBase
 
         Stats stats = new Stats();
         stats.frameStats = new FrameStats[numFrames];
-        int totalTiles[] = new int[numFrames];
-        int tilesToLoad[] = new int[numFrames];
+        int[] totalTiles = new int[numFrames];
+        int[] tilesToLoad = new int[numFrames];
 
         // Fetch the data like this because I'm lazy
         stats.numTiles = getStatsNative(totalTiles, tilesToLoad);

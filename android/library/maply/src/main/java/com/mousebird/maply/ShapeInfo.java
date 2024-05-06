@@ -34,7 +34,7 @@ public class ShapeInfo extends BaseInfo {
         setDrawPriority(80000);
     }
 
-    public void finalize() {
+    protected void finalize() {
         dispose();
     }
 

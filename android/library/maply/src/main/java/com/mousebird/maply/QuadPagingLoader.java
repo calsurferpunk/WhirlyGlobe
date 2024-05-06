@@ -18,7 +18,7 @@ import java.lang.ref.WeakReference;
  * This replaces the QuadPagingLayer from WhirlyGlobe-Maply 2.x.
  */
 public class QuadPagingLoader extends QuadLoaderBase {
-    boolean valid = false;
+    boolean valid;
 
     /**
      * Initialize with the objects needed to run.

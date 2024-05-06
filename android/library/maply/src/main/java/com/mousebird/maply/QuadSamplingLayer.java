@@ -40,7 +40,7 @@ public class QuadSamplingLayer extends Layer implements LayerThread.ViewWatcherI
     protected QuadSamplingLayer() { }
 
     QuadSamplingLayer(BaseController inControl,SamplingParams inParams) {
-        control = new WeakReference<BaseController>(inControl);
+        control = new WeakReference<>(inControl);
         params = inParams;
 
         initialise(params);
@@ -180,7 +180,7 @@ public class QuadSamplingLayer extends Layer implements LayerThread.ViewWatcherI
     private native void preShutdownNative();
     private native void shutdownNative(ChangeSet changes);
 
-    public void finalize() {
+    protected void finalize() {
         dispose();
     }
     static {

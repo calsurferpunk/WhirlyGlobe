@@ -57,9 +57,7 @@ public class SLDNotOperator extends SLDOperator {
     }
 
     public static boolean matchesElementNamed(String elementName) {
-        if (elementName.equals("Not"))
-            return true;
-        return false;
+        return elementName.equals("Not");
     }
 
 

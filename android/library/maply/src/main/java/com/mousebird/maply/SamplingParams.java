@@ -222,7 +222,7 @@ public class SamplingParams
 
     private native boolean equalsNative(Object obj);
 
-    public void finalize()
+    protected void finalize()
     {
         dispose();
     }

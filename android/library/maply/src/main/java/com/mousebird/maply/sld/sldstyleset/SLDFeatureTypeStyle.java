@@ -45,7 +45,7 @@ import android.util.Log;
  */
 public class SLDFeatureTypeStyle {
 
-    private List<SLDRule> rules = new ArrayList<SLDRule>();;
+    private List<SLDRule> rules = new ArrayList<>();
 
     public SLDFeatureTypeStyle(XmlPullParser xpp, SLDSymbolizerParams symbolizerParams) throws XmlPullParserException, IOException {
         while (xpp.next() != XmlPullParser.END_TAG) {
@@ -61,7 +61,7 @@ public class SLDFeatureTypeStyle {
     }
 
     public List<VectorTileStyle> getStyles() {
-        List<VectorTileStyle> styles = new ArrayList<VectorTileStyle>();
+        List<VectorTileStyle> styles = new ArrayList<>();
         for (SLDRule rule : rules) {
             styles.addAll(rule.getStyles());
         }
@@ -69,7 +69,7 @@ public class SLDFeatureTypeStyle {
     }
 
     public List<VectorTileStyle> stylesForFeatureAttributes(AttrDictionary attrs) {
-        List<VectorTileStyle> styles = new ArrayList<VectorTileStyle>();
+        List<VectorTileStyle> styles = new ArrayList<>();
         for (SLDRule rule : rules) {
             styles.addAll(rule.stylesForFeatureAttributes(attrs));
         }

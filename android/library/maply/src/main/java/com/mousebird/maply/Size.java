@@ -18,6 +18,8 @@ package com.mousebird.maply;
 
 //import static com.android.internal.util.Preconditions.checkNotNull;
 
+import androidx.annotation.NonNull;
+
 /**
  * Immutable class for describing width and height dimensions in pixels.
  */
@@ -81,7 +83,7 @@ public final class Size {
      *
      * @return string representation of the size
      */
-    @Override
+    @NonNull @Override
     public String toString() {
         return mWidth + "x" + mHeight;
     }

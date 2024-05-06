@@ -302,7 +302,7 @@ public class Shader
 	{
 		nativeInit();
 	}
-	public void finalize()
+	protected void finalize()
 	{
 		dispose();
 	}

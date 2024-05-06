@@ -52,7 +52,7 @@ public class SelectedObject
      */
     native public Point2d getClusterCenter();
 
-    public void finalize() {
+    protected void finalize() {
         dispose();
     }
 

@@ -97,14 +97,14 @@ public class SimpleTileFetcher extends HandlerThread implements TileFetcher
     /**
      * No remote URLs to track, so we just keep the tile ID.
      */
-    protected class SimpleTileFetchInfo
+    protected static class SimpleTileFetchInfo
     {
         SimpleTileFetchInfo(TileID inTileID)
         {
             tileID = inTileID;
         }
 
-        public TileID tileID = null;
+        public TileID tileID;
     }
 
     /**
@@ -281,10 +281,10 @@ public class SimpleTileFetcher extends HandlerThread implements TileFetcher
     /**
      * Update an active request with a new priority and importance.
      */
-    @Override public Object updateTileFetch(final Object fetchRequest,final int priority,final float importance)
+    @Override public void updateTileFetch(final Object fetchRequest, final int priority, final float importance)
     {
         if (!valid)
-            return null;
+            return;
 
         Handler handler = new Handler(getLooper());
         handler.post(new Runnable() {
@@ -300,7 +300,6 @@ public class SimpleTileFetcher extends HandlerThread implements TileFetcher
             }
         });
 
-        return fetchRequest;
     }
 
     /**
