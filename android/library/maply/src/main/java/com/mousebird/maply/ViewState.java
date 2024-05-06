@@ -51,7 +51,7 @@ public class ViewState
 	 */
 	public native Point3d getEyePos();
 
-	public void finalize()
+	protected void finalize()
 	{
 		dispose();
 	}

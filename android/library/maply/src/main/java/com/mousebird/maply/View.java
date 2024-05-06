@@ -20,6 +20,8 @@
 
 package com.mousebird.maply;
 
+import androidx.annotation.NonNull;
+
 import java.util.ArrayList;
 import java.util.GregorianCalendar;
 
@@ -45,7 +47,7 @@ public class View
 	}
 
 	// Filled in by the subclasses
-	protected View clone()
+	@NonNull protected View clone()
 	{
 		return null;
 	}
@@ -75,7 +77,7 @@ public class View
 	// For objects that want to know when the view changes (every time it does)
 	interface ViewWatcher
 	{
-		public void viewUpdated(View view);
+		void viewUpdated(View view);
 	}
 
 	double lastUpdated;
@@ -88,7 +90,7 @@ public class View
 		return lastUpdated;
 	}
 
-	ArrayList<ViewWatcher> watchers = new ArrayList<ViewWatcher>();
+	final ArrayList<ViewWatcher> watchers = new ArrayList<>();
 	
 	// Add a watcher for callbacks on each and every view related change
 	void addViewWatcher(ViewWatcher watcher)
@@ -107,9 +109,9 @@ public class View
 	// Let everything know we changed the view
 	void runViewUpdates()
 	{
-		ArrayList<ViewWatcher> theWatchers = null;
+		ArrayList<ViewWatcher> theWatchers;
 		synchronized (watchers) {
-			theWatchers = new ArrayList<ViewWatcher>(watchers);
+			theWatchers = new ArrayList<>(watchers);
 		}
 		for (ViewWatcher watcher: theWatchers)
 			watcher.viewUpdated(this);

@@ -87,7 +87,7 @@ public class WeatherShader extends Shader {
 			"  vec4 baseColor1 = texture2D(s_baseMap1, v_texCoord1);" +
 			"  gl_FragColor = v_color * mix(vec4(baseColor0.r,baseColor0.r,baseColor0.r,baseColor0.r),vec4(baseColor1.r,baseColor1.r,baseColor1.r,baseColor1.r),u_interp);" +
 			"}";
-	BaseController controller = null;
+	BaseController controller;
 
 
 	public WeatherShader(BaseController inController) {

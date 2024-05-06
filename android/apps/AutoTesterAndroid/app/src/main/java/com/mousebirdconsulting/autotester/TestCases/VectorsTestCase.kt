@@ -7,7 +7,6 @@ import android.util.Log
 import android.widget.Toast
 import com.mousebird.maply.*
 import com.mousebirdconsulting.autotester.Framework.MaplyTestCase
-import okio.Okio
 import okio.buffer
 import okio.source
 import java.util.*

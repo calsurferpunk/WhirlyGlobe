@@ -41,7 +41,7 @@ public class WideVectorInfo extends BaseInfo
         setDrawPriority(WideVectorPriorityDefault);
     }
 
-    public void finalize() {
+    protected void finalize() {
         dispose();
     }
 
@@ -111,7 +111,7 @@ public class WideVectorInfo extends BaseInfo
     public native void setEdgeFalloff(double falloff);
     public native double getEdgeFalloff();
 
-    public enum JoinType {MiterJoin,RoundJoin,BevelJoin};
+    public enum JoinType {MiterJoin,RoundJoin,BevelJoin}
 
     /**
      * When lines meet in a join there are several options for representing them.

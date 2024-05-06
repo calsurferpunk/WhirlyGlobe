@@ -77,6 +77,7 @@ public class VectorStyleSimpleGenerator implements VectorStyleInterface
             {
                 // Note: Do we need to split here
                 AttrDictionary dict = point.getAttributes();
+                assert dict != null;
                 String name = dict.getString("name");
                 if (name == null)
                     name = dict.getString("value");
@@ -192,20 +193,23 @@ public class VectorStyleSimpleGenerator implements VectorStyleInterface
         Integer geomType = attrs.getInt("geometry_type");
         VectorStyle style = null;
 
-        // Each layer gets its own style
-        switch (geomType)
+        if(geomType != null)
         {
-            case MapboxVectorTileParser.GeomTypePoint:
-                style = pointStyle;
-                break;
-            case MapboxVectorTileParser.GeomTypeLineString:
-                style = lineStyle;
-                break;
-            case MapboxVectorTileParser.GeomTypePolygon:
-                style = polyStyle;
-                break;
-            default:
-                break;
+            // Each layer gets its own style
+            switch (geomType)
+            {
+                case MapboxVectorTileParser.GeomTypePoint:
+                    style = pointStyle;
+                    break;
+                case MapboxVectorTileParser.GeomTypeLineString:
+                    style = lineStyle;
+                    break;
+                case MapboxVectorTileParser.GeomTypePolygon:
+                    style = polyStyle;
+                    break;
+                default:
+                    break;
+            }
         }
 
         return new VectorStyle[]{style};

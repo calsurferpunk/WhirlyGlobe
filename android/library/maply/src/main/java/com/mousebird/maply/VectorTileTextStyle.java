@@ -35,9 +35,9 @@ public class VectorTileTextStyle extends VectorTileStyle {
     private final String textField;
     private final Point2d offset;
 
-    public enum Placement {Point, Line};
+    public enum Placement {Point, Line}
 
-    private Placement placement = Placement.Point;
+    private Placement placement;
 
     public VectorTileTextStyle(String ident,String category,LabelInfo labelInfo,
                                Placement placement,Point2d offset,String textField,
@@ -52,7 +52,7 @@ public class VectorTileTextStyle extends VectorTileStyle {
 
     public void buildObjects(VectorObject[] objects, VectorTileData tileData, RenderControllerInterface controller) {
 
-        ArrayList<ScreenLabel> labels = new ArrayList<ScreenLabel>();
+        ArrayList<ScreenLabel> labels = new ArrayList<>();
 
         for (VectorObject vector : objects) {
 
@@ -121,7 +121,7 @@ public class VectorTileTextStyle extends VectorTileStyle {
                 if (replacement instanceof String)
                     replacementStr = (String)replacement;
                 else if (replacement instanceof Number)
-                    replacementStr = ((Number)replacement).toString();
+                    replacementStr = replacement.toString();
 
                 formatString = formatString.replaceFirst(patternStr, replacementStr);
 

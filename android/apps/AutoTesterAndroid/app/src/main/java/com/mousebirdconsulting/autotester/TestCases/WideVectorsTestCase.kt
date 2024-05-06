@@ -8,7 +8,6 @@ import android.os.Looper
 import android.util.Log
 import com.mousebird.maply.*
 import com.mousebird.maply.RenderControllerInterface.TextureSettings
-import okio.Okio
 import okio.buffer
 import okio.source
 import java.lang.Exception

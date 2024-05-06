@@ -40,7 +40,7 @@ public class VectorStyleProcessor
      */
     public static ComponentObject[] UseStyle(VectorObject[] vecObjs,VectorStyleInterface styleGen,RenderControllerInterface vc)
     {
-        HashMap<Long,ArrayList<VectorObject>> featuresForStyle = new HashMap<Long,ArrayList<VectorObject>>();
+        HashMap<Long,ArrayList<VectorObject>> featuresForStyle = new HashMap<>();
 
         // Pass in fake information for parsing a "tile"
         TileID tileID = new TileID();
@@ -56,6 +56,7 @@ public class VectorStyleProcessor
                 AttrDictionary attrs = vecObj.getAttributes();
 
                 // Tease out a layer name
+                assert attrs != null;
                 String layer = attrs.getString("layer");
                 if (layer == null) {
                     layer = attrs.getString("layer_name");
@@ -98,7 +99,7 @@ public class VectorStyleProcessor
                 for (VectorStyle thisStyle : styles) {
                     ArrayList<VectorObject> thisVecObjs = featuresForStyle.get(thisStyle.getUuid());
                     if (thisVecObjs == null)
-                        thisVecObjs = new ArrayList<VectorObject>();
+                        thisVecObjs = new ArrayList<>();
                     thisVecObjs.add(vecObj);
                     featuresForStyle.put(thisStyle.getUuid(),thisVecObjs);
                 }
@@ -111,11 +112,13 @@ public class VectorStyleProcessor
         for (long styleID : featuresForStyle.keySet()) {
             ArrayList<VectorObject> vecs = featuresForStyle.get(styleID);
             VectorStyle style = styleGen.styleForUUID(styleID,vc);
-            style.buildObjects(vecs.toArray(new VectorObject[0]),tileData,vc);
+            if (vecs != null) {
+                style.buildObjects(vecs.toArray(new VectorObject[0]),tileData,vc);
+            }
         }
 
         ComponentObject[] compObjs = tileData.getComponentObjects();
-        vc.enableObjects(new ArrayList<ComponentObject>(Arrays.asList(compObjs)), RenderControllerInterface.ThreadMode.ThreadCurrent);
+        vc.enableObjects(new ArrayList<>(Arrays.asList(compObjs)), RenderControllerInterface.ThreadMode.ThreadCurrent);
 
         return compObjs;
     }

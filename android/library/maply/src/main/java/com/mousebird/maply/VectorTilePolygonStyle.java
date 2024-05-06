@@ -19,6 +19,7 @@
 package com.mousebird.maply;
 
 import java.util.ArrayList;
+import java.util.Objects;
 
 /**
  * The VectorTileStyle base class for styling polygon features.
@@ -56,7 +57,7 @@ public class VectorTilePolygonStyle extends VectorTileStyle {
                 else if (Math.abs(center.getY()) > 45.0/180.0 * Math.PI)
                     thisClipGridLon *= 2.0;
 
-                vecObj.getAttributes().setDouble("veccenterx",center.getX());
+                Objects.requireNonNull(vecObj.getAttributes()).setDouble("veccenterx",center.getX());
                 vecObj.getAttributes().setDouble("veccentery",center.getY());
 
                 // We clip the vector to a grid and then tesselate the results

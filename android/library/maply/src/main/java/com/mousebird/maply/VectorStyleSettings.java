@@ -112,7 +112,7 @@ public class VectorStyleSettings {
      /** Write to the z buffer when rendering polygons */
     native public void setZBufferWrite(boolean val);
 
-    public void finalize()
+    protected void finalize()
     {
         dispose();
     }

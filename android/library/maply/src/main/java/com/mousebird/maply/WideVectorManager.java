@@ -30,7 +30,7 @@ public class WideVectorManager {
     private static native void nativeInit();
     native void initialise(Scene scene);
     native void dispose();
-    public void finalize() {
+    protected void finalize() {
         dispose();
     }
 

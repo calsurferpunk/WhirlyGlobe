@@ -115,7 +115,7 @@ public class VectorTileData
     private static native void nativeInit();
     native void initialise();
     native void initialise(int x,int y,int level,Point2d boundsLL,Point2d boundsUR,Point2d geoBoundsLL,Point2d geoBoundsUR);
-    public void finalize() { dispose(); }
+    protected void finalize() { dispose(); }
     native void dispose();
 
     @Keep

@@ -72,7 +72,7 @@ public class VectorStyleWrapper {
         return 0;
     }
 
-    public void finalize()
+    protected void finalize()
     {
         dispose();
     }
