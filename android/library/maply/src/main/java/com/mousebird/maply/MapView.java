@@ -22,6 +22,8 @@ import android.app.Activity;
 import android.os.Handler;
 import android.os.Looper;
 
+import androidx.annotation.NonNull;
+
 import java.lang.ref.WeakReference;
 
 /**
@@ -50,14 +52,14 @@ public class MapView extends View
 	 * Make a copy of this MapView and return it.
 	 * Handles the native side stuff
 	 */
-	protected MapView clone()
+	@NonNull protected MapView clone()
 	{
 		MapView that = new MapView(control.get(),coordAdapter);
 		nativeClone(that);
 		return that;
 	}
 
-	public void finalize()
+	protected void finalize()
 	{
 		dispose();
 	}

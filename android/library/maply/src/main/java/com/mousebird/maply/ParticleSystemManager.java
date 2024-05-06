@@ -33,7 +33,7 @@ public class ParticleSystemManager {
         initialize(scene);
     }
 
-    public void finalize() {
+    protected void finalize() {
         dispose();
     }
 

@@ -26,7 +26,7 @@ public class Matrix3d {
         initialise();
     }
 
-    public void finalize() {
+    protected void finalize() {
         dispose();
     }
 

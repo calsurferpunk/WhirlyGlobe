@@ -39,7 +39,7 @@ import okio.Okio;
 
 public class MaplyStarModel {
 
-    private class SingleStar
+    private static class SingleStar
     {
         float mag;
         float ra, dec;
@@ -94,6 +94,7 @@ public class MaplyStarModel {
         AssetManager assetMgr = activity.getAssets();
         InputStream inputStream = null;
         String[] paths = assetMgr.list("maplystarmodel");
+        assert paths != null;
         for (String path : paths) {
             if (path.equals(imageName)) {
                 //image
@@ -128,7 +129,7 @@ public class MaplyStarModel {
                     }
                 }
 
-                this.stars = new ArrayList<SingleStar>();
+                this.stars = new ArrayList<>();
                 if (m.groupCount() % 3 == 0){
                     int i = 0;
                     SingleStar s = null;
@@ -136,15 +137,15 @@ public class MaplyStarModel {
                         switch (i) {
                             case 0:
                                 s = new SingleStar();
-                                s.ra = Float.valueOf(m.group());
+                                s.ra = Float.parseFloat(m.group());
                                 i++;
                                 break;
                             case 1:
-                                s.dec = Float.valueOf(m.group());
+                                s.dec = Float.parseFloat(m.group());
                                 i++;
                                 break;
                             case 2:
-                                s.mag = Float.valueOf(m.group());
+                                s.mag = Float.parseFloat(m.group());
                                 this.stars.add(s);
                                 i = 0;
                                 break;

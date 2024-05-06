@@ -34,7 +34,7 @@ class LayoutManager
 		initialise(scene);
 	}
 	
-	public void finalize() {
+	protected void finalize() {
 		dispose();
 	}
 	

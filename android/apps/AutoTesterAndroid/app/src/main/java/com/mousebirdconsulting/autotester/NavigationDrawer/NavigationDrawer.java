@@ -35,19 +35,19 @@ public class NavigationDrawer extends LinearLayout {
 
 		LayoutInflater.from(context).inflate(R.layout.view_navigation_drawer, this, true);
 
-		runGlobeView = (TextView) findViewById(R.id.runGlobe);
-		runBothView = (TextView) findViewById(R.id.runBoth);
-		runMapView = (TextView) findViewById(R.id.runMap);
-		seeViewView = (TextView) findViewById(R.id.seeView);
-		interactiveMode = (TextView) findViewById(R.id.runInteractive);
-		multilpleMode = (TextView) findViewById(R.id.runMultiple);
-		singleMode = (TextView) findViewById(R.id.runSingle);
-		selectAllAction = (TextView) findViewById(R.id.selectAll);
-		deselectAllAction = (TextView) findViewById(R.id.deselectAll);
-		optionsSection = (TextView) findViewById(R.id.optionsSection);
-		actionSection = (TextView) findViewById(R.id.actionSection);
-		separator_1 = (View) findViewById(R.id.separator_1);
-		separator_2 = (View) findViewById(R.id.separator_2);
+		runGlobeView = findViewById(R.id.runGlobe);
+		runBothView = findViewById(R.id.runBoth);
+		runMapView = findViewById(R.id.runMap);
+		seeViewView = findViewById(R.id.seeView);
+		interactiveMode = findViewById(R.id.runInteractive);
+		multilpleMode = findViewById(R.id.runMultiple);
+		singleMode = findViewById(R.id.runSingle);
+		selectAllAction = findViewById(R.id.selectAll);
+		deselectAllAction = findViewById(R.id.deselectAll);
+		optionsSection = findViewById(R.id.optionsSection);
+		actionSection = findViewById(R.id.actionSection);
+		separator_1 = findViewById(R.id.separator_1);
+		separator_2 = findViewById(R.id.separator_2);
 	}
 
 //	@OnClick({R.id.runMap, R.id.runGlobe, R.id.runBoth, R.id.seeView, R.id.runInteractive, R.id.runMultiple, R.id.runSingle, R.id.selectAll, R.id.deselectAll})
@@ -59,62 +59,60 @@ public class NavigationDrawer extends LinearLayout {
 
 	public void setSelectedItemId(int itemId) {
 
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-			switch (itemId) {
-				case R.id.runMap:
-					deselectView(runBothView);
-					deselectView(runGlobeView);
-					selectView(runMapView);
-					ConfigOptions.setTestType(getContext(), ConfigOptions.TestType.MapTest);
-					break;
-				case R.id.runGlobe:
-					deselectView(runBothView);
-					deselectView(runMapView);
-					selectView(runGlobeView);
-					ConfigOptions.setTestType(getContext(), ConfigOptions.TestType.GlobeTest);
-					break;
-				case R.id.runBoth:
-					deselectView(runMapView);
-					deselectView(runGlobeView);
-					selectView(runBothView);
-					ConfigOptions.setTestType(getContext(), ConfigOptions.TestType.BothTest);
-					break;
-				case R.id.seeView:
-					if (!seeView) {
-						selectView(seeViewView);
-						ConfigOptions.setViewSetting(getContext(), ConfigOptions.ViewMapOption.ViewMap);
-						seeView = true;
-					} else {
-						seeView = false;
-						deselectView(seeViewView);
-						ConfigOptions.setViewSetting(getContext(), ConfigOptions.ViewMapOption.None);
-					}
-					break;
-				case R.id.runInteractive:
-					deselectView(multilpleMode);
-					deselectView(singleMode);
-					selectView(interactiveMode);
-					hideOptions(TextView.INVISIBLE);
-					ConfigOptions.setExecutionMode(getContext(), ConfigOptions.ExecutionMode.Interactive);
-					break;
-				case R.id.runMultiple:
-					selectView(multilpleMode);
-					deselectView(singleMode);
-					deselectView(interactiveMode);
-					hideOptions(TextView.VISIBLE);
-					ConfigOptions.setExecutionMode(getContext(), ConfigOptions.ExecutionMode.Multiple);
-					break;
-				case R.id.runSingle:
-					deselectView(multilpleMode);
-					selectView(singleMode);
-					deselectView(interactiveMode);
-					hideOptions(TextView.VISIBLE);
-					hideActions(INVISIBLE);
-					ConfigOptions.setExecutionMode(getContext(), ConfigOptions.ExecutionMode.Single);
-					break;
-			}
-		}
-	}
+        switch (itemId) {
+            case R.id.runMap:
+                deselectView(runBothView);
+                deselectView(runGlobeView);
+                selectView(runMapView);
+                ConfigOptions.setTestType(getContext(), ConfigOptions.TestType.MapTest);
+                break;
+            case R.id.runGlobe:
+                deselectView(runBothView);
+                deselectView(runMapView);
+                selectView(runGlobeView);
+                ConfigOptions.setTestType(getContext(), ConfigOptions.TestType.GlobeTest);
+                break;
+            case R.id.runBoth:
+                deselectView(runMapView);
+                deselectView(runGlobeView);
+                selectView(runBothView);
+                ConfigOptions.setTestType(getContext(), ConfigOptions.TestType.BothTest);
+                break;
+            case R.id.seeView:
+                if (!seeView) {
+                    selectView(seeViewView);
+                    ConfigOptions.setViewSetting(getContext(), ConfigOptions.ViewMapOption.ViewMap);
+                    seeView = true;
+                } else {
+                    seeView = false;
+                    deselectView(seeViewView);
+                    ConfigOptions.setViewSetting(getContext(), ConfigOptions.ViewMapOption.None);
+                }
+                break;
+            case R.id.runInteractive:
+                deselectView(multilpleMode);
+                deselectView(singleMode);
+                selectView(interactiveMode);
+                hideOptions(TextView.INVISIBLE);
+                ConfigOptions.setExecutionMode(getContext(), ConfigOptions.ExecutionMode.Interactive);
+                break;
+            case R.id.runMultiple:
+                selectView(multilpleMode);
+                deselectView(singleMode);
+                deselectView(interactiveMode);
+                hideOptions(TextView.VISIBLE);
+                ConfigOptions.setExecutionMode(getContext(), ConfigOptions.ExecutionMode.Multiple);
+                break;
+            case R.id.runSingle:
+                deselectView(multilpleMode);
+                selectView(singleMode);
+                deselectView(interactiveMode);
+                hideOptions(TextView.VISIBLE);
+                hideActions(INVISIBLE);
+                ConfigOptions.setExecutionMode(getContext(), ConfigOptions.ExecutionMode.Single);
+                break;
+        }
+    }
 
 	private void hideOptions (int visibility){
 
@@ -139,15 +137,12 @@ public class NavigationDrawer extends LinearLayout {
 	}
 
 	private void deselectView(TextView view) {
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-			view.getCompoundDrawables()[0].setTintList(null);
-			view.setTypeface(null, Typeface.NORMAL);
-		}
-	}
+        view.getCompoundDrawables()[0].setTintList(null);
+        view.setTypeface(null, Typeface.NORMAL);
+    }
 
 	private void selectView(TextView view) {
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
-			view.getCompoundDrawables()[0].setTint(Color.BLACK);
+        view.getCompoundDrawables()[0].setTint(Color.BLACK);
 		view.setTypeface(null, Typeface.BOLD);
 	}
 

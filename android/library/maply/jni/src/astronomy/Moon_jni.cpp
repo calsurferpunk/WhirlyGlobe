@@ -25,12 +25,14 @@ using namespace WhirlyKit;
 
 template<> MoonClassInfo *MoonClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Moon_nativeInit
 (JNIEnv *env, jclass cls)
 {
     MoonClassInfo::getClassInfo(env, cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Moon_initialise
 (JNIEnv *env, jobject obj, jint year, jint month, jint day, jint hour, jint minutes, jint second)
 {
@@ -48,6 +50,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_Moon_initialise
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Moon_dispose
 (JNIEnv *env, jobject obj)
 {
@@ -70,6 +73,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_Moon_dispose
     }
 }
 
+extern "C"
 JNIEXPORT jdoubleArray JNICALL Java_com_mousebird_maply_Moon_getIlluminatedFractionAndPhaseNative
 (JNIEnv *env, jobject obj)
 {
@@ -97,6 +101,7 @@ JNIEXPORT jdoubleArray JNICALL Java_com_mousebird_maply_Moon_getIlluminatedFract
     return NULL;
 }
 
+extern "C"
 JNIEXPORT jdoubleArray JNICALL Java_com_mousebird_maply_Moon_getPositionOfMoon
 (JNIEnv *env, jobject obj)
 {

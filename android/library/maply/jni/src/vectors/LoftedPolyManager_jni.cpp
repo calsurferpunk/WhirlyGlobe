@@ -29,12 +29,14 @@ using namespace Eigen;
 typedef JavaClassInfo<WhirlyKit::LoftManagerRef> LoftManagerClassInfo;
 template<> LoftManagerClassInfo *LoftManagerClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyManager_nativeInit
         (JNIEnv *env, jclass cls)
 {
     LoftManagerClassInfo::getClassInfo(env,cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyManager_initialise
         (JNIEnv *env, jobject obj, jobject sceneObj)
 {
@@ -54,6 +56,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyManager_initialise
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyManager_dispose
         (JNIEnv *env, jobject obj)
 {
@@ -74,6 +77,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyManager_dispose
     }
 }
 
+extern "C"
 JNIEXPORT jlong JNICALL Java_com_mousebird_maply_LoftedPolyManager_addPolys
         (JNIEnv *env, jobject obj, jobjectArray vecObjArray, jobject loftInfoObj, jobject changeSetObj)
 {

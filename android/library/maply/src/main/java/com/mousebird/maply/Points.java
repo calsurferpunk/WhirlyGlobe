@@ -16,7 +16,7 @@ public class Points
     /**
      * If the matrix is set the points will be transformed by this matrix first.
      */
-    public Matrix4d mat = null;
+    public Matrix4d mat;
 
     /**
      * If the matrix is set the points will be transformed by this matrix first.

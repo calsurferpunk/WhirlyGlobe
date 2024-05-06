@@ -35,7 +35,7 @@ public class Matrix4d
 		initialise();
 	}
 	
-	public void finalize()
+	protected void finalize()
 	{
 		dispose();
 	}

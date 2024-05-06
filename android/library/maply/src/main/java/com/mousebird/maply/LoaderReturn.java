@@ -190,7 +190,7 @@ public class LoaderReturn implements Comparable<LoaderReturn>
 
     private long id = Identifiable.genID();
 
-    public void finalize()
+    protected void finalize()
     {
         dispose();
     }

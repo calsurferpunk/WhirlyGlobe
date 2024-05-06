@@ -47,7 +47,7 @@ public class ParticleBatch {
         this.setPartSysNative(this.partSys);
     }
 
-    public void finalize() {
+    protected void finalize() {
         dispose();
     }
 

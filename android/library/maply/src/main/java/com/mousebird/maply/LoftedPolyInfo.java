@@ -20,7 +20,7 @@ public class LoftedPolyInfo extends BaseInfo {
         setDrawPriority(LoftedPolyPriorityDefault);
     }
 
-    public void finalize() { dispose(); }
+    protected void finalize() { dispose(); }
 
     /**
      * Height of the top of the lofted polygon in display units.

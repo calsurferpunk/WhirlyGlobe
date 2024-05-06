@@ -113,7 +113,7 @@ public class Mbr
 		}
 		if (thatObj instanceof Mbr) {
 			Mbr that = (Mbr) thatObj;
-			return(((ll == that.ll) || (ll != null && ll.equals(that.ll))) && ((ur == that.ur) || (ur != null && ur.equals(that.ur))));
+			return((Objects.equals(ll, that.ll)) && (Objects.equals(ur, that.ur)));
 		}
 		return false;
 	}
@@ -184,12 +184,11 @@ public class Mbr
 		}
 	}
 
-	public Mbr expandedByFraction(double bufferZone)
+	public void expandedByFraction(double bufferZone)
 	{
 		Mbr result = new Mbr(this);
 		result.expandedByFraction(bufferZone);
-		return result;
-	}
+    }
 
 	/**
 	 * Check if the given bounding boxes overlap.

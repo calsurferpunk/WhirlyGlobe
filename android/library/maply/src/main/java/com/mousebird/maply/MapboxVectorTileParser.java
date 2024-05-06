@@ -70,7 +70,7 @@ public class MapboxVectorTileParser
      * @param tileData A container for the data we parse and the styles create.
      * @return Returns null on failure to parse.
      */
-    public boolean parseData(@NotNull byte[] data,
+    public boolean parseData(byte @NotNull [] data,
                              @NotNull VectorTileData tileData) {
         return parseData(data,tileData,null);
     }
@@ -83,14 +83,14 @@ public class MapboxVectorTileParser
      * @param tileData A container for the data we parse and the styles create.
      * @return Returns null on failure to parse.
      */
-    public native boolean parseData(@NotNull byte[] data,
+    public native boolean parseData(byte @NotNull [] data,
                                     @NotNull VectorTileData tileData,
                                     @Nullable LoaderReturn loadReturn);
 
     /// If set, we'll parse into local coordinates as specified by the bounding box, rather than geo coords
     native void setLocalCoords(boolean localCoords);
 
-    public void finalize()
+    protected void finalize()
     {
         dispose();
     }

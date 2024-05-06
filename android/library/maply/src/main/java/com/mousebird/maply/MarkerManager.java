@@ -38,7 +38,7 @@ class MarkerManager
 		initialise(scene);
 	}
 	
-	public void finalize()
+	protected void finalize()
 	{
 		dispose();
 	}
@@ -50,10 +50,10 @@ class MarkerManager
 	public native long addMarkers(InternalMarker[] markers,MarkerInfo markerInfo,ChangeSet changes);
 
 	// Remove markers by ID
-	public native void removeMarkers(long ids[],ChangeSet changes);
+	public native void removeMarkers(long[] ids, ChangeSet changes);
 	
 	// Enable/disable markers by ID
-	public native void enableMarkers(long ids[],boolean enable,ChangeSet changes);
+	public native void enableMarkers(long[] ids, boolean enable, ChangeSet changes);
 	
 	static
 	{

@@ -23,6 +23,8 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
 
+import androidx.annotation.NonNull;
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -188,7 +190,7 @@ public class MapGestureHandler
 		}
 
 		@Override
-		public boolean onScaleBegin(ScaleGestureDetector detector) {
+		public boolean onScaleBegin(@NonNull ScaleGestureDetector detector) {
 			if (!allowZoom)
 				return false;
 
@@ -221,7 +223,7 @@ public class MapGestureHandler
 		}
 
 		@Override
-		public boolean onScale(ScaleGestureDetector detector)
+		public boolean onScale(@NonNull ScaleGestureDetector detector)
 		{
 			if (!allowZoom)
 				return false;
@@ -268,7 +270,7 @@ public class MapGestureHandler
 		}
 
 		@Override
-		public void onScaleEnd(ScaleGestureDetector detector)
+		public void onScaleEnd(@NonNull ScaleGestureDetector detector)
 		{
 			if (!allowZoom)
 				return;
@@ -300,7 +302,7 @@ public class MapGestureHandler
 		}
 
 		@Override
-		public boolean onDown(MotionEvent e)
+		public boolean onDown(@NonNull MotionEvent e)
 		{
 //			Log.d("Maply","onDown");
 
@@ -327,7 +329,7 @@ public class MapGestureHandler
 		}
 
 		@Override
-		public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX,
+		public boolean onScroll(MotionEvent e1, @NonNull MotionEvent e2, float distanceX,
 								float distanceY)
 		{
 			if (!isActive || !allowPan) {
@@ -382,7 +384,7 @@ public class MapGestureHandler
 		static final double AnimMomentumTime = 1.0;
 
 		@Override
-		public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX,
+		public boolean onFling(MotionEvent e1, @NonNull MotionEvent e2, float velocityX,
 							   float velocityY)
 		{
 //			Log.d("Maply","Fling: (x,y) = " + velocityX + " " + velocityY);
@@ -433,7 +435,7 @@ public class MapGestureHandler
 		}
 
 		@Override
-		public void onLongPress(MotionEvent e)
+		public void onLongPress(@NonNull MotionEvent e)
 		{
 //			Log.d("Maply","Long Press");
 			if (sl == null || gl == null)
@@ -448,27 +450,27 @@ public class MapGestureHandler
 		}
 
 		@Override
-		public void onShowPress(MotionEvent e)
+		public void onShowPress(@NonNull MotionEvent e)
 		{
 //			Log.d("Maply","ShowPress");
 		}
 
 		@Override
-		public boolean onSingleTapUp(MotionEvent e)
+		public boolean onSingleTapUp(@NonNull MotionEvent e)
 		{
 //			Log.d("Maply","Single Tap Up");
 			return false;
 		}
 
 		@Override
-		public boolean onDoubleTapEvent(MotionEvent e)
+		public boolean onDoubleTapEvent(@NonNull MotionEvent e)
 		{
 //			Log.d("Maply","Double tap update");
 			return false;
 		}
 
 		@Override
-		public boolean onSingleTapConfirmed(MotionEvent e)
+		public boolean onSingleTapConfirmed(@NonNull MotionEvent e)
 		{
 			if (System.currentTimeMillis() - lastZoomEnd < 175) {
 				return true;
@@ -484,7 +486,7 @@ public class MapGestureHandler
 
 		// Zoom in on double tap
 		@Override
-		public boolean onDoubleTap(MotionEvent e)
+		public boolean onDoubleTap(@NonNull MotionEvent e)
 		{
 			if (!allowZoom)
 				return false;

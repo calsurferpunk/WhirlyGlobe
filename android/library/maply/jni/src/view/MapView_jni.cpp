@@ -28,12 +28,14 @@ using namespace WhirlyKit;
 
 template<> MapViewClassInfo *MapViewClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_MapView_nativeInit
   (JNIEnv *env, jclass cls)
 {
 	MapViewClassInfo::getClassInfo(env,cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_MapView_initialise
   (JNIEnv *env, jobject obj, jobject coordAdapterObj)
 {
@@ -51,6 +53,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_MapView_initialise
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_MapView_dispose
   (JNIEnv *env, jobject obj)
 {
@@ -73,6 +76,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_MapView_dispose
 	}
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_MapView_nativeClone
   (JNIEnv *env, jobject obj, jobject destObj)
 {
@@ -89,6 +93,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_MapView_nativeClone
 	}
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_MapView_setLoc
   (JNIEnv *env, jobject obj, jdouble x, jdouble y, jdouble z)
 {
@@ -107,6 +112,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_MapView_setLoc
 	}
 }
 
+extern "C"
 JNIEXPORT jobject JNICALL Java_com_mousebird_maply_MapView_getLoc
   (JNIEnv *env, jobject obj)
 {
@@ -129,6 +135,7 @@ JNIEXPORT jobject JNICALL Java_com_mousebird_maply_MapView_getLoc
 	return NULL;
 }
 
+extern "C"
 JNIEXPORT jdouble JNICALL Java_com_mousebird_maply_MapView_minHeightAboveSurface
   (JNIEnv *env, jobject obj)
 {
@@ -149,6 +156,7 @@ JNIEXPORT jdouble JNICALL Java_com_mousebird_maply_MapView_minHeightAboveSurface
     return 0.0;
 }
 
+extern "C"
 JNIEXPORT jdouble JNICALL Java_com_mousebird_maply_MapView_maxHeightAboveSurface
   (JNIEnv *env, jobject obj)
 {
@@ -169,7 +177,7 @@ JNIEXPORT jdouble JNICALL Java_com_mousebird_maply_MapView_maxHeightAboveSurface
     return 0.0;
 }
 
-
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_MapView_setRot
   (JNIEnv *env, jobject obj, jdouble rot)
 {
@@ -188,7 +196,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_MapView_setRot
 	}
 }
 
-
+extern "C"
 JNIEXPORT jdouble JNICALL Java_com_mousebird_maply_MapView_getRot
   (JNIEnv *env, jobject obj)
 {
@@ -209,6 +217,7 @@ JNIEXPORT jdouble JNICALL Java_com_mousebird_maply_MapView_getRot
     return 0.0;
 }
 
+extern "C"
 JNIEXPORT jobject JNICALL Java_com_mousebird_maply_MapView_pointOnPlaneFromScreen
   (JNIEnv *env, jobject obj, jobject screenPtObj, jobject viewModelMatObj, jobject frameObj, jboolean clip)
 {
@@ -239,6 +248,7 @@ JNIEXPORT jobject JNICALL Java_com_mousebird_maply_MapView_pointOnPlaneFromScree
     return NULL;
 }
 
+extern "C"
 JNIEXPORT jobject JNICALL Java_com_mousebird_maply_MapView_pointOnScreenFromPlane
   (JNIEnv *env, jobject obj, jobject dispPtObj, jobject viewModelMatObj, jobject frameObj)
 {

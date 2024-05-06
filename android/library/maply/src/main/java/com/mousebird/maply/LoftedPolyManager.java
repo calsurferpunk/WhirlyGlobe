@@ -34,7 +34,7 @@ class LoftedPolyManager {
     // Add vectors to turn into lofted polygons
     public native long addPolys(VectorObject[] vecs,LoftedPolyInfo polyInfo,ChangeSet changes);
 
-    public void finalize()
+    protected void finalize()
     {
         dispose();
     }

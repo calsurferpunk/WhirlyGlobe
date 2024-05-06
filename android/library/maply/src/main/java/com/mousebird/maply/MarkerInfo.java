@@ -54,7 +54,7 @@ public class MarkerInfo extends BaseInfo
 		setClusterGroup(-1);
 	}
 	
-	public void finalize() {
+	protected void finalize() {
 		dispose();
 	}
 

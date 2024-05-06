@@ -30,12 +30,14 @@ using namespace Maply;
 
 template<> MarkerManagerClassInfo *MarkerManagerClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_MarkerManager_nativeInit
   (JNIEnv *env, jclass cls)
 {
 	MarkerManagerClassInfo::getClassInfo(env,cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_MarkerManager_initialise
   (JNIEnv *env, jobject obj, jobject sceneObj)
 {
@@ -53,6 +55,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_MarkerManager_initialise
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_MarkerManager_dispose
   (JNIEnv *env, jobject obj)
 {
@@ -70,6 +73,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_MarkerManager_dispose
 	}
 }
 
+extern "C"
 JNIEXPORT jlong JNICALL Java_com_mousebird_maply_MarkerManager_addMarkers
   (JNIEnv *env, jobject obj, jobjectArray markerArray, jobject markerInfoObj, jobject changeSetObj)
 {
@@ -122,6 +126,7 @@ JNIEXPORT jlong JNICALL Java_com_mousebird_maply_MarkerManager_addMarkers
     return EmptyIdentity;
 }
 
+extern "C"
 JNIEXPORT jlong JNICALL Java_com_mousebird_maply_MarkerManager_addScreenMarkers
 	(JNIEnv *env, jobject obj, jobjectArray markerArray,
 	 jobject markerInfoObj, jobject changeSetObj)
@@ -154,7 +159,7 @@ JNIEXPORT jlong JNICALL Java_com_mousebird_maply_MarkerManager_addScreenMarkers
         // Resolve the program ID
         if ((*markerInfo)->programID == EmptyIdentity)
         {
-            Program *prog = nullptr;
+            Program *prog;
             if (isMoving)
                 prog = (*markerManager)->getScene()->findProgramByName(MaplyScreenSpaceDefaultMotionShader);
             else
@@ -175,6 +180,7 @@ JNIEXPORT jlong JNICALL Java_com_mousebird_maply_MarkerManager_addScreenMarkers
     return EmptyIdentity;
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_MarkerManager_removeMarkers
   (JNIEnv *env, jobject obj, jlongArray idArrayObj, jobject changeSetObj)
 {
@@ -197,6 +203,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_MarkerManager_removeMarkers
 	}
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_MarkerManager_enableMarkers
   (JNIEnv *env, jobject obj, jlongArray idArrayObj, jboolean enable, jobject changeSetObj)
 {

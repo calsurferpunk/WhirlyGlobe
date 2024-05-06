@@ -3,11 +3,12 @@ package com.mousebirdconsulting.autotester;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Debug;
+
+import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.view.menu.ActionMenuItemView;
 import androidx.appcompat.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
@@ -24,6 +25,7 @@ import com.mousebirdconsulting.autotester.NavigationDrawer.NavigationDrawer;
 import java.io.File;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Objects;
 
 public class MainActivity extends AppCompatActivity implements NavigationDrawer.Listener {
 
@@ -78,20 +80,20 @@ public class MainActivity extends AppCompatActivity implements NavigationDrawer.
 	// Code courtesy: http://stackoverflow.com/questions/3238388/android-out-of-memory-exception-in-gallery/3238945#3238945
 	void dumpMemory()
 	{
-		Double allocated = new Double(Debug.getNativeHeapAllocatedSize())/new Double((1048576));
-		Double available = new Double(Debug.getNativeHeapSize())/1048576.0;
-		Double free = new Double(Debug.getNativeHeapFreeSize())/1048576.0;
+		Double allocated = (double)Debug.getNativeHeapAllocatedSize() /1048576.0;
+		Double available = (double)Debug.getNativeHeapSize() /1048576.0;
+		Double free = (double)Debug.getNativeHeapFreeSize() /1048576.0;
 		DecimalFormat df = new DecimalFormat();
 		df.setMaximumFractionDigits(2);
 		df.setMinimumFractionDigits(2);
 
 		Log.d("maply", "heap native: allocated " + df.format(allocated) + "MB of " + df.format(available) + "MB (" + df.format(free) + "MB free)");
-		Log.d("maply", "memory: allocated: " + df.format(new Double(Runtime.getRuntime().totalMemory()/1048576)) + "MB of " + df.format(new Double(Runtime.getRuntime().maxMemory()/1048576))+ "MB (" + df.format(new Double(Runtime.getRuntime().freeMemory()/1048576)) +"MB free)");
+		Log.d("maply", "memory: allocated: " + df.format(Double.valueOf(Runtime.getRuntime().totalMemory()/1048576.0)) + "MB of " + df.format(Double.valueOf(Runtime.getRuntime().maxMemory()/1048576.0))+ "MB (" + df.format(Double.valueOf(Runtime.getRuntime().freeMemory()/1048576.0)) +"MB free)");
 	}
 
 	void deleteRecursive(File fileOrDirectory) {
 		if (fileOrDirectory.isDirectory())
-			for (File child : fileOrDirectory.listFiles())
+			for (File child : Objects.requireNonNull(Objects.requireNonNull(fileOrDirectory.listFiles())))
 				deleteRecursive(child);
 
 		fileOrDirectory.delete();
@@ -190,12 +192,12 @@ public class MainActivity extends AppCompatActivity implements NavigationDrawer.
 				this.interactiveTest = testCase;
 				MenuItem item = menu.findItem(R.id.playTests);
 				if (item != null) {
-					item.setIcon(getResources().getDrawable(R.drawable.ic_done_action));
+					item.setIcon(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_done_action, null));
 				}
 				showOverflowMenu(true);
 			}
 
-			getSupportActionBar().setTitle(titleText);
+			Objects.requireNonNull(getSupportActionBar()).setTitle(titleText);
 			this.testResults.clear();
 			if (ConfigOptions.getViewSetting(this) == ConfigOptions.ViewMapOption.ViewMap || ConfigOptions.getExecutionMode(getApplicationContext()) == ConfigOptions.ExecutionMode.Interactive) {
 				selectFragment(this.viewTest);
@@ -246,7 +248,7 @@ public class MainActivity extends AppCompatActivity implements NavigationDrawer.
 	}
 
 	private void finalizeTest(MaplyTestCase testCase) {
-		getSupportActionBar().setTitle(R.string.app_name);
+		Objects.requireNonNull(getSupportActionBar()).setTitle(R.string.app_name);
 		ConfigOptions.setTestState(getApplicationContext(), testCase.getTestName(), ConfigOptions.TestState.Ready);
 		executing = false;
 		Intent intent = new Intent(this, ResultActivity.class);
@@ -257,14 +259,14 @@ public class MainActivity extends AppCompatActivity implements NavigationDrawer.
 	}
 
 	private void finalizeInteractiveTest() {
-		getSupportActionBar().setTitle(R.string.app_name);
+		Objects.requireNonNull(getSupportActionBar()).setTitle(R.string.app_name);
 		interactiveTest.cancel(true);
 		interactiveTest.shutdown();
 		ConfigOptions.setTestState(getApplicationContext(), interactiveTest.getTestName(), ConfigOptions.TestState.Ready);
 		interactiveTest = null;
 		MenuItem item = menu.findItem(R.id.playTests);
 		if (item != null){
-			item.setIcon(getResources().getDrawable(R.drawable.ic_play_action));
+			item.setIcon(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_play_action, null));
 		}
 		showOverflowMenu(false);
 		executing = false;
@@ -307,8 +309,8 @@ public class MainActivity extends AppCompatActivity implements NavigationDrawer.
 
 	private void runTests() {
 		MenuItem playButton = findViewById(R.id.playTests);
-		playButton.setIcon(getResources().getDrawable(R.drawable.ic_stop_action));
-		getSupportActionBar().setTitle("Running tests...");
+		playButton.setIcon(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_stop_action, null));
+		Objects.requireNonNull(getSupportActionBar()).setTitle("Running tests...");
 		this.testResults.clear();
 		MaplyTestCase[] tests = this.testList.getTests();
 		if (ConfigOptions.getViewSetting(this) == ConfigOptions.ViewMapOption.ViewMap) {
@@ -382,8 +384,8 @@ public class MainActivity extends AppCompatActivity implements NavigationDrawer.
 
 	private void finishTests() {
 		MenuItem playButton = findViewById(R.id.playTests);
-		playButton.setIcon(getResources().getDrawable(R.drawable.ic_play_action));
-		getSupportActionBar().setTitle(R.string.app_name);
+		playButton.setIcon(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_play_action, null));
+		Objects.requireNonNull(getSupportActionBar()).setTitle(R.string.app_name);
 		executing = false;
 		this.viewTest = new ViewTestFragment();
 		if (!cancelled) {
@@ -405,7 +407,7 @@ public class MainActivity extends AppCompatActivity implements NavigationDrawer.
 	}
 
 	private void stopTests() {
-		getSupportActionBar().setTitle("Cancelling...");
+		Objects.requireNonNull(getSupportActionBar()).setTitle("Cancelling...");
 		cancelled = true;
 	}
 }

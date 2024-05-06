@@ -18,6 +18,7 @@
 package com.mousebird.maply;
 
 import androidx.annotation.Keep;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import org.jetbrains.annotations.NotNull;
@@ -57,7 +58,7 @@ public class Point3d
 		initialise(x, y, z);
 	}
 	
-	public void finalize() {
+	protected void finalize() {
 		dispose();
 	}
 
@@ -73,7 +74,7 @@ public class Point3d
 		       getZ() == that.getZ();
 	}
 
-	public String toString() {
+	@NonNull public String toString() {
 		return "(" + getX() + "," + getY() + "," + getZ() + ")";
 	}
 	

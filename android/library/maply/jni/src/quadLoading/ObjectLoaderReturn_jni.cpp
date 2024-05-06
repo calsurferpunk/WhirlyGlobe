@@ -25,6 +25,7 @@
 using namespace Eigen;
 using namespace WhirlyKit;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ObjectLoaderReturn_addComponentObjects
   (JNIEnv *env, jobject obj, jobjectArray compObjs)
 {

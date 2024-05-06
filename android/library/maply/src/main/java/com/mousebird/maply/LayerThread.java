@@ -526,8 +526,7 @@ public class LayerThread extends HandlerThread implements View.ViewWatcher
 		}
 
 		renderer = null;
-		context = null;
-		surface = null;
+        surface = null;
 	}
 	
 	// Add a layer.  These just run in our thread and do their own thing
@@ -575,7 +574,7 @@ public class LayerThread extends HandlerThread implements View.ViewWatcher
 	}
 
 	private ChangeSet changes = new ChangeSet();
-	private Object changeLock = new Object();
+	private final Object changeLock = new Object();
 	private Handler changeHandler = null;
 
 	/**
@@ -634,12 +633,11 @@ public class LayerThread extends HandlerThread implements View.ViewWatcher
 
 	/**
 	 * Add a Runnable to our queue.  This will be executed at some point in the future.
-	 * 
+	 *
 	 * @param run Runnable to run
-	 * @return The Handler if you want to cancel this at some point in the future.
 	 */
-	public Handler addTask(Runnable run) {
-		return addTask(run,false);
+	public void addTask(Runnable run) {
+		addTask(run, false);
 	}
 	
 	/**

@@ -55,7 +55,7 @@ public class LabelInfo extends BaseInfo
 		setDrawPriority(LabelPriorityDefault);
 	}
 
-	public void finalize()
+	protected void finalize()
 	{
 		dispose();
 	}
@@ -248,9 +248,9 @@ public class LabelInfo extends BaseInfo
 	/**
 	 * Justification values for text.  Can be center, left, or right.
 	 */
-	public enum TextJustify {TextCenter,TextLeft,TextRight};
+	public enum TextJustify {TextCenter,TextLeft,TextRight}
 
-	/**
+    /**
 	 * For multi-line labels, you can justify the text to the left, right or center.
 	 * Only works for multi-line labels.
 	 */

@@ -24,11 +24,13 @@
 
 using namespace WhirlyKit;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_PassThroughCoordSystem_nativeInit
         (JNIEnv *env, jclass cls)
 {
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_PassThroughCoordSystem_initialise
         (JNIEnv *env, jobject obj)
 {

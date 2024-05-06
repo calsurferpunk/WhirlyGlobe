@@ -42,7 +42,7 @@ public class ParticleSystem {
         /**
          * Particles are defined as rectangles.
          */
-        Rectangle;
+        Rectangle
     }
 
     private ParticleSystem() {
@@ -62,7 +62,7 @@ public class ParticleSystem {
         this.setBasetime(new Date().getTime() / 1000.0);
     }
 
-    public void finalize() {
+    protected void finalize() {
         dispose();
     }
 

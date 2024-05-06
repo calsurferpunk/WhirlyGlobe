@@ -537,7 +537,7 @@ open class MapboxKindaMap(
         val localFetchers = ArrayList<MBTileFetcher>()
 
         styleSheet?.sources?.forEach { source ->
-            source.tileSpec?.forEach { specItem ->
+            source.tileSpec.forEach { specItem ->
                 if (specItem != null) {
                     specItem.dict?.let {
                         val itemMinZoom = it.getInt("minzoom")
@@ -742,7 +742,7 @@ open class MapboxKindaMap(
             for (layer in vectorLayers ?: emptyArray()) {
                 if (layer != null) {
                     if (layer.type == AttrDictionaryEntry.Type.DictTypeDictionary) {
-                        val layerDict = layer?.dict
+                        val layerDict = layer.dict
                         val type = layerDict?.getString("type")
                         if (type != null && (type != "background" && type != "fill"))
                             layer.let { newVectorLayers.add(it) }

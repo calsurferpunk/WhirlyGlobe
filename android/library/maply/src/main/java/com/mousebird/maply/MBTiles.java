@@ -103,7 +103,9 @@ public class MBTiles
             assert true : message;
         }
 
-        this.init(mbTileFile);
+        if (mbTileFile != null) {
+            this.init(mbTileFile);
+        }
 
     }
 

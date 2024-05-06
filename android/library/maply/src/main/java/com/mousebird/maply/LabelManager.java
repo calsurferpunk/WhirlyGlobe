@@ -37,7 +37,7 @@ class LabelManager
 		initialise(scene);
 	}
 	
-	public void finalize()
+	protected void finalize()
 	{
 		dispose();
 	}
@@ -46,10 +46,10 @@ class LabelManager
 	public native long addLabels(InternalLabel[] labels,LabelInfo labelInfo,ChangeSet changes);
 	
 	// Remove labels by ID
-	public native void removeLabels(long ids[],ChangeSet changes);
+	public native void removeLabels(long[] ids, ChangeSet changes);
 	
 	// Enable/disable labels by ID
-	public native void enableLabels(long ids[],boolean enable,ChangeSet changes);
+	public native void enableLabels(long[] ids, boolean enable, ChangeSet changes);
 
 	static
 	{

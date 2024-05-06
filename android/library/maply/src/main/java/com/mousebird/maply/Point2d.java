@@ -112,7 +112,7 @@ public class Point2d
 		return new Point2d(getX()/Math.PI * 180,getY()/Math.PI * 180);
 	}
 
-	public void finalize()
+	protected void finalize()
 	{
 		dispose();
 	}

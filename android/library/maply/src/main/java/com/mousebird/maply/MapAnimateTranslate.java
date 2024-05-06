@@ -28,16 +28,16 @@ import androidx.annotation.Nullable;
  */
 public class MapAnimateTranslate implements MapView.AnimationDelegate 
 {
-	RenderController renderer = null;
-	MapView view = null;
-	Point3d startLoc = null;
-	Point3d endLoc = null;
-	Point2d[] viewBounds = null;
-	Double startRot = null;
+	RenderController renderer;
+	MapView view;
+	Point3d startLoc;
+	Point3d endLoc;
+	Point2d[] viewBounds;
+	Double startRot;
 	Double dRot = null;
 	double startTime,endTime;
 	@Nullable
-	BaseController.ZoomAnimationEasing zoomEasing = null;
+	BaseController.ZoomAnimationEasing zoomEasing;
 
 	/**
 	 * Construct a translation with input parameters.  You would set this up and then hand it

@@ -71,7 +71,7 @@ public class Moon {
     static {
         nativeInit();
     }
-    public void finalize()
+    protected void finalize()
     {
         dispose();
     }

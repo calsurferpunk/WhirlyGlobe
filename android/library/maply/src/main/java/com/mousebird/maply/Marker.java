@@ -39,7 +39,7 @@ public class Marker
     /**
      * If set we'll animate these images one after the other over the duration.
      */
-    public MaplyTexture images[] = null;
+    public MaplyTexture[] images = null;
 
     /**
      * If images are passed in, this is the time it will take to cycle through them all.

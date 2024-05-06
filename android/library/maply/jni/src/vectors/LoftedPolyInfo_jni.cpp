@@ -27,12 +27,14 @@ using namespace WhirlyKit;
 
 template<> LoftedPolyInfoClassInfo *LoftedPolyInfoClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_nativeInit
         (JNIEnv *env, jclass cls)
 {
     LoftedPolyInfoClassInfo::getClassInfo(env,cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_initialise
         (JNIEnv *env, jobject obj)
 {
@@ -49,6 +51,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_initialise
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_dispose
         (JNIEnv *env, jobject obj)
 {
@@ -71,6 +74,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_dispose
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setHeight
         (JNIEnv *env, jobject obj, jdouble height)
 {
@@ -87,6 +91,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setHeight
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setBase
         (JNIEnv *env, jobject obj, jdouble base)
 {
@@ -103,6 +108,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setBase
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setTop
         (JNIEnv *env, jobject obj, jboolean top)
 {
@@ -119,6 +125,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setTop
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setSide
         (JNIEnv *env, jobject obj, jboolean side)
 {
@@ -135,6 +142,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setSide
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setOutline
         (JNIEnv *env, jobject obj, jboolean outline)
 {
@@ -151,6 +159,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setOutline
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setOutlineSide
         (JNIEnv *env, jobject obj, jboolean outlineSide)
 {
@@ -167,6 +176,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setOutlineSide
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setOutlineBottom
         (JNIEnv *env, jobject obj, jboolean outlineBottom)
 {
@@ -183,6 +193,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setOutlineBottom
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setOutlineDrawPriority
         (JNIEnv *env, jobject obj, jint outlineDrawPriority)
 {
@@ -199,6 +210,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setOutlineDrawPri
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setColor
         (JNIEnv *env, jobject obj, jfloat r, jfloat g, jfloat b, jfloat a)
 {
@@ -215,6 +227,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setColor
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setOutlineColor
         (JNIEnv *env, jobject obj, jfloat r, jfloat g, jfloat b, jfloat a)
 {
@@ -231,6 +244,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setOutlineColor
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setOutlineWidth
         (JNIEnv *env, jobject obj, jdouble width)
 {
@@ -247,6 +261,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setOutlineWidth
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setCenter
         (JNIEnv *env, jobject obj, jobject centerObj)
 {
@@ -264,6 +279,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setCenter
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setUseCenter
         (JNIEnv *env, jobject obj, jboolean useCenter)
 {
@@ -280,6 +296,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setUseCenter
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_LoftedPolyInfo_setGridSize
         (JNIEnv *env, jobject obj, jdouble gridSize)
 {    try

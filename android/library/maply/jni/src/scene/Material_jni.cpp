@@ -27,12 +27,14 @@ using namespace WhirlyKit;
 
 template<> MaterialClassInfo *MaterialClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Material_nativeInit
 (JNIEnv *env, jclass cls)
 {
     MaterialClassInfo::getClassInfo(env, cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Material_initialise
 (JNIEnv *env, jobject obj)
 {
@@ -50,6 +52,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_Material_initialise
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Material_dispose
 (JNIEnv *env, jobject obj)
 {
@@ -72,6 +75,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_Material_dispose
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Material_setAmbient
 (JNIEnv *env, jobject obj, jobject ambientObj)
 {
@@ -90,6 +94,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_Material_setAmbient
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Material_setDiffuse
 (JNIEnv *env, jobject obj, jobject diffuseObj)
 {
@@ -108,6 +113,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_Material_setDiffuse
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Material_setSpecular
 (JNIEnv *env, jobject obj, jobject specularObj)
 {
@@ -126,7 +132,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_Material_setSpecular
     }
 }
 
-
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Material_setSpecularExponent
 (JNIEnv *env, jobject obj, jfloat specularExponent)
 {

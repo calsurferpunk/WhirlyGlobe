@@ -18,6 +18,7 @@
 package com.mousebird.maply;
 
 import androidx.annotation.Keep;
+import androidx.annotation.NonNull;
 
 /**
  * The Point4d class is your standard x,y,z,w container.  The only
@@ -58,7 +59,7 @@ public class Point4d
 		setValue(x,y,z,w);
 	}
 	
-	public void finalize() {
+	protected void finalize() {
 		dispose();
 	}
 
@@ -71,7 +72,7 @@ public class Point4d
 		return getX() == that.getX() && getY() == that.getY() && getZ() == that.getZ() && getW() == that.getW();
 	}
 
-	public String toString() {
+	@NonNull public String toString() {
 		return "(" + getX() + "," + getY() + "," + getZ() + getW() + ")";
 	}
 	

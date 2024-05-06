@@ -87,6 +87,7 @@ JNIEXPORT jobject JNICALL Java_com_mousebird_maply_Matrix4d_inverse
     return nullptr;
 }
 
+extern "C"
 JNIEXPORT jobject JNICALL Java_com_mousebird_maply_Matrix4d_transpose
 (JNIEnv *env, jobject obj)
 {
