@@ -27,12 +27,14 @@ using namespace WhirlyKit;
 
 template<> DirectionalLightClassInfo *DirectionalLightClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_DirectionalLight_nativeInit
 (JNIEnv *env, jclass cls)
 {
     DirectionalLightClassInfo::getClassInfo(env,cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_DirectionalLight_initialise
 (JNIEnv *env, jobject obj)
 {
@@ -50,6 +52,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_DirectionalLight_initialise
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_DirectionalLight_dispose
 (JNIEnv *env, jobject obj)
 {
@@ -72,6 +75,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_DirectionalLight_dispose
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_DirectionalLight_setPos
 (JNIEnv *env, jobject obj, jobject objPos)
 {
@@ -91,6 +95,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_DirectionalLight_setPos
     }
 }
 
+extern "C"
 JNIEXPORT jobject JNICALL Java_com_mousebird_maply_DirectionalLight_getPos
 (JNIEnv *env, jobject obj)
 {
@@ -111,6 +116,7 @@ JNIEXPORT jobject JNICALL Java_com_mousebird_maply_DirectionalLight_getPos
     return NULL;
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_DirectionalLight_setViewDependent
 (JNIEnv *env, jobject obj, jboolean viewDependent)
 {
@@ -129,6 +135,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_DirectionalLight_setViewDependen
     }
 }
 
+extern "C"
 JNIEXPORT jboolean JNICALL Java_com_mousebird_maply_DirectionalLight_getViewDependent
 (JNIEnv *env, jobject obj)
 {
@@ -149,6 +156,7 @@ JNIEXPORT jboolean JNICALL Java_com_mousebird_maply_DirectionalLight_getViewDepe
     return false;
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_DirectionalLight_setAmbient
 (JNIEnv *env, jobject obj, jobject ambientObj)
 {
@@ -168,6 +176,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_DirectionalLight_setAmbient
     }
 }
 
+extern "C"
 JNIEXPORT jobject JNICALL Java_com_mousebird_maply_DirectionalLight_getAmbient
 (JNIEnv *env, jobject obj)
 {
@@ -188,6 +197,7 @@ JNIEXPORT jobject JNICALL Java_com_mousebird_maply_DirectionalLight_getAmbient
     return NULL;
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_DirectionalLight_setDiffuse
 (JNIEnv *env, jobject obj, jobject objDiffuse)
 {
@@ -207,6 +217,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_DirectionalLight_setDiffuse
     }
 }
 
+extern "C"
 JNIEXPORT jobject JNICALL Java_com_mousebird_maply_DirectionalLight_getDifusse
 (JNIEnv *env, jobject obj)
 {
@@ -227,6 +238,7 @@ JNIEXPORT jobject JNICALL Java_com_mousebird_maply_DirectionalLight_getDifusse
     return NULL;
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_DirectionalLight_setSpecular
 (JNIEnv *env, jobject obj, jobject objSpecular)
 {
@@ -246,6 +258,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_DirectionalLight_setSpecular
     }
 }
 
+extern "C"
 JNIEXPORT jobject JNICALL Java_com_mousebird_maply_DirectionalLight_getSpecular
 (JNIEnv *env, jobject obj)
 {

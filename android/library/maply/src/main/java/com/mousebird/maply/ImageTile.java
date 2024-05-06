@@ -55,7 +55,7 @@ public class ImageTile
 	 */
 	public native void preprocessTexture();
 
-	public void finalize() { dispose(); }
+	protected void finalize() { dispose(); }
 
 	static
 	{

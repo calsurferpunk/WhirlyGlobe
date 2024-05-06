@@ -41,7 +41,7 @@ class InternalLabel
 		setRotation(label.rotation);
 		if (label.text != null && !label.text.isEmpty()) {
 			// Break up the text by newlines
-			String parts[] = label.text.split("\n");
+			String[] parts = label.text.split("\n");
 
 			for (String part : parts) {
 				// Convert text over to code points
@@ -114,7 +114,7 @@ class InternalLabel
 	public native void setLayoutSize(double sizeX,double sizeY);
 	public native void setUniqueID(String uniqueStr);
 
-	public void finalize()
+	protected void finalize()
 	{
 		dispose();
 	}

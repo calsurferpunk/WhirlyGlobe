@@ -28,12 +28,14 @@ using namespace WhirlyKit;
 
 template<> BillboardInfoClassInfo *BillboardInfoClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_BillboardInfo_nativeInit
 (JNIEnv *env, jclass cls)
 {
     BillboardInfoClassInfo::getClassInfo(env, cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_BillboardInfo_initialise
 (JNIEnv *env, jobject obj)
 {
@@ -50,6 +52,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_BillboardInfo_initialise
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_BillboardInfo_dispose
 (JNIEnv *env, jobject obj)
 {
@@ -71,6 +74,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_BillboardInfo_dispose
 
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_BillboardInfo_setColor
 (JNIEnv *env, jobject obj, jfloat r, jfloat g, jfloat b, jfloat a)
 {
@@ -87,6 +91,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_BillboardInfo_setColor
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_BillboardInfo_setOrientNative
 (JNIEnv *env, jobject obj, jint orient)
 {

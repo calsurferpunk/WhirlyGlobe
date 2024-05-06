@@ -28,7 +28,7 @@ public class FakeGeocentricDisplayAdapter extends CoordSystemDisplayAdapter
 		initialise();
 	}
 		
-	public void finalize()
+	protected void finalize()
 	{
 		dispose();
 	}

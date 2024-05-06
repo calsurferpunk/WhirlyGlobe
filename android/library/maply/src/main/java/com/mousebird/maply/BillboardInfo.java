@@ -74,7 +74,7 @@ public class BillboardInfo extends BaseInfo {
         return orient;
     }
 
-    public void finalize()
+    protected void finalize()
     {
         dispose();
     }

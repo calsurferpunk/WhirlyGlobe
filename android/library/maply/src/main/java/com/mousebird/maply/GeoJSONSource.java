@@ -48,7 +48,7 @@ public class GeoJSONSource {
     private SLDStyleSet styleSet;
     private InputStream jsonStream;
     private WeakReference<RenderControllerInterface> baseController;
-    ArrayList<ComponentObject> componentObjects = new ArrayList<ComponentObject>();
+    ArrayList<ComponentObject> componentObjects = new ArrayList<>();
 
     public boolean isLoaded() {
         return loaded;
@@ -89,7 +89,7 @@ public class GeoJSONSource {
      * @param baseController The MaplyBaseController instance.
      */
     public void setBaseController(RenderControllerInterface baseController) {
-        this.baseController = new WeakReference<RenderControllerInterface>(baseController);
+        this.baseController = new WeakReference<>(baseController);
     }
 
     public GeoJSONSource() {
@@ -126,8 +126,8 @@ public class GeoJSONSource {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         int nRead;
         byte[] data = new byte[16384];
-        HashMap<Long, ArrayList<VectorObject>> featureStyles = new HashMap<Long, ArrayList<VectorObject>>();
-        ArrayList<ComponentObject> componentObjects = new ArrayList<ComponentObject>();
+        HashMap<Long, ArrayList<VectorObject>> featureStyles = new HashMap<>();
+        ArrayList<ComponentObject> componentObjects = new ArrayList<>();
 
         try {
 
@@ -144,11 +144,11 @@ public class GeoJSONSource {
                 for (VectorObject vecObj : vecs) {
                     VectorStyle[] styles = styleSet.stylesForFeature(vecObj.getAttributes(), nullTileID, "", baseController.get());
                     if (styles == null || styles.length == 0)
-                        continue;;
+                        continue;
                     for (VectorStyle style : styles) {
                         ArrayList<VectorObject> featuresForStyle = featureStyles.get(style.getUuid());
                         if (featuresForStyle == null) {
-                            featuresForStyle = new ArrayList<VectorObject>();
+                            featuresForStyle = new ArrayList<>();
                             featureStyles.put(style.getUuid(), featuresForStyle);
                         }
                         featuresForStyle.add(vecObj);
@@ -165,6 +165,7 @@ public class GeoJSONSource {
                     ArrayList<VectorObject> featuresForStyle = featureStyles.get(uuid);
 
                     //List<VectorObject> objects, MaplyTileID tileID, MaplyBaseController controller)
+                    assert featuresForStyle != null;
                     style.buildObjects(featuresForStyle.toArray(new VectorObject[0]), tileData, baseController.get());
                     ComponentObject[] newCompObjs = tileData.getComponentObjects();
                     if (newCompObjs != null && newCompObjs.length > 0)

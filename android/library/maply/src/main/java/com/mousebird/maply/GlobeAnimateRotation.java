@@ -28,16 +28,16 @@ import androidx.annotation.Nullable;
  */
 public class GlobeAnimateRotation implements GlobeView.AnimationDelegate
 {
-	GlobeView globeView = null;
-	RenderController renderer = null;
-	Quaternion startQuat = null;
-	Quaternion endQuat = null;
+	GlobeView globeView;
+	RenderController renderer;
+	Quaternion startQuat;
+	Quaternion endQuat;
 	double startHeight,endHeight;
 	Double startRot = null;
 	Double dRot = null;
 	double startTime,animTime;
 	@Nullable
-	BaseController.ZoomAnimationEasing zoomEasing = null;
+	BaseController.ZoomAnimationEasing zoomEasing;
 
 	public GlobeAnimateRotation(GlobeView inGlobeView, RenderController inRender,
 								Quaternion newQuat, double newHeight, double animLen,

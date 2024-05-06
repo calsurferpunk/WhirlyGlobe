@@ -85,7 +85,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryRaw_nativeInit
  * Signature: ()V
  */
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryRaw_initialise
-  (JNIEnv *, jobject);
+  (JNIEnv *, jobject, jobject);
 
 /*
  * Class:     com_mousebird_maply_GeometryRaw

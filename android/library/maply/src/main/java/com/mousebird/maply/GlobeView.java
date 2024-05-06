@@ -57,7 +57,7 @@ public class GlobeView extends View
 		return that;
 	}
 
-	public void finalize() {
+	protected void finalize() {
 		dispose();
 	}
 	

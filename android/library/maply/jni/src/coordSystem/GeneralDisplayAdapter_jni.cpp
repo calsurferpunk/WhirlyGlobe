@@ -27,12 +27,14 @@ using namespace WhirlyKit;
 
 template<> GeneralDisplayAdapterInfo *GeneralDisplayAdapterInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeneralDisplayAdapter_nativeInit
 (JNIEnv *env, jclass cls)
 {
     GeneralDisplayAdapterInfo::getClassInfo(env,cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeneralDisplayAdapter_initialise
 (JNIEnv *env, jobject obj, jobject coordSysObj,jobject llObj, jobject urObj, jobject centerObj, jobject scaleObj)
 {
@@ -60,6 +62,7 @@ static std::mutex disposeMutex;
  * Method:    dispose
  * Signature: ()V
  */
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeneralDisplayAdapter_dispose
 (JNIEnv *env, jobject obj)
 {

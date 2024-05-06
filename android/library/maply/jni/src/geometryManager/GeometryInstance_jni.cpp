@@ -26,12 +26,14 @@ using namespace Maply;
 
 template<> GeometryInstanceClassInfo *GeometryInstanceClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInstance_nativeInit
 (JNIEnv *env, jclass cls)
 {
     GeometryInstanceClassInfo::getClassInfo(env, cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInstance_initialise
 (JNIEnv *env, jobject obj)
 {
@@ -48,6 +50,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInstance_initialise
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInstance_dispose
 (JNIEnv *env, jobject obj)
 {
@@ -62,6 +65,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInstance_dispose
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInstance_setCenter
 (JNIEnv *env, jobject obj, jdouble x, jdouble y, jdouble z)
 {
@@ -80,6 +84,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInstance_setCenter
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInstance_setEndCenter
 (JNIEnv *env, jobject obj, jdouble x, jdouble y, jdouble z)
 {
@@ -98,6 +103,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInstance_setEndCenter
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInstance_setDuration
 (JNIEnv *env, jobject obj, jdouble duration)
 {
@@ -116,6 +122,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInstance_setDuration
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInstance_setMatrix
 (JNIEnv *env, jobject obj, jobject matObj)
 {
@@ -135,6 +142,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInstance_setMatrix
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInstance_setColor
 (JNIEnv *env, jobject obj, jfloat r, jfloat g, jfloat b, jfloat a)
 {
@@ -154,6 +162,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInstance_setColor
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInstance_setSelectable
 (JNIEnv *env, jobject obj, jboolean selectable)
 {

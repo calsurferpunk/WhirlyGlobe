@@ -30,12 +30,14 @@ using namespace WhirlyKit;
 
 template<> BillboardClassInfo *BillboardClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Billboard_nativeInit
 (JNIEnv *env, jclass cls)
 {
     BillboardClassInfo::getClassInfo(env, cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Billboard_initialise
 (JNIEnv *env, jobject obj)
 {
@@ -53,6 +55,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_Billboard_initialise
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Billboard_dispose
 (JNIEnv *env, jobject obj)
 {
@@ -76,6 +79,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_Billboard_dispose
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Billboard_setCenter
 (JNIEnv *env, jobject obj, jobject ptObj)
 {
@@ -94,6 +98,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_Billboard_setCenter
     }
 }
 
+extern "C"
 JNIEXPORT jobject JNICALL Java_com_mousebird_maply_Billboard_getCenter
 (JNIEnv *env, jobject obj)
 {
@@ -112,6 +117,7 @@ JNIEXPORT jobject JNICALL Java_com_mousebird_maply_Billboard_getCenter
     return NULL;
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Billboard_setSize
 (JNIEnv *env, jobject obj, jobject sizeObj)
 {
@@ -130,6 +136,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_Billboard_setSize
     }
 }
 
+extern "C"
 JNIEXPORT jobject JNICALL Java_com_mousebird_maply_Billboard_getSize
 (JNIEnv *env, jobject obj)
 {
@@ -148,6 +155,7 @@ JNIEXPORT jobject JNICALL Java_com_mousebird_maply_Billboard_getSize
     return NULL;
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Billboard_setSelectable
 (JNIEnv *env, jobject obj, jboolean selectable)
 {
@@ -165,6 +173,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_Billboard_setSelectable
     }
 }
 
+extern "C"
 JNIEXPORT jboolean JNICALL Java_com_mousebird_maply_Billboard_getSelectable
 (JNIEnv *env, jobject obj)
 {
@@ -184,6 +193,7 @@ JNIEXPORT jboolean JNICALL Java_com_mousebird_maply_Billboard_getSelectable
     return false;
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_Billboard_flattenNative
 (JNIEnv *env, jobject obj, jobject screenObjObj)
 {

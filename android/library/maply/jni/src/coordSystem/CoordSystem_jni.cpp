@@ -26,12 +26,14 @@ using namespace WhirlyKit;
 
 template<> CoordSystemRefClassInfo *CoordSystemRefClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_CoordSystem_nativeInit
   (JNIEnv *env, jclass cls)
 {
 	CoordSystemRefClassInfo::getClassInfo(env,cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_CoordSystem_initialise
   (JNIEnv *env, jobject obj)
 {
@@ -40,6 +42,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_CoordSystem_initialise
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_CoordSystem_dispose
   (JNIEnv *env, jobject obj)
 {
@@ -71,6 +74,7 @@ JNIEXPORT jobject JNICALL MakeCoordSystem(JNIEnv *env,CoordSystemRef coordSys)
     return classInfo->makeWrapperObject(env,new CoordSystemRef(coordSys));
 }
 
+extern "C"
 JNIEXPORT jobject JNICALL Java_com_mousebird_maply_CoordSystem_geographicToLocal
   (JNIEnv *env, jobject obj, jobject ptObj)
 {
@@ -95,6 +99,7 @@ JNIEXPORT jobject JNICALL Java_com_mousebird_maply_CoordSystem_geographicToLocal
     return NULL;
 }
 
+extern "C"
 JNIEXPORT jobject JNICALL Java_com_mousebird_maply_CoordSystem_localToGeographic
   (JNIEnv *env, jobject obj, jobject ptObj)
 {
@@ -116,6 +121,7 @@ JNIEXPORT jobject JNICALL Java_com_mousebird_maply_CoordSystem_localToGeographic
     return NULL;
 }
 
+extern "C"
 JNIEXPORT jobject JNICALL Java_com_mousebird_maply_CoordSystem_localToGeocentric
   (JNIEnv *env, jobject obj, jobject ptObj)
 {
@@ -137,6 +143,7 @@ JNIEXPORT jobject JNICALL Java_com_mousebird_maply_CoordSystem_localToGeocentric
     return NULL;
 }
 
+extern "C"
 JNIEXPORT jobject JNICALL Java_com_mousebird_maply_CoordSystem_geocentricToLocal
   (JNIEnv *env, jobject obj, jobject ptObj)
 {
@@ -158,7 +165,7 @@ JNIEXPORT jobject JNICALL Java_com_mousebird_maply_CoordSystem_geocentricToLocal
     return NULL;
 }
 
-
+extern "C"
 JNIEXPORT jobject JNICALL Java_com_mousebird_maply_CoordSystem_CoordSystemConvert3d
 (JNIEnv *env, jclass cls, jobject inSystemObj, jobject outSystemObj, jobject coordObj)
 {

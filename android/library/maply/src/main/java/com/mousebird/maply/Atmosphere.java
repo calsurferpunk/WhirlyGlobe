@@ -482,7 +482,7 @@ public class Atmosphere {
         sphere.setHeight(-1.0f);
         sphere.setSamples(120,60);
 
-        List<Shape> shapes = new ArrayList<Shape>();
+        List<Shape> shapes = new ArrayList<>();
         shapes.add(sphere);
         ShapeInfo shapeInfo = new ShapeInfo();
 //        shapeInfo.disposeAfterUse = true;

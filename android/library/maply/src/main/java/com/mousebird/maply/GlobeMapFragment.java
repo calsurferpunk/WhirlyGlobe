@@ -21,7 +21,8 @@ public class GlobeMapFragment extends Fragment implements MapController.GestureD
     protected GlobeController globeControl;
     protected BaseController baseControl;
 
-    public enum MapDisplayType {Globe, Map};
+    public enum MapDisplayType {Globe, Map}
+
     protected MapDisplayType mapDisplayType = MapDisplayType.Map;
 
     protected GlobeController.Settings globeSettings = new GlobeController.Settings();
@@ -103,7 +104,7 @@ public class GlobeMapFragment extends Fragment implements MapController.GestureD
      * at this point.
      */
     @Override
-    public void onSaveInstanceState(Bundle outState) {
+    public void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
     }
 
@@ -208,7 +209,7 @@ public class GlobeMapFragment extends Fragment implements MapController.GestureD
      * @param corners Corners of the viewport.  If one of them is null, that means it doesn't land anywhere valid.
      * @param userMotion Set if the motion was caused by a gesture.
      */
-    public void mapDidStopMoving(MapController mapControl, Point3d corners[], boolean userMotion)
+    public void mapDidStopMoving(MapController mapControl, Point3d[] corners, boolean userMotion)
     {
     }
 
@@ -219,7 +220,7 @@ public class GlobeMapFragment extends Fragment implements MapController.GestureD
      * @param corners Corners of the viewport.  If one of them is null, that means it doesn't land anywhere valid.
      * @param userMotion Set if the motion was caused by a gesture.
      */
-    public void mapDidMove(MapController mapControl,Point3d corners[], boolean userMotion)
+    public void mapDidMove(MapController mapControl, Point3d[] corners, boolean userMotion)
     {
     }
 
@@ -235,7 +236,7 @@ public class GlobeMapFragment extends Fragment implements MapController.GestureD
      * @param loc The location they tapped on.  This is in radians.
      * @param screenLoc The location on the OpenGL surface.
      */
-    public void userDidSelect(GlobeController globeControl,SelectedObject selObjs[],Point2d loc,Point2d screenLoc)
+    public void userDidSelect(GlobeController globeControl, SelectedObject[] selObjs, Point2d loc, Point2d screenLoc)
     {
     }
 
@@ -267,7 +268,7 @@ public class GlobeMapFragment extends Fragment implements MapController.GestureD
      * @param loc The location they tapped on.  This is in radians.  If null, then the user tapped outside the globe.
      * @param screenLoc The location on the OpenGL surface.
      */
-    public void userDidLongPress(GlobeController globeControl, SelectedObject selObjs[], Point2d loc, Point2d screenLoc)
+    public void userDidLongPress(GlobeController globeControl, SelectedObject[] selObjs, Point2d loc, Point2d screenLoc)
     {
     }
 
@@ -288,7 +289,7 @@ public class GlobeMapFragment extends Fragment implements MapController.GestureD
      * @param corners Corners of the viewport.  If one of them is null, that means it doesn't land on the globe.
      * @param userMotion Set if the motion was caused by a gesture.
      */
-    public void globeDidStopMoving(GlobeController globeControl, Point3d corners[], boolean userMotion)
+    public void globeDidStopMoving(GlobeController globeControl, Point3d[] corners, boolean userMotion)
     {
     }
 
@@ -299,7 +300,7 @@ public class GlobeMapFragment extends Fragment implements MapController.GestureD
      * @param corners Corners of the viewport.  If one of them is null, that means it doesn't land on the globe.
      * @param userMotion Set if the motion was caused by a gesture.
      */
-    public void globeDidMove(GlobeController globeControl,Point3d corners[], boolean userMotion)
+    public void globeDidMove(GlobeController globeControl, Point3d[] corners, boolean userMotion)
     {
     }
 

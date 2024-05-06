@@ -108,7 +108,7 @@ class InternalMarker
 		setPeriod(marker.period);
 	}
 
-	public void finalize()
+	protected void finalize()
 	{
 		dispose();
 	}

@@ -46,7 +46,7 @@ public class DebugImageLoaderInterpreter extends ImageLoaderInterpreter
     int alpha = 255;
 
     static int MaxDebugColors = 10;
-    static int debugColors[] = {0x86812D, 0x5EB9C9, 0x2A7E3E, 0x4F256F, 0xD89CDE, 0x773B28, 0x333D99, 0x862D52, 0xC2C653, 0xB8583D};
+    static int[] debugColors = {0x86812D, 0x5EB9C9, 0x2A7E3E, 0x4F256F, 0xD89CDE, 0x773B28, 0x333D99, 0x862D52, 0xC2C653, 0xB8583D};
 
     // Make up an image to cover this tile
     @Override public void dataForTile(LoaderReturn inLoadReturn,QuadLoaderBase loader)
@@ -57,7 +57,7 @@ public class DebugImageLoaderInterpreter extends ImageLoaderInterpreter
         int frame = loadReturn.getFrame();
 
         // Render the tile ID into a bitmap
-        String text = null;
+        String text;
         if (frame == -1)
             text = tileID.toString();
         else

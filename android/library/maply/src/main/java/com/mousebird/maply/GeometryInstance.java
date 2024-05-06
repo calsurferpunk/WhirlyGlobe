@@ -49,7 +49,7 @@ public class GeometryInstance
      */
     public native void setSelectable(boolean selectable);
 
-    public void finalize() {
+    protected void finalize() {
         dispose();
     }
 

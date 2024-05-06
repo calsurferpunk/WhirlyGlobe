@@ -28,12 +28,14 @@ using namespace WhirlyGlobe;
 
 template<> GlobeViewStateRefClassInfo *GlobeViewStateRefClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GlobeViewState_nativeInit
   (JNIEnv *env, jclass cls)
 {
 	GlobeViewStateRefClassInfo::getClassInfo(env,cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GlobeViewState_initialise
   (JNIEnv *env, jobject obj, jobject viewObj, jobject rendererObj)
 {

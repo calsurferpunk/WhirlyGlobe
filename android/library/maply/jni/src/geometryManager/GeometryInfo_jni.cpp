@@ -25,12 +25,14 @@ using namespace Maply;
 
 template<> GeometryInfoClassInfo *GeometryInfoClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInfo_nativeInit
 (JNIEnv *env, jclass cls)
 {
     GeometryInfoClassInfo::getClassInfo(env, cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInfo_initialise
 (JNIEnv *env, jobject obj)
 {
@@ -47,6 +49,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInfo_initialise
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInfo_dispose
 (JNIEnv *env, jobject obj)
 {
@@ -61,6 +64,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInfo_dispose
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInfo_setColor
 (JNIEnv *env, jobject obj, jfloat r, jfloat g, jfloat b, jfloat a)
 {
@@ -80,6 +84,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInfo_setColor
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryInfo_setPointSize
 (JNIEnv *env, jobject obj, jfloat pointSize)
 {

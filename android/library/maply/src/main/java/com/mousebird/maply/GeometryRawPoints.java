@@ -7,7 +7,7 @@ public class GeometryRawPoints
 {
     public GeometryRawPoints() { initialise(); }
 
-    public enum Type {IntType,FloatType,Float2Type,Float3Type,Float4Type,Double2Type,Double3Type};
+    public enum Type {IntType,FloatType,Float2Type,Float3Type,Float4Type,Double2Type,Double3Type}
 
     /**
      * Returns true if the points object is valid.
@@ -48,17 +48,15 @@ public class GeometryRawPoints
     public native int addAttributeNative(String name,int type);
 
     /**
-     *
      * @param name
      * @param type
-     * @return
      */
-    public int addAttribute(String name,Type type)
+    public void addAttribute(String name, Type type)
     {
-        return addAttributeNative(name,type.ordinal());
+        addAttributeNative(name, type.ordinal());
     }
 
-    public void finalize() {
+    protected void finalize() {
         dispose();
     }
 

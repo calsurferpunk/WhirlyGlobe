@@ -212,7 +212,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_BaseInfo_setDrawOffset
 }
 
 extern "C"
-JNIEXPORT jdouble JNICALL Java_com_mousebird_maply_BaseInfo_getDrawOffset
+JNIEXPORT jfloat JNICALL Java_com_mousebird_maply_BaseInfo_getDrawOffset
   (JNIEnv *env, jobject obj)
 {
     try

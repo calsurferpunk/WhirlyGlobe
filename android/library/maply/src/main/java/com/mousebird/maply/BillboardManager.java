@@ -50,7 +50,7 @@ public class BillboardManager {
      */
     public native void removeBillboards(long[] billIDs, ChangeSet changes);
     
-    public void finalize()
+    protected void finalize()
     {
         dispose();
     }

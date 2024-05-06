@@ -12,7 +12,7 @@ public class GeometryManager
 
     GeometryManager(Scene scene) { initialise(scene); }
 
-    public void finalize() { dispose(); }
+    protected void finalize() { dispose(); }
 
     // Add a group of geometry and instances
     public native long addGeometry(GeometryRaw[] geom,GeometryInstance[] inst,GeometryInfo info,ChangeSet changes);
@@ -27,10 +27,10 @@ public class GeometryManager
     public native long addGeometryPoints(GeometryRawPoints points,Matrix4d mat,GeometryInfo info,ChangeSet changes);
 
     // Enable/disable geometry by ID
-    public native void enableGeometry(long ids[],boolean enable,ChangeSet changes);
+    public native void enableGeometry(long[] ids, boolean enable, ChangeSet changes);
 
     // Remove geometry by ID
-    public native void removeGeometry(long ids[],ChangeSet changes);
+    public native void removeGeometry(long[] ids, ChangeSet changes);
 
     static
     {

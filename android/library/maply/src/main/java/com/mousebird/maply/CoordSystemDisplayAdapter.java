@@ -41,7 +41,7 @@ class CoordSystemDisplayAdapter
 		initialise(coordSys);
 	}
 	
-	public void finalize()
+	protected void finalize()
 	{
 		dispose();
 	}

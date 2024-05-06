@@ -27,6 +27,10 @@ import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+
+import java.util.Objects;
+
 /**
  * Implements the various gestures we need and handles conflict between them.
  * <p>
@@ -37,17 +41,17 @@ import android.util.Log;
  */
 public class GlobeGestureHandler 
 {
-	GlobeController globeControl = null;
-	GlobeView globeView = null;
+	GlobeController globeControl;
+	GlobeView globeView;
 
 	public boolean allowRotate = false;
 	public boolean allowTilt = false;
 
-	ScaleGestureDetector sgd = null;
-	ScaleListener sl = null;
-	GestureDetector gd = null;
-	GestureListener gl = null;
-	View view = null;
+	ScaleGestureDetector sgd;
+	ScaleListener sl;
+	GestureDetector gd;
+	GestureListener gl;
+	View view;
 	double zoomLimitMin = 0.0;
 	double zoomLimitMax = 1000.0;
 	double startRot = Double.MAX_VALUE;
@@ -232,7 +236,7 @@ public class GlobeGestureHandler
 		}
 		
 		@Override
-		public void onScaleEnd(ScaleGestureDetector detector)
+		public void onScaleEnd(@NonNull ScaleGestureDetector detector)
 		{
 //			Log.d("Maply","Ending scale");
 			isActive = false;
@@ -260,7 +264,7 @@ public class GlobeGestureHandler
 		Quaternion startQuat = null;
 		Matrix4d startTransform = null;
 		@Override
-		public boolean onDown(MotionEvent e) 
+		public boolean onDown(@NonNull MotionEvent e) 
 		{
 //			Log.d("Maply","onDown");i
 
@@ -273,11 +277,7 @@ public class GlobeGestureHandler
 			startPos = globeControl.globeView.getLoc();
 			startOnSphere = globeControl.globeView.pointOnSphereFromScreen(startScreenPos, startTransform, globeControl.getViewSize(), false);
 			startQuat = globeControl.globeView.getRotQuat();
-			if (startOnSphere != null)
-			{
-				isActive = true;
-			} else
-				isActive = false;
+            isActive = startOnSphere != null;
 
 			updateTouchedTime();
 			return true;
@@ -290,8 +290,8 @@ public class GlobeGestureHandler
 		}
 
 		@Override
-		public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX,
-				float distanceY) 
+		public boolean onScroll(MotionEvent e1, @NonNull MotionEvent e2, float distanceX,
+								float distanceY) 
 		{
 			if (!isActive)
 				return false;
@@ -370,15 +370,16 @@ public class GlobeGestureHandler
 		static final double AnimMomentumTime = 1.0;
 		
 		@Override
-		public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX,
-				float velocityY) 
+		public boolean onFling(MotionEvent e1, @NonNull MotionEvent e2, float velocityX,
+							   float velocityY) 
 		{
 //			Log.d("Maply","Fling: (x,y) = " + velocityX + " " + velocityY);
 			
 			Point2d frameSize = globeControl.getViewSize();
 			
 			// Figure out two points in model space (current and after 1s)
-			Point2d touch0 = new Point2d(e1.getX(),e1.getY());
+            assert e1 != null;
+            Point2d touch0 = new Point2d(e1.getX(),e1.getY());
 			Point2d touch1 = touch0.addTo(new Point2d(AnimMomentumTime * momentumScale * velocityX,AnimMomentumTime * momentumScale * velocityY));
 			
 			Point3d p0 = globeView.pointUnproject(touch0,frameSize,false);
@@ -406,15 +407,17 @@ public class GlobeGestureHandler
 				// Rotate around an axis derived from touch0 and touch1
 				model_p0.normalize();
 				model_p1.normalize();
-				Point3d rotAxis = model_p0.cross(model_p1).normalized();
+				Point3d rotAxis = Objects.requireNonNull(model_p0.cross(model_p1)).normalized();
 				
 				// Acceleration based on how far we want this to go
 				double accel = - angVel / (AnimMomentumTime * AnimMomentumTime * momentumScale * momentumScale);
 	
 				if (angVel > 0.0)
 				{
-					globeView.setAnimationDelegate(new GlobeAnimateMomentum(globeView,globeControl.renderWrapper.maplyRender.get(),angVel,accel,rotAxis,globeView.northUp));
-				}
+                    if (globeControl.renderWrapper != null) {
+                        globeView.setAnimationDelegate(new GlobeAnimateMomentum(globeView,globeControl.renderWrapper.maplyRender.get(),angVel,accel,rotAxis,globeView.northUp));
+                    }
+                }
 			}
 
 			updateTouchedTime();
@@ -424,7 +427,7 @@ public class GlobeGestureHandler
 		}
 		
 		@Override
-		public void onLongPress(MotionEvent e) 
+		public void onLongPress(@NonNull MotionEvent e) 
 		{
 			// The touch listener isn't aware of the scale listener, and so sends us long-
 			// press events (with pointerCount==1 for some reason) while pinch-zooming.
@@ -441,21 +444,21 @@ public class GlobeGestureHandler
 		}
 
 		@Override
-		public void onShowPress(MotionEvent e) 
+		public void onShowPress(@NonNull MotionEvent e) 
 		{
 //			Log.d("Maply","ShowPress");
 		}
 
 
 		@Override
-		public boolean onSingleTapUp(MotionEvent e)
+		public boolean onSingleTapUp(@NonNull MotionEvent e)
 		{
 			updateTouchedTime();
 			return true;
 		}
 
 		@Override
-		public boolean onDoubleTapEvent(MotionEvent e) 
+		public boolean onDoubleTapEvent(@NonNull MotionEvent e) 
 		{
 //			Log.d("Maply","Double tap update");
 			updateTouchedTime();
@@ -463,7 +466,7 @@ public class GlobeGestureHandler
 		}
 
 		@Override
-		public boolean onSingleTapConfirmed(MotionEvent e) 
+		public boolean onSingleTapConfirmed(@NonNull MotionEvent e) 
 		{
 			if (globeControl != null) {
 				globeControl.processTap(new Point2d(e.getX(), e.getY()));
@@ -474,7 +477,7 @@ public class GlobeGestureHandler
 
 		// Zoom in on double tap
 		@Override
-		public boolean onDoubleTap(MotionEvent e) 
+		public boolean onDoubleTap(@NonNull MotionEvent e) 
 		{
 			final GlobeController gc = globeControl;
 			final RendererWrapper wrap = (gc != null) ? gc.renderWrapper : null;

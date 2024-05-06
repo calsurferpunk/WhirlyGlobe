@@ -19,7 +19,7 @@ public class AssetWrapper {
         this.manager = manager;
     }
 
-    ArrayList<String> paths = new ArrayList<String>();
+    ArrayList<String> paths = new ArrayList<>();
 
     // Add a path to look for files in addition to the asset manager
     // These will be tried first

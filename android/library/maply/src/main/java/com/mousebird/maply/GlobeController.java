@@ -417,7 +417,7 @@ public class GlobeController extends BaseController implements View.OnTouchListe
 			return size;
 
 		final int[] frameSizeInt = getFrameBufferSize();
-		final Point2d frameSize = new Point2d((double)frameSizeInt[0],(double)frameSizeInt[1]);
+		final Point2d frameSize = new Point2d(frameSizeInt[0], frameSizeInt[1]);
 		final Point2d[] screenPt = new Point2d[]{
 			new Point2d(pt0.getX(), pt0.getY()),
 			new Point2d(pt1.getX(), pt0.getY()),

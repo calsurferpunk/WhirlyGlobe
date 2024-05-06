@@ -4,8 +4,6 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 
-import com.mousebird.maply.StringWrapper;
-
 import java.io.File;
 
 
@@ -17,59 +15,59 @@ public class ConfigOptions {
 	public static final String executionMode = "executionMode";
 
 	public enum ExecutionMode {
-		Interactive, Multiple, Single;
+		Interactive, Multiple, Single
 	}
 
-	public static final void setExecutionMode(Context context, ExecutionMode mode) {
+	public static void setExecutionMode(Context context, ExecutionMode mode) {
 		SharedPreferences preferences = context.getSharedPreferences(ConfigOptions.preferences, Context.MODE_PRIVATE);
 		SharedPreferences.Editor editor = preferences.edit();
 		editor.putString(ConfigOptions.executionMode, mode.name());
-		editor.commit();
+		editor.apply();
 	}
 
-	public static final ExecutionMode getExecutionMode(Context context) {
+	public static ExecutionMode getExecutionMode(Context context) {
 		SharedPreferences preferences = context.getSharedPreferences(ConfigOptions.preferences, Context.MODE_PRIVATE);
 		String defaultValue = ExecutionMode.Interactive.name();
 		String executionMode = preferences.getString(ConfigOptions.executionMode, defaultValue);
 		return ExecutionMode.valueOf(executionMode);
 	}
 
-	public static final TestState getTestState(Context context, String testName) {
+	public static TestState getTestState(Context context, String testName) {
 		SharedPreferences preferences = context.getSharedPreferences(ConfigOptions.preferences, Context.MODE_PRIVATE);
 		String defaultValue = TestState.None.name();
 		String testState = preferences.getString(testName, defaultValue);
 		return TestState.valueOf(testState);
 	}
 
-	public static final void setTestState(Context context, String testName, TestState state) {
+	public static void setTestState(Context context, String testName, TestState state) {
 		SharedPreferences preferences = context.getSharedPreferences(ConfigOptions.preferences, Context.MODE_PRIVATE);
 		SharedPreferences.Editor editor = preferences.edit();
 		editor.putString(testName, state.name());
-		editor.commit();
+		editor.apply();
 	}
 
-	public static final void setTestType(Context context, TestType testType) {
+	public static void setTestType(Context context, TestType testType) {
 		SharedPreferences preferences = context.getSharedPreferences(ConfigOptions.preferences, Context.MODE_PRIVATE);
 		SharedPreferences.Editor editor = preferences.edit();
 		editor.putString(ConfigOptions.testType, testType.name());
-		editor.commit();
+		editor.apply();
 	}
 
-	public static final TestType getTestType(Context context) {
+	public static TestType getTestType(Context context) {
 		SharedPreferences preferences = context.getSharedPreferences(ConfigOptions.preferences, Context.MODE_PRIVATE);
 		String defaultValue = TestType.BothTest.name();
 		String testType = preferences.getString(ConfigOptions.testType, defaultValue);
 		return TestType.valueOf(testType);
 	}
 
-	public static final void setViewSetting(Context context, ViewMapOption viewMapOption) {
+	public static void setViewSetting(Context context, ViewMapOption viewMapOption) {
 		SharedPreferences preferences = context.getSharedPreferences(ConfigOptions.preferences, Context.MODE_PRIVATE);
 		SharedPreferences.Editor editor = preferences.edit();
 		editor.putString(ConfigOptions.seeView, viewMapOption.name());
-		editor.commit();
+		editor.apply();
 	}
 
-	public static final ViewMapOption getViewSetting(Context context) {
+	public static ViewMapOption getViewSetting(Context context) {
 		SharedPreferences preferences = context.getSharedPreferences(ConfigOptions.preferences, Context.MODE_PRIVATE);
 		String defaultValue = ViewMapOption.None.name();
 		String viewSetting = preferences.getString(ConfigOptions.seeView, defaultValue);

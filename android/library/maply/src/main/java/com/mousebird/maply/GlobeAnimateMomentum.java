@@ -31,11 +31,11 @@ package com.mousebird.maply;
  */
 public class GlobeAnimateMomentum implements GlobeView.AnimationDelegate
 {
-	GlobeView globeView = null;
-	RenderController renderer = null;
-	Point3d axis = null;
+	GlobeView globeView;
+	RenderController renderer;
+	Point3d axis;
 	boolean northUp;
-	Quaternion startQuat = null;
+	Quaternion startQuat;
 	double velocity,acceleration;
 	double startTime,maxTime;
 

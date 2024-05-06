@@ -159,14 +159,14 @@ public class BasicClusterGenerator extends ClusterGenerator {
 
     /**
      * Set the font features
-     * https://developer.android.com/reference/android/graphics/Paint#setFontFeatureSettings(java.lang.String)
+     * <a href="https://developer.android.com/reference/android/graphics/Paint#setFontFeatureSettings(java.lang.String)"/>
      * Cannot be modified after the generator is added to a map controller.
      */
     public void setFontFeatures(String str) { throwIfStarted(); this.fontFeatures = str; }
 
     /**
      * Set the font variation
-     * https://developer.android.com/reference/android/graphics/Paint#setFontVariationSettings(java.lang.String)
+     * <a href="https://developer.android.com/reference/android/graphics/Paint#setFontVariationSettings(java.lang.String)"/>
      * Cannot be modified after the generator is added to a map controller.
      */
     @RequiresApi(api = Build.VERSION_CODES.O)
@@ -174,7 +174,7 @@ public class BasicClusterGenerator extends ClusterGenerator {
 
     /**
      * Flags to use on text paint
-     * https://developer.android.com/reference/android/graphics/Paint#setFlags(int)
+     * <a href="https://developer.android.com/reference/android/graphics/Paint#setFlags(int)"/>
      */
     public void setTextFlags(int flags) { throwIfStarted(); textPaintFlags = flags; }
 
@@ -312,9 +312,7 @@ public class BasicClusterGenerator extends ClusterGenerator {
         }
 
         if (fontFeatures != null && !fontFeatures.isEmpty()) {
-            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                textPaint.setFontFeatureSettings(fontFeatures);
-            }
+            textPaint.setFontFeatureSettings(fontFeatures);
         }
         if (fontSettings != null && !fontSettings.isEmpty()) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -356,7 +354,7 @@ public class BasicClusterGenerator extends ClusterGenerator {
     private Point2d size;
     private double expBase = 3.0;
     private Typeface typeface = null;
-    private float textSize = 0.f;
+    private float textSize;
     @ColorInt
     private int textColor = Color.WHITE;
     @ColorInt

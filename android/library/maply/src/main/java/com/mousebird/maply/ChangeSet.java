@@ -57,7 +57,7 @@ public class ChangeSet
 		nativeInit();
 	}
 	private static native void nativeInit();
-	public void finalize() {
+	protected void finalize() {
 		dispose();
 	}
 	native void initialise();

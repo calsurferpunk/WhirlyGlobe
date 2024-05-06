@@ -26,12 +26,14 @@ using namespace WhirlyKit;
 
 template<> ImageTileClassInfo *ImageTileClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ImageTile_nativeInit
   (JNIEnv *env, jclass cls)
 {
 	ImageTileClassInfo::getClassInfo(env,cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ImageTile_initialise
   (JNIEnv *env, jobject obj)
 {
@@ -48,6 +50,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_ImageTile_initialise
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ImageTile_dispose
   (JNIEnv *env, jobject obj)
 {
@@ -75,6 +78,7 @@ JNIEXPORT jobject JNICALL MakeImageTile(JNIEnv *env,WhirlyKit::ImageTile_Android
     return classInfo->makeWrapperObject(env,new ImageTile_AndroidRef(imgTile));
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ImageTile_setBitmap
   (JNIEnv *env, jobject obj, jobject bitmapObj)
 {
@@ -92,6 +96,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_ImageTile_setBitmap
 	}
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ImageTile_setBorderSize
   (JNIEnv *env, jobject obj, jint borderSize)
 {
@@ -109,6 +114,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_ImageTile_setBorderSize
 	}
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ImageTile_preprocessTexture
   (JNIEnv *env, jobject obj)
 {

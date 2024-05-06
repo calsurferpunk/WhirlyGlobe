@@ -46,7 +46,7 @@ public class AngleAxis
 		initialise(ang,vec);
 	}
 	
-	public void finalize()
+	protected void finalize()
 	{
 		dispose();
 	}

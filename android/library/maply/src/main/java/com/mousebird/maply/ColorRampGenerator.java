@@ -14,7 +14,7 @@ import java.util.ArrayList;
  */
 public class ColorRampGenerator
 {
-    ArrayList<Integer> colors = new ArrayList<Integer>();
+    ArrayList<Integer> colors = new ArrayList<>();
 
     /**
      * If set we'll stretch the colors out to the whole image
@@ -60,7 +60,7 @@ public class ColorRampGenerator
     // Interpolate a color between values, potentially
     int interpColor(float where)
     {
-        if (colors.size() == 0)
+        if (colors.isEmpty())
             return 0;
 
         if (colors.size() == 1)
@@ -101,7 +101,7 @@ public class ColorRampGenerator
         // Work our way through the pixels by height
         for (int xx=0;xx<width;xx++)
         {
-            int color = 0;
+            int color;
             if (stretch)
                 color = interpColor(xx/(float)(width-1));
             else {

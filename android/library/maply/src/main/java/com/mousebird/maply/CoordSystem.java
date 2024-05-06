@@ -36,7 +36,7 @@ public class CoordSystem
 	{
 	}
 	
-	public void finalize()
+	protected void finalize()
 	{
 		dispose();
 	}

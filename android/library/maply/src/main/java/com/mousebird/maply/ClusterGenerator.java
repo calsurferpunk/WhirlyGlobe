@@ -50,7 +50,6 @@ public class ClusterGenerator
             if (control != null) {
                 control.removeTexturesByID(new ArrayList<>(oldTextures), RenderController.ThreadMode.ThreadCurrent);
             }
-            oldTextures = null;
         }
 
         oldTextures = currentTextures;

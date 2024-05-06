@@ -16,7 +16,7 @@ public class GeneralDisplayAdapter extends CoordSystemDisplayAdapter
         initialise(coordSys,ll,ur,center,scale);
     }
 
-    public void finalize()
+    protected void finalize()
     {
         dispose();
     }

@@ -165,7 +165,7 @@ public class ComponentManager
     }
     private static native void nativeInit();
     private native void initialise(Scene scene);
-    public void finalize() {
+    protected void finalize() {
         dispose();
     }
     native void dispose();

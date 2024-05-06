@@ -33,7 +33,7 @@ public class AttrDictionaryEntry {
         DictTypeDouble,
         DictTypeObject,
         DictTypeDictionary,
-        DictTypeArray};
+        DictTypeArray}
 
     /**
      * Construct an empty attribution dictionary
@@ -84,7 +84,7 @@ public class AttrDictionaryEntry {
         nativeInit();
     }
     private static native void nativeInit();
-    public void finalize() {
+    protected void finalize() {
         dispose();
     }
     native void initialise();

@@ -20,6 +20,8 @@
 
 package com.mousebird.maply;
 
+import androidx.annotation.NonNull;
+
 import java.lang.ref.WeakReference;
 
 /**
@@ -42,7 +44,7 @@ public class FlatView extends MapView
         super(inControl,inCoordAdapter);
     }
 
-    protected FlatView clone()
+    @NonNull protected FlatView clone()
     {
         FlatView that = new FlatView(control.get(),coordAdapter);
         nativeClone(that);
@@ -65,7 +67,7 @@ public class FlatView extends MapView
      */
     public native void setWindow(Point2d size,Point2d offset);
 
-    public void finalize()
+    protected void finalize()
     {
         dispose();
     }

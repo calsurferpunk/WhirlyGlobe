@@ -11,6 +11,8 @@ import android.util.Log;
 import android.view.*;
 import android.view.View;
 
+import androidx.annotation.NonNull;
+
 import java.io.Writer;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -502,7 +504,7 @@ public class GLTextureView extends TextureView implements TextureView.SurfaceTex
         mGLThread.requestRender();
     }
 
-    public void onSurfaceTextureUpdated(SurfaceTexture surface)
+    public void onSurfaceTextureUpdated(@NonNull SurfaceTexture surface)
     {
         requestRender();
     }
@@ -514,7 +516,7 @@ public class GLTextureView extends TextureView implements TextureView.SurfaceTex
     public void surfaceCreated(SurfaceTexture holder) {
         mGLThread.surfaceCreated();
     }
-    public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height)
+    public void onSurfaceTextureAvailable(@NonNull SurfaceTexture surface, int width, int height)
     {
         surfaceCreated(surface);
         surfaceChanged(surface, 0,width,height);
@@ -528,7 +530,7 @@ public class GLTextureView extends TextureView implements TextureView.SurfaceTex
         // Surface will be destroyed when we return
         mGLThread.surfaceDestroyed();
     }
-    public boolean onSurfaceTextureDestroyed(SurfaceTexture surface)
+    public boolean onSurfaceTextureDestroyed(@NonNull SurfaceTexture surface)
     { surfaceDestroyed(surface); return true; }
 
     /**
@@ -538,7 +540,7 @@ public class GLTextureView extends TextureView implements TextureView.SurfaceTex
     public void surfaceChanged(SurfaceTexture holder, int format, int w, int h) {
         mGLThread.onWindowResize(w, h);
     }
-    public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height)
+    public void onSurfaceTextureSizeChanged(@NonNull SurfaceTexture surface, int width, int height)
     { surfaceChanged(surface, 0, width, height); }
 
     public void onLayoutChange(View v, int left, int top, int right, int bottom,
@@ -1275,8 +1277,7 @@ public class GLTextureView extends TextureView implements TextureView.SurfaceTex
                             // When pausing, optionally release the EGL Context:
                             if (pausing && mHaveEglContext) {
                                 GLTextureView view = mGLTextureViewWeakRef.get();
-                                boolean preserveEglContextOnPause = view == null ?
-                                        false : view.mPreserveEGLContextOnPause;
+                                boolean preserveEglContextOnPause = view != null && view.mPreserveEGLContextOnPause;
                                 if (!preserveEglContextOnPause || sGLThreadManager.shouldReleaseEGLContextWhenPausing()) {
                                     stopEglContextLocked();
                                     if (LOG_SURFACE) {
@@ -1669,7 +1670,7 @@ public class GLTextureView extends TextureView implements TextureView.SurfaceTex
         private int mRenderMode;
         private boolean mRequestRender;
         private boolean mRenderComplete;
-        private ArrayList<Runnable> mEventQueue = new ArrayList<Runnable>();
+        private ArrayList<Runnable> mEventQueue = new ArrayList<>();
         private boolean mSizeChanged = true;
         // End of member variables protected by the sGLThreadManager monitor.
         private EglHelper mEglHelper;
@@ -1819,7 +1820,7 @@ public class GLTextureView extends TextureView implements TextureView.SurfaceTex
     }
     private static final GLThreadManager sGLThreadManager = new GLThreadManager();
     private final WeakReference<GLTextureView> mThisWeakRef =
-            new WeakReference<GLTextureView>(this);
+            new WeakReference<>(this);
     private GLThread mGLThread;
     private Renderer mRenderer;
     private boolean mDetached;

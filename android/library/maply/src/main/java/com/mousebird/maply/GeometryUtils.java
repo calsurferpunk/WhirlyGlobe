@@ -37,7 +37,7 @@ public class GeometryUtils
 	 * @param poly Polygon we're testing
 	 * @return true if the point is inside, false otherwise.
 	 */
-	public static boolean PointInPolygon(Point2d pt,Point2d ring[])
+	public static boolean PointInPolygon(Point2d pt, Point2d[] ring)
 	{
 		int ii,jj;
 		boolean c = false;

@@ -19,12 +19,7 @@
  */
 package com.mousebird.maply;
 
-import android.graphics.Bitmap;
-import android.graphics.Color;
-//import android.util.Size;
-
 import java.util.ArrayList;
-import java.util.List;
 
 
 /**
@@ -130,7 +125,7 @@ public class Billboard {
 
     public native void flattenNative(ScreenObject screenObject);
 
-    public void finalize()
+    protected void finalize()
     {
         dispose();
     }

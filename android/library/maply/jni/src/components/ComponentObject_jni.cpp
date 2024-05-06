@@ -32,12 +32,14 @@ JNIEXPORT jobject JNICALL MakeComponentObjectWrapper(JNIEnv *env,ComponentObject
     return classInfo->makeWrapperObject(env,new ComponentObjectRef(compObj));
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_nativeInit
   (JNIEnv *env, jclass cls)
 {
 	ComponentObjectRefClassInfo::getClassInfo(env,cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_initialise
   (JNIEnv *env, jobject obj)
 {
@@ -56,6 +58,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_initialise
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_dispose
   (JNIEnv *env, jobject obj)
 {
@@ -78,6 +81,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_dispose
     }
 }
 
+extern "C"
 JNIEXPORT jlong JNICALL Java_com_mousebird_maply_ComponentObject_getID
   (JNIEnv *env, jobject obj)
 {
@@ -96,6 +100,7 @@ JNIEXPORT jlong JNICALL Java_com_mousebird_maply_ComponentObject_getID
     return EmptyIdentity;
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addSelectID
   (JNIEnv *env, jobject obj, jlong selectID)
 {
@@ -112,6 +117,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addSelectID
     }
 }
 
+extern "C"
 JNIEXPORT jlongArray JNICALL Java_com_mousebird_maply_ComponentObject_getSelectIDs
   (JNIEnv *env, jobject obj)
 {
@@ -131,6 +137,7 @@ JNIEXPORT jlongArray JNICALL Java_com_mousebird_maply_ComponentObject_getSelectI
     return NULL;
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addMarkerID
   (JNIEnv *env, jobject obj, jlong markerID)
 {
@@ -147,6 +154,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addMarkerID
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addStickerID
   (JNIEnv *env, jobject obj, jlong stickerID)
 {
@@ -163,6 +171,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addStickerID
     }
 }
 
+extern "C"
 JNIEXPORT jlongArray JNICALL Java_com_mousebird_maply_ComponentObject_getStickerIDs
   (JNIEnv *env, jobject obj)
 {
@@ -182,6 +191,7 @@ JNIEXPORT jlongArray JNICALL Java_com_mousebird_maply_ComponentObject_getSticker
     return NULL;
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addVectorID
   (JNIEnv *env, jobject obj, jlong vectorID)
 {
@@ -198,6 +208,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addVectorID
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addLoftID
         (JNIEnv *env, jobject obj, jlong loftID)
 {
@@ -214,6 +225,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addLoftID
     }
 }
 
+extern "C"
 JNIEXPORT jlongArray JNICALL Java_com_mousebird_maply_ComponentObject_getVectorIDs
   (JNIEnv *env, jobject obj)
 {
@@ -233,6 +245,7 @@ JNIEXPORT jlongArray JNICALL Java_com_mousebird_maply_ComponentObject_getVectorI
     return NULL;
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addWideVectorID
   (JNIEnv *env, jobject obj, jlong wideVectorID)
 {
@@ -249,6 +262,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addWideVectorID
     }
 }
 
+extern "C"
 JNIEXPORT jlongArray JNICALL Java_com_mousebird_maply_ComponentObject_getWideVectorIDs
   (JNIEnv *env, jobject obj)
 {
@@ -268,6 +282,7 @@ JNIEXPORT jlongArray JNICALL Java_com_mousebird_maply_ComponentObject_getWideVec
     return NULL;
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addLabelID
   (JNIEnv *env, jobject obj, jlong labelID)
 {
@@ -284,6 +299,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addLabelID
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addShapeID
   (JNIEnv *env, jobject obj, jlong shapeID)
 {
@@ -300,6 +316,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addShapeID
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addBillboardID
   (JNIEnv *env, jobject obj, jlong billboardID)
 {
@@ -316,6 +333,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addBillboardID
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addParticleSystemID
   (JNIEnv *env, jobject obj, jlong partID)
 {
@@ -332,6 +350,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addParticleSyste
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addGeometryID
   (JNIEnv *env, jobject obj, jlong geomID)
 {
@@ -348,6 +367,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addGeometryID
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_ComponentObject_addVector
         (JNIEnv *env, jobject obj, jobject vecObjObj)
 {

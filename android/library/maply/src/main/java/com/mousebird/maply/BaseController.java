@@ -36,7 +36,6 @@ import android.view.View;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
-import com.google.android.gms.security.ProviderInstaller;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -48,6 +47,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -182,43 +182,9 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 			TLSSocketFactory socketFactory;
 			X509TrustManager manager;
 
-			if(Build.VERSION.SDK_INT <= 20)
-			{
-				try
-				{
-					//try to look for web protocol updates
-					ProviderInstaller.installIfNeeded(weakContext.get());
-				}
-				catch(Exception ex)
-				{
-					//failed
-				}
+            httpClient = new OkHttpClient();
 
-				//try to create TLS backwards compatibility
-				clientBuilder = new OkHttpClient.Builder();
-				try
-				{
-					socketFactory = new TLSSocketFactory();
-					manager = socketFactory.getTrustManager();
-
-					if(manager != null)
-					{
-						clientBuilder.sslSocketFactory(socketFactory, manager);
-					}
-				}
-				catch(Exception ex)
-				{
-					//do nothing
-				}
-
-				httpClient = clientBuilder.build();
-			}
-			else
-			{
-				httpClient = new OkHttpClient();
-			}
-
-			// This little dance lets the OKHttp client shutdown and then reject any random calls
+            // This little dance lets the OKHttp client shutdown and then reject any random calls
 			// we may send its way
 			Dispatcher dispatch = httpClient.dispatcher();
 			try {
@@ -585,8 +551,7 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 				tempBackground = new ColorDrawable();
 				// This eliminates the black flash, but only if the clearColor is set right
 				tempBackground.setColor(renderControl.clearColor);
-				if (Build.VERSION.SDK_INT > 16)
-					glSurfaceView.setBackground(tempBackground);
+                glSurfaceView.setBackground(tempBackground);
 				glSurfaceView.setEGLContextClientVersion(2);
 				glSurfaceView.setRenderer(renderWrapper);
 
@@ -595,7 +560,7 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 				GLTextureView glTextureView = new GLTextureView(activity);
 
 				if (width > 0 && height > 0) {
-					glTextureView.getSurfaceTexture().setDefaultBufferSize(width,height);
+					Objects.requireNonNull(glTextureView.getSurfaceTexture()).setDefaultBufferSize(width,height);
 				}
 
 				// If the clear color has transparency, we need to set things up differently
@@ -613,7 +578,7 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 				tempBackground = new ColorDrawable();
 				// This eliminates the black flash, but only if the clearColor is set right
 				tempBackground.setColor(renderControl.clearColor);
-				if (Build.VERSION.SDK_INT > 16 && Build.VERSION.SDK_INT < 24)
+				if (Build.VERSION.SDK_INT < 24)
 					glTextureView.setBackground(tempBackground);
 				glTextureView.setEGLContextClientVersion(2);
 				glTextureView.setRenderer(renderWrapper);
@@ -678,7 +643,7 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 
 			Request request = new Request.Builder()
 					.url("http://analytics.mousebirdconsulting.com:8081/register")
-					.post(RequestBody.create(MediaType.parse("application/json"), json))
+					.post(RequestBody.create(json, MediaType.parse("application/json")))
 					.build();
 
 			OkHttpClient client = new OkHttpClient();
@@ -978,7 +943,7 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 		synchronized (glContexts)
 		{
 			// See if we need to create a new context/surface
-			if (glContexts.size() == 0)
+			if (glContexts.isEmpty())
 			{
 				EGLContext context = egl.eglCreateContext(renderControl.display,renderControl.config,renderControl.context, glAttribList);
 				if (LayerThread.checkGLError(egl, "eglCreateContext") || context == null) {
@@ -1549,10 +1514,10 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 	}
 
 	/** Return the current scale denominator (Mapnik).
-	 * <br>
-	 * See https://github.com/mapnik/mapnik/wiki/ScaleAndPpi for a definition of the Mapnik scale denominator.
-	 * @return Returns the current scale denominator or 0.0 if the system is not yet initialized.
-	 */
+     * <br>
+     * See <a href="https://github.com/mapnik/mapnik/wiki/ScaleAndPpi"/> for a definition of the Mapnik scale denominator.
+     * @return Returns the current scale denominator or 0.0 if the system is not yet initialized.
+     */
 	public double currentMapScale()
 	{
 		if (!running || view == null || renderWrapper == null || renderWrapper.maplyRender == null || renderControl.frameSize == null)
@@ -1592,7 +1557,7 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 		}
 
 		synchronized (layerThreads) {
-			if (layerThreads.size() > 0) {
+			if (!layerThreads.isEmpty()) {
 				LayerThread baseLayerThread = layerThreads.get(0);
 				baseLayerThread.addLayer(layer);
 			}
@@ -1611,7 +1576,7 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 		}
 
 		synchronized (layerThreads) {
-			if (layerThreads.size() > 0) {
+			if (!layerThreads.isEmpty()) {
 				LayerThread baseLayerThread = layerThreads.get(0);
 				baseLayerThread.removeLayer(layer);
 			}
@@ -2546,19 +2511,18 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 		if (!running)
 			return;
 
-		if (compObjs == null || compObjs.size() == 0)
+		if (compObjs == null || compObjs.isEmpty())
 			return;
 
 		renderControl.removeObjects(compObjs,mode);
 	}
 	
     private boolean isProbablyEmulator() {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1
-                && (Build.FINGERPRINT.startsWith("generic")
-                        || Build.FINGERPRINT.startsWith("unknown")
-                        || Build.MODEL.contains("google_sdk")
-                        || Build.MODEL.contains("Emulator")
-                        || Build.MODEL.contains("Android SDK built for x86"));
+        return(   Build.FINGERPRINT.startsWith("generic")
+               || Build.FINGERPRINT.startsWith("unknown")
+               || Build.MODEL.contains("google_sdk")
+               || Build.MODEL.contains("Emulator")
+               || Build.MODEL.contains("Android SDK built for x86"));
     }
 
 	/**

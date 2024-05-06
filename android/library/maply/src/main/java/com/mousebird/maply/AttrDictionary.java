@@ -18,6 +18,8 @@
 
 package com.mousebird.maply;
 
+import androidx.annotation.NonNull;
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -165,7 +167,7 @@ public class AttrDictionary
 	public native void setArray(String attrName,AttrDictionary[] entries);
 
 	// Convert to a string for debugging
-	public native String toString();
+	@NonNull public native String toString();
 
     // Merge in key-value pairs from another dictionary
     public native void addEntries(AttrDictionary other);
@@ -174,7 +176,7 @@ public class AttrDictionary
 		nativeInit();
 	}
 	private static native void nativeInit();
-	public void finalize() {
+	protected void finalize() {
 		dispose();
 	}
 	native void initialise();

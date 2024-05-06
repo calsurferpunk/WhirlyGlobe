@@ -84,7 +84,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_BaseInfo_setDrawOffset
  * Method:    getDrawOffset
  * Signature: ()D
  */
-JNIEXPORT jdouble JNICALL Java_com_mousebird_maply_BaseInfo_getDrawOffset
+JNIEXPORT jfloat JNICALL Java_com_mousebird_maply_BaseInfo_getDrawOffset
   (JNIEnv *, jobject);
 
 /*

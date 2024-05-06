@@ -5,9 +5,9 @@ package com.mousebird.maply;
  */
 public class GeometryRaw
 {
-    public GeometryRaw() { initialise(); }
+    public GeometryRaw() { initialise(null); }
 
-    public enum GeometryType {None,Lines,Triangles};
+    public enum GeometryType {None,Lines,Triangles}
 
     /**
      * Returns true if the raw geometry object is valid.
@@ -69,7 +69,7 @@ public class GeometryRaw
      */
     public native void addTriangles(int[] tris);
 
-    public void finalize() {
+    protected void finalize() {
         dispose();
     }
 
@@ -77,7 +77,7 @@ public class GeometryRaw
         nativeInit();
     }
     private static native void nativeInit();
-    native void initialise();
+    native void initialise(Scene scene);
     native void dispose();
     private long nativeHandle;
 }

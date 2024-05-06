@@ -25,6 +25,7 @@
 
 using namespace WhirlyKit;
 
+extern "C"
 JNIEXPORT jlong JNICALL Java_com_mousebird_maply_Identifiable_genID
   (JNIEnv *, jclass)
 {

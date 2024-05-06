@@ -22,7 +22,6 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.os.Build;
 
 import static android.graphics.Paint.*;
 
@@ -77,11 +76,8 @@ class CharRenderer
 		textFillPaint.setColor(textColor);
 		textFillPaint.setAntiAlias(true);
 		textFillPaint.setHinting(HINTING_ON);      // enable freetype's auto-hinter
-		if(Build.VERSION.SDK_INT >= 21)
-		{
-			textFillPaint.setElegantTextHeight(true);  // elegant must be good, right?
-		}
-		textFillPaint.setSubpixelText(true);       // enable subpixel glyph rendering
+        textFillPaint.setElegantTextHeight(true);  // elegant must be good, right?
+        textFillPaint.setSubpixelText(true);       // enable subpixel glyph rendering
 		//textFillPaint.setFontFeatureSettings("\"dlig\" 1");	// enable discretionary ligatures
 
 		final Paint.FontMetrics fm = textFillPaint.getFontMetrics();

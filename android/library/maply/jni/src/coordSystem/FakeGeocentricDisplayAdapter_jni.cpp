@@ -26,12 +26,14 @@ using namespace WhirlyKit;
 
 template<> FakeGeocentricDisplayAdapterInfo *FakeGeocentricDisplayAdapterInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_FakeGeocentricDisplayAdapter_nativeInit
   (JNIEnv *env, jclass cls)
 {
 	FakeGeocentricDisplayAdapterInfo::getClassInfo(env,cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_FakeGeocentricDisplayAdapter_initialise
   (JNIEnv *env, jobject obj)
 {
@@ -54,6 +56,7 @@ static std::mutex disposeMutex;
  * Method:    dispose
  * Signature: ()V
  */
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_FakeGeocentricDisplayAdapter_dispose
   (JNIEnv *env, jobject obj)
 {

@@ -26,12 +26,14 @@ using namespace Maply;
 
 template<> GeometryRawClassInfo *GeometryRawClassInfo::classInfoObj = NULL;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryRaw_nativeInit
 (JNIEnv *env, jclass cls)
 {
     GeometryRawClassInfo::getClassInfo(env, cls);
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryRaw_initialise
 (JNIEnv *env, jobject obj, jobject sceneObj)
 {
@@ -51,6 +53,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryRaw_initialise
 
 static std::mutex disposeMutex;
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryRaw_dispose
 (JNIEnv *env, jobject obj)
 {
@@ -65,6 +68,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryRaw_dispose
     }
 }
 
+extern "C"
 JNIEXPORT jboolean JNICALL Java_com_mousebird_maply_GeometryRaw_valid
 (JNIEnv *env, jobject obj)
 {
@@ -85,6 +89,7 @@ JNIEXPORT jboolean JNICALL Java_com_mousebird_maply_GeometryRaw_valid
     return false;
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryRaw_setTypeNative
 (JNIEnv *env, jobject obj, jint type)
 {
@@ -103,6 +108,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryRaw_setTypeNative
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryRaw_setTextureNative
 (JNIEnv *env, jobject obj, jlong texID)
 {
@@ -121,6 +127,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryRaw_setTextureNative
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryRaw_addPoints
 (JNIEnv *env, jobject obj, jdoubleArray doubleArray)
 {
@@ -139,6 +146,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryRaw_addPoints
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryRaw_addNorms
 (JNIEnv *env, jobject obj, jdoubleArray doubleArray)
 {
@@ -157,6 +165,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryRaw_addNorms
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryRaw_addTexCoords
 (JNIEnv *env, jobject obj, jfloatArray floatArray)
 {
@@ -179,6 +188,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryRaw_addTexCoords
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryRaw_addColors
 (JNIEnv *env, jobject obj, jintArray intArray)
 {
@@ -205,6 +215,7 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryRaw_addColors
     }
 }
 
+extern "C"
 JNIEXPORT void JNICALL Java_com_mousebird_maply_GeometryRaw_addTriangles
 (JNIEnv *env, jobject obj, jintArray intArray)
 {

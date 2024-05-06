@@ -39,7 +39,7 @@ public class GeometryInfo extends BaseInfo
      */
     public native void setPointSize(float pointSize);
 
-    public void finalize() {
+    protected void finalize() {
         dispose();
     }
 
