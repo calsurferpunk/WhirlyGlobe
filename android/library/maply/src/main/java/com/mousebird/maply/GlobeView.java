@@ -165,7 +165,7 @@ public class GlobeView extends View
 		return new Point3d(pos.getX(),pos.getY(),pos.getZ());
 	}
 
-	double getHeading()
+	public double getHeading()
 	{
 		double retHeading = 0.0;
 
