@@ -94,6 +94,24 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 	}
 
 	/**
+	 * Listener to receive controller height changes
+     */
+	public interface HeightListener {
+		void onHeightChanged(double z);
+	}
+
+	private @Nullable HeightListener heightChangedListener;
+
+	/**
+	 * Listener to receive controller location changes
+	 */
+	public interface LocationListener {
+		void onLocationChanged(double x, double y, double z);
+	}
+
+	private @Nullable LocationListener locationChangedListener;
+
+	/**
 	 * This is how often we'll kick off a render when the frame sync comes in.
 	 * We get a notification when the render for a given frame starts, this is
 	 * usually 60 times a second.  This tells us how many to skip to achieve
@@ -167,6 +185,40 @@ public abstract class BaseController implements RenderController.TaskManager, Re
 			if (wrapper != null) {
 				wrapper.takeScreenshot(listener, surfaceView);
 			}
+		}
+	}
+
+	/**
+	 * Sets the height changed listener
+	 */
+	public void setHeightChangedListener(@Nullable  HeightListener listener) {
+		heightChangedListener = listener;
+	}
+
+	/**
+	 * Calls the height changed listener
+     */
+	public void callHeightChanged(double z)
+	{
+		if( heightChangedListener != null) {
+			heightChangedListener.onHeightChanged(z);
+		}
+	}
+
+	/**
+	 * Sets the location changed listener
+    */
+	public void setLocationChangedListener(@Nullable LocationListener listener) {
+		locationChangedListener = listener;
+	}
+
+	/**
+	 * Calls the location changed listener
+	 */
+	public void callLocationChanged(double x, double y, double z)
+	{
+		if (locationChangedListener != null) {
+			locationChangedListener.onLocationChanged(x, y ,z);
 		}
 	}
 

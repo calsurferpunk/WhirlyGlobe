@@ -89,10 +89,10 @@ JNIEXPORT void JNICALL Java_com_mousebird_maply_GlobeView_setTilt
 
 /*
  * Class:     com_mousebird_maply_GlobeView
- * Method:    setHeight
+ * Method:    setHeightNative
  * Signature: (D)V
  */
-JNIEXPORT void JNICALL Java_com_mousebird_maply_GlobeView_setHeight
+JNIEXPORT void JNICALL Java_com_mousebird_maply_GlobeView_setHeightNative
   (JNIEnv *, jobject, jdouble);
 
 /*

@@ -128,6 +128,17 @@ public class GlobeView extends View
 	{
 		return animationDelegate != null;
 	}
+
+	// Set the height
+	void setHeight(double z)
+	{
+		setHeightNative(z);
+
+		final GlobeController theControl = control.get();
+		if( theControl != null) {
+			theControl.callHeightChanged(z);
+		}
+	}
 	
 	/**
 	 * Set if we want to keep north pointed upward as the user moves
@@ -137,16 +148,23 @@ public class GlobeView extends View
 	// Set the view location from a Point3d
 	void setLoc(Point3d loc)
 	{
+		double x = loc.getX();
+		double y = loc.getY();
 		double z = loc.getZ();
 		z = Math.min(maxHeightAboveSurface(), z);
 		z = Math.max(minHeightAboveSurface(), z);
 		
-	    Quaternion newRot = makeRotationToGeoCoord(loc.getX(),loc.getY(),northUp);
+	    Quaternion newRot = makeRotationToGeoCoord(x,y,northUp);
 		newRot = newRot.normalized();
 	    setRotQuatNative(newRot);
 	    setHeight(z);
 		
 		runViewUpdates();
+
+		final GlobeController theControl = control.get();
+		if (theControl != null) {
+			theControl.callLocationChanged(x, y, z);
+		}
 	}
 	
 	// Set the view rotation from a Quaternion
@@ -239,7 +257,7 @@ public class GlobeView extends View
 	// Set the tilt directly
 	public native void setTilt(double tilt);
     // Set just the height, rather than the whole location
-	public native void setHeight(double z);
+	public native void setHeightNative(double z);
 	// Calculate a rotation to the given (absolute) geographic location
 	public native Quaternion makeRotationToGeoCoord(double x,double y,boolean northUp);
 	// Run (0,0,1) through the given rotation to see where it winds up

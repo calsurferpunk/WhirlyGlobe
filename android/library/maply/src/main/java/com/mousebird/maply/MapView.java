@@ -157,14 +157,22 @@ public class MapView extends View
 	// Set the view location from a Point3d
 	void setLoc(Point3d loc, boolean runViewUpdates)
 	{
+		double x = loc.getX();
+		double y = loc.getY();
 		double z = loc.getZ();
 		z = Math.min(maxHeightAboveSurface(), z);
 		z = Math.max(minHeightAboveSurface(), z);
 
-		setLoc(loc.getX(),loc.getY(),z);
+		setLoc(x,y,z);
 
 		if (runViewUpdates) {
 			runViewUpdates();
+		}
+
+		MapController theControl = control.get();
+		if (theControl != null) {
+			theControl.callHeightChanged(z);
+			theControl.callLocationChanged(x, y, z);
 		}
 	}
 

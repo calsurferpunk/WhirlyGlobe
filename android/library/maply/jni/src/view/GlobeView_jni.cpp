@@ -256,7 +256,7 @@ JNIEXPORT jdouble JNICALL Java_com_mousebird_maply_GlobeView_getHeight
 
 
 extern "C"
-JNIEXPORT void JNICALL Java_com_mousebird_maply_GlobeView_setHeight
+JNIEXPORT void JNICALL Java_com_mousebird_maply_GlobeView_setHeightNative
   (JNIEnv *env, jobject obj, jdouble newHeight)
 {
 	try
