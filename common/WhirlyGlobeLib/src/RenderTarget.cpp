@@ -18,6 +18,7 @@
 
 #import "RenderTarget.h"
 #import "SceneRenderer.h"
+#import "WhirlyKitLog.h"
 
 namespace WhirlyKit
 {
@@ -50,10 +51,10 @@ void RenderTarget::init()
 AddRenderTargetReq::AddRenderTargetReq(SimpleIdentity renderTargetID, int width,int height,
                                        SimpleIdentity texID, bool clearEveryFrame,bool blend,
                                        const RGBAColor &clearColor, float clearVal,
-                                       RenderTargetMipmapType mipmapType, bool calcMinMax) :
+                                       RenderTargetMipmapType mipmapType, bool calcMinMax, bool insertAtEnd) :
     width(width), height(height), renderTargetID(renderTargetID),
     texID(texID), clearEveryFrame(clearEveryFrame), clearColor(clearColor),
-    clearVal(clearVal), blend(blend), mipmapType(mipmapType), calcMinMax(calcMinMax)
+    clearVal(clearVal), blend(blend), mipmapType(mipmapType), calcMinMax(calcMinMax), insertAtEnd(insertAtEnd)
 {
 }
 
@@ -64,7 +65,7 @@ void AddRenderTargetReq::execute(Scene *scene,SceneRenderer *renderer,View *view
     renderTarget->setId(renderTargetID);
     renderTarget->width = width;
     renderTarget->height = height;
-    renderTarget->clearEveryFrame = clearEveryFrame;
+    renderTarget->setClearEveryFrame(clearEveryFrame);
     renderTarget->clearColor[0] = clearColor.r / 255.0;
     renderTarget->clearColor[1] = clearColor.g / 255.0;
     renderTarget->clearColor[2] = clearColor.b / 255.0;
@@ -75,7 +76,7 @@ void AddRenderTargetReq::execute(Scene *scene,SceneRenderer *renderer,View *view
     renderTarget->calcMinMax = calcMinMax;
     renderTarget->init(renderer,scene,texID);
     
-    renderer->addRenderTarget(std::move(renderTarget));
+    renderer->addRenderTarget(std::move(renderTarget),insertAtEnd);
 }
 
 ChangeRenderTargetReq::ChangeRenderTargetReq(SimpleIdentity renderTargetID,SimpleIdentity texID) :

@@ -20,10 +20,39 @@
 #import <MetalKit/MetalKit.h>
 #import "ViewWrapper.h"
 
+#if TARGET_OS_VISION
+@interface MTLView : UIView <NSCoding,CALayerDelegate>
+- (nonnull instancetype)initWithFrame:(CGRect)frameRect device:(nullable id<MTLDevice>)device NS_DESIGNATED_INITIALIZER;
+
+@property(readonly,nullable) CAMetalLayer *mtlLayer;
+
+@property (nonatomic) MTLPixelFormat colorPixelFormat;
+
+@property (nonatomic) MTLPixelFormat depthStencilPixelFormat;
+
+@property (nonatomic) MTLTextureUsage depthStencilAttachmentTextureUsage API_AVAILABLE(macos(10.15), ios(13.0));
+
+@property (nonatomic) BOOL framebufferOnly;
+
+@property(nonatomic) NSInteger preferredFramesPerSecond;
+
+@property (nonatomic, readonly, nullable) id <CAMetalDrawable> currentDrawable;
+
+- (void)draw;
+
+@property (nonatomic, readonly, nullable) MTLRenderPassDescriptor *currentRenderPassDescriptor;
+
+@end
+#endif
+
 /** Base class for implementing a Metal rendering view.
  This is modeled off of the example.  We subclass this for our own purposes.
  */
+#if TARGET_OS_VISION
+@interface WhirlyKitMTLView : MTLView<WhirlyKitViewWrapper>
+#else
 @interface WhirlyKitMTLView : MTKView<WhirlyKitViewWrapper>
+#endif
 
 /// Default init call
 - (id _Nullable )initWithDevice:(_Nonnull id<MTLDevice>)mtlDevice;

@@ -89,13 +89,18 @@ double FlatView::maxHeightAboveSurface() const
 {
     return 0.0;
 }
-    
-void FlatView::setLoc(const WhirlyKit::Point3d &newLoc)
+
+void FlatView::setLoc(const WhirlyKit::Point3d &inLoc, bool runUpdates)
 {
-    loc = newLoc;
+    loc = inLoc;
     loc.z() = 0.0;
+
+    if (runUpdates)
+    {
+        runViewUpdates();
+    }
 }
-    
+
 void FlatView::setExtents(const WhirlyKit::MbrD &inExtents)
 {
     extents = inExtents;
@@ -115,7 +120,7 @@ Point2d FlatView::screenSizeInDisplayCoords(const Point2f &frameSize)
     if (frameSize.x() == 0.0 || frameSize.y() == 0.0)
         return screenSize;
     
-    screenSize = ur-ll;
+    screenSize = extents.ur()-extents.ll();
     
     return screenSize;
 }
