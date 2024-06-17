@@ -1,3 +1,0 @@
-/home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/.cxx/RelWithDebInfo/6j62g551/armeabi-v7a/CMakeFiles/rebuild_cache.dir
-/home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/.cxx/RelWithDebInfo/6j62g551/armeabi-v7a/CMakeFiles/edit_cache.dir
-/home/james/Downloads/WhirlyGlobe/android/apps/AutoTesterAndroid/app/.cxx/RelWithDebInfo/6j62g551/armeabi-v7a/CMakeFiles/whirlyglobemaply.dir
