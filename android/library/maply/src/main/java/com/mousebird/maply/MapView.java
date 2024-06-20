@@ -155,6 +155,7 @@ public class MapView extends View
 	}
 
 	// Set the view location from a Point3d
+	double lastZ = Double.MAX_VALUE;
 	void setLoc(Point3d loc, boolean runViewUpdates)
 	{
 		double x = loc.getX();
@@ -169,10 +170,14 @@ public class MapView extends View
 			runViewUpdates();
 		}
 
-		MapController theControl = control.get();
-		if (theControl != null) {
-			theControl.callHeightChanged(z);
-			theControl.callLocationChanged(x, y, z);
+		if (lastZ != z) {
+			MapController theControl = control.get();
+
+			lastZ = z;
+			if (theControl != null) {
+				theControl.callHeightChanged(z);
+				theControl.callLocationChanged(x, y, z);
+			}
 		}
 	}
 

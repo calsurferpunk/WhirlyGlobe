@@ -129,21 +129,32 @@ public class GlobeView extends View
 		return animationDelegate != null;
 	}
 
+	/**
+	 * Keep track of last z as height set
+	 */
+	private double lastHeightZ = Double.MAX_VALUE;
+
 	// Set the height
 	void setHeight(double z)
 	{
 		setHeightNative(z);
 
-		final GlobeController theControl = control.get();
-		if( theControl != null) {
-			theControl.callHeightChanged(z);
+		if(lastHeightZ != z) {
+			final GlobeController theControl = control.get();
+
+			lastHeightZ = z;
+			if( theControl != null) {
+				theControl.callHeightChanged(z);
+			}
 		}
 	}
 	
 	/**
 	 * Set if we want to keep north pointed upward as the user moves
+	 * and keep track of last z
 	 */
 	public boolean northUp = true;
+	private double lastLocZ = Double.MAX_VALUE;
 	
 	// Set the view location from a Point3d
 	void setLoc(Point3d loc)
@@ -161,9 +172,13 @@ public class GlobeView extends View
 		
 		runViewUpdates();
 
-		final GlobeController theControl = control.get();
-		if (theControl != null) {
-			theControl.callLocationChanged(x, y, z);
+		if(lastLocZ != z) {
+			final GlobeController theControl = control.get();
+
+			lastLocZ = z;
+			if (theControl != null) {
+				theControl.callLocationChanged(x, y, z);
+			}
 		}
 	}
 	
