@@ -105,7 +105,7 @@ public class MainActivity extends AppCompatActivity implements NavigationDrawer.
 
 		this.navigationDrawer.getUserPreferences();
 		this.testList = new TestListFragment();
-		this.testList.downloadResources();
+		this.testList.downloadResources(this);
 		selectFragment(this.testList);
 		this.viewTest = new ViewTestFragment();
 	}
@@ -133,7 +133,7 @@ public class MainActivity extends AppCompatActivity implements NavigationDrawer.
 		getMenuInflater().inflate(R.menu.menu_main, menu);
 		this.menu = menu;
 		selectFragment(this.testList);
-		this.testList.downloadResources();
+		this.testList.downloadResources(this);
 		showOverflowMenu(ConfigOptions.getExecutionMode(getApplicationContext())== ConfigOptions.ExecutionMode.Multiple);
 		return true;
 	}

@@ -69,9 +69,9 @@ public class TestListFragment extends Fragment {
 		return adapter.getTestCases();
 	}
 
-	public void downloadResources() {
-		if (adapter != null) {
-			adapter.downloadResources();
+	public void downloadResources(Context context) {
+		if (adapter != null && context != null) {
+			adapter.downloadResources(context);
 		}
 	}
 
@@ -135,9 +135,9 @@ public class TestListFragment extends Fragment {
 					(x,y) -> x.getTestName().compareToIgnoreCase(y.getTestName()));
 		}
 
-		public void downloadResources() {
+		public void downloadResources(Context context) {
 			ArrayList<MaplyTestCase> incompleteTest = new ArrayList<>();
-			Context context = requireContext();
+			//Context context = requireContext();
 			for (MaplyTestCase testCase : this.testCases) {
 				if (!testCase.areResourcesDownloaded()) {
 					incompleteTest.add(testCase);
