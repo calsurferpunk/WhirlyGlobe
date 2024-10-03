@@ -16,6 +16,7 @@
  *  limitations under the License.
  */
 
+#include <functional>
 #import <ctime>
 #import <vector>
 #import <string>
