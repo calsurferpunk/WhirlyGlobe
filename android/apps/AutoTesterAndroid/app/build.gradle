@@ -1,6 +1,9 @@
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 
+def ndk_version = '28.0.12433566'
+def cmake_version = '3.30.5'
+
 android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -42,11 +45,11 @@ android {
             signingConfig signingConfigs.debug
         }
     }
-    ndkVersion '28.0.12433566'
+    ndkVersion ndk_version
     externalNativeBuild {
         cmake {
             path file('../../../library/maply/CMakeLists.txt')
-            version '3.30.3'
+            version cmake_version
         }
     }
     namespace 'com.mousebirdconsulting.autotester'

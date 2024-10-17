@@ -1,3 +1,6 @@
+def ndk_version = '28.0.12433566'
+def cmake_version = '3.30.5'
+
 buildscript {
     ext {
         kotlin_version = '1.9.22'
@@ -7,7 +10,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath "com.android.tools.build:gradle:8.7.0"
+        classpath "com.android.tools.build:gradle:8.7.1"
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
 
         // NOTE: Do not place your application dependencies here; they belong
@@ -69,7 +72,7 @@ android {
                             "-Wno-sign-compare",
                             "-Wno-missing-braces",
                             "-Wno-null-pointer-arithmetic"
-                        version '3.30.3'
+                        version cmake_version
                     }
                 }
             }
@@ -100,7 +103,7 @@ android {
                 externalNativeBuild {
                     cmake {
                         cppFlags "-O2", "-DNDEBUG=1", "-DCMAKE_BUILD_TYPE=Release"
-                        version '3.30.3'
+                        version cmake_version
                     }
                 }
             }
@@ -109,7 +112,7 @@ android {
         externalNativeBuild {
             cmake {
                 cppFlags "-frtti", "-fexceptions", "-std=gnu++14"
-                version '3.30.3'
+                version cmake_version
             }
         }
 
@@ -126,7 +129,7 @@ android {
     externalNativeBuild {
         cmake {
             path "CMakeLists.txt"
-            version '3.30.3'
+            version cmake_version
         }
     }
     compileOptions {
@@ -148,7 +151,7 @@ android {
             }
         }
     }
-    ndkVersion '28.0.12433566'
+    ndkVersion ndk_version
 }
 
 dependencies {
