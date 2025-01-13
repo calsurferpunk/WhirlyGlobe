@@ -1,9 +1,9 @@
-def ndk_version = '28.0.12433566'
-def cmake_version = '3.30.5'
+def ndk_version = '28.0.12674087'
+def cmake_version = '3.31.1'
 
 buildscript {
     ext {
-        kotlin_version = '1.9.22'
+        kotlin_version = '2.0.21'
     }
     repositories {
         google()
