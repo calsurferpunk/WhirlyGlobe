@@ -166,4 +166,4 @@ dependencies {
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
 }
 
-android.buildTypes.release.ndk.debugSymbolLevel = 'full'
+android.defaultConfig.ndk.debugSymbolLevel = 'full'
