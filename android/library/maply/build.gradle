@@ -1,5 +1,5 @@
-def ndk_version = '28.0.12674087'
-def cmake_version = '3.31.1'
+def ndk_version = '28.0.13004108'
+def cmake_version = '3.31.5'
 
 buildscript {
     ext {
@@ -10,7 +10,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath "com.android.tools.build:gradle:8.8.0"
+        classpath "com.android.tools.build:gradle:8.8.1"
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
 
         // NOTE: Do not place your application dependencies here; they belong
@@ -31,7 +31,7 @@ apply plugin: 'kotlin-android'
 android {
     namespace 'com.mousebirdconsulting.whirlyglobemaply'
     compileSdk 35
-    buildToolsVersion = '35.0.0'
+    buildToolsVersion = '35.0.1'
     defaultConfig {
         minSdkVersion 21
         targetSdkVersion 35

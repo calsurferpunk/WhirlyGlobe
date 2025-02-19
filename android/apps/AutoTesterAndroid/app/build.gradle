@@ -1,8 +1,8 @@
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 
-def ndk_version = '28.0.12674087'
-def cmake_version = '3.31.1'
+def ndk_version = '28.0.13004108'
+def cmake_version = '3.31.5'
 
 android {
     compileOptions {
@@ -13,7 +13,7 @@ android {
         jvmTarget = JavaVersion.VERSION_1_8
     }
     compileSdk 35
-    buildToolsVersion = '35.0.0'
+    buildToolsVersion = '35.0.1'
     defaultConfig {
         applicationId "com.mousebirdconsulting.autotester"
         minSdkVersion 21
