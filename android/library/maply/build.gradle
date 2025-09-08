@@ -3,14 +3,14 @@ def cmake_version = '4.0.2'
 
 buildscript {
     ext {
-        kotlin_version = '2.1.20'
+        kotlin_version = '2.2.0'
     }
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath "com.android.tools.build:gradle:8.11.0"
+        classpath "com.android.tools.build:gradle:8.12.2"
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
 
         // NOTE: Do not place your application dependencies here; they belong
@@ -30,7 +30,7 @@ apply plugin: 'kotlin-android'
 
 android {
     namespace 'com.mousebirdconsulting.whirlyglobemaply'
-    compileSdk 36
+    compileSdk = 36
     buildToolsVersion = '36.0.0'
     defaultConfig {
         minSdkVersion 21
@@ -158,12 +158,12 @@ dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation 'androidx.appcompat:appcompat:1.7.1'
     testImplementation 'junit:junit:4.13.2'
-    androidTestImplementation 'androidx.test:runner:1.6.2'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
-    implementation 'androidx.core:core-ktx:1.16.0'
+    androidTestImplementation 'androidx.test:runner:1.7.0'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.7.0'
+    implementation 'androidx.core:core-ktx:1.17.0'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     api 'com.google.android.gms:play-services-location:21.3.0'
-    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'com.squareup.okhttp3:okhttp:5.1.0'
 }
 
 android.defaultConfig.ndk.debugSymbolLevel = 'full'
