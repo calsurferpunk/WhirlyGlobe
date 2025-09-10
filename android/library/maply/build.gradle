@@ -1,5 +1,5 @@
-def ndk_version = '29.0.13599879'
-def cmake_version = '4.0.2'
+def ndk_version = '29.0.14033849'
+def cmake_version = '4.1.1'
 
 buildscript {
     ext {
