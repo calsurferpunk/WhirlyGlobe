@@ -10,7 +10,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath "com.android.tools.build:gradle:8.12.2"
+        classpath "com.android.tools.build:gradle:8.13.0"
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
 
         // NOTE: Do not place your application dependencies here; they belong
@@ -142,14 +142,14 @@ android {
     testOptions {
         reportDir "build/outputs/reports"
         resultsDir "build/outputs/results"
-        unitTests {
-            all {
+        //unitTests {
+            //all {
                 //jvmArgs '-XX:MaxPermSize=256m'
                 //if (it.name == 'testDebugUnitTest') {
                 //    systemProperty 'debug', 'true'
                 //}
-            }
-        }
+            //}
+        //}
     }
     ndkVersion ndk_version
 }
@@ -163,7 +163,7 @@ dependencies {
     implementation 'androidx.core:core-ktx:1.17.0'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     api 'com.google.android.gms:play-services-location:21.3.0'
-    implementation 'com.squareup.okhttp3:okhttp:5.1.0'
+    implementation 'com.squareup.okhttp3:okhttp:5.2.1'
 }
 
 android.defaultConfig.ndk.debugSymbolLevel = 'full'
