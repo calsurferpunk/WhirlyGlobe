@@ -1,5 +1,5 @@
-def ndk_version = '29.0.14033849'
-def cmake_version = '4.1.1'
+def ndk_version = '29.0.14206865'
+def cmake_version = '4.1.2'
 
 buildscript {
     ext {
@@ -33,7 +33,7 @@ android {
     compileSdk = 36
     buildToolsVersion = '36.0.0'
     defaultConfig {
-        minSdkVersion 21
+        minSdkVersion 23
         targetSdkVersion 36
         versionCode 1
         versionName "1.0"
@@ -133,11 +133,12 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        coreLibraryDesugaringEnabled true
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_1_8
+        jvmTarget = JavaVersion.VERSION_17
     }
     testOptions {
         reportDir "build/outputs/reports"
@@ -155,6 +156,8 @@ android {
 }
 
 dependencies {
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
+
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation 'androidx.appcompat:appcompat:1.7.1'
     testImplementation 'junit:junit:4.13.2'
