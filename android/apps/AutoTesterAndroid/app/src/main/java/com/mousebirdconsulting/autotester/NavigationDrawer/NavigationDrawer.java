@@ -59,58 +59,50 @@ public class NavigationDrawer extends LinearLayout {
 
 	public void setSelectedItemId(int itemId) {
 
-        switch (itemId) {
-            case R.id.runMap:
-                deselectView(runBothView);
-                deselectView(runGlobeView);
-                selectView(runMapView);
-                ConfigOptions.setTestType(getContext(), ConfigOptions.TestType.MapTest);
-                break;
-            case R.id.runGlobe:
-                deselectView(runBothView);
-                deselectView(runMapView);
-                selectView(runGlobeView);
-                ConfigOptions.setTestType(getContext(), ConfigOptions.TestType.GlobeTest);
-                break;
-            case R.id.runBoth:
-                deselectView(runMapView);
-                deselectView(runGlobeView);
-                selectView(runBothView);
-                ConfigOptions.setTestType(getContext(), ConfigOptions.TestType.BothTest);
-                break;
-            case R.id.seeView:
-                if (!seeView) {
-                    selectView(seeViewView);
-                    ConfigOptions.setViewSetting(getContext(), ConfigOptions.ViewMapOption.ViewMap);
-                    seeView = true;
-                } else {
-                    seeView = false;
-                    deselectView(seeViewView);
-                    ConfigOptions.setViewSetting(getContext(), ConfigOptions.ViewMapOption.None);
-                }
-                break;
-            case R.id.runInteractive:
-                deselectView(multilpleMode);
-                deselectView(singleMode);
-                selectView(interactiveMode);
-                hideOptions(TextView.INVISIBLE);
-                ConfigOptions.setExecutionMode(getContext(), ConfigOptions.ExecutionMode.Interactive);
-                break;
-            case R.id.runMultiple:
-                selectView(multilpleMode);
-                deselectView(singleMode);
-                deselectView(interactiveMode);
-                hideOptions(TextView.VISIBLE);
-                ConfigOptions.setExecutionMode(getContext(), ConfigOptions.ExecutionMode.Multiple);
-                break;
-            case R.id.runSingle:
-                deselectView(multilpleMode);
-                selectView(singleMode);
-                deselectView(interactiveMode);
-                hideOptions(TextView.VISIBLE);
-                hideActions(INVISIBLE);
-                ConfigOptions.setExecutionMode(getContext(), ConfigOptions.ExecutionMode.Single);
-                break;
+        if (itemId == R.id.runMap) {
+            deselectView(runBothView);
+            deselectView(runGlobeView);
+            selectView(runMapView);
+            ConfigOptions.setTestType(getContext(), ConfigOptions.TestType.MapTest);
+        } else if (itemId == R.id.runGlobe) {
+            deselectView(runBothView);
+            deselectView(runMapView);
+            selectView(runGlobeView);
+            ConfigOptions.setTestType(getContext(), ConfigOptions.TestType.GlobeTest);
+        } else if (itemId == R.id.runBoth) {
+            deselectView(runMapView);
+            deselectView(runGlobeView);
+            selectView(runBothView);
+            ConfigOptions.setTestType(getContext(), ConfigOptions.TestType.BothTest);
+        } else if (itemId == R.id.seeView) {
+            if (!seeView) {
+                selectView(seeViewView);
+                ConfigOptions.setViewSetting(getContext(), ConfigOptions.ViewMapOption.ViewMap);
+                seeView = true;
+            } else {
+                seeView = false;
+                deselectView(seeViewView);
+                ConfigOptions.setViewSetting(getContext(), ConfigOptions.ViewMapOption.None);
+            }
+        } else if (itemId == R.id.runInteractive) {
+            deselectView(multilpleMode);
+            deselectView(singleMode);
+            selectView(interactiveMode);
+            hideOptions(TextView.INVISIBLE);
+            ConfigOptions.setExecutionMode(getContext(), ConfigOptions.ExecutionMode.Interactive);
+        } else if (itemId == R.id.runMultiple) {
+            selectView(multilpleMode);
+            deselectView(singleMode);
+            deselectView(interactiveMode);
+            hideOptions(TextView.VISIBLE);
+            ConfigOptions.setExecutionMode(getContext(), ConfigOptions.ExecutionMode.Multiple);
+        } else if (itemId == R.id.runSingle) {
+            deselectView(multilpleMode);
+            selectView(singleMode);
+            deselectView(interactiveMode);
+            hideOptions(TextView.VISIBLE);
+            hideActions(INVISIBLE);
+            ConfigOptions.setExecutionMode(getContext(), ConfigOptions.ExecutionMode.Single);
         }
     }
 

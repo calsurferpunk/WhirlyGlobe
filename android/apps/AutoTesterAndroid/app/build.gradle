@@ -1,5 +1,5 @@
 apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
+//apply plugin: 'kotlin-android'
 
 def ndk_version = '29.0.14206865'
 def cmake_version = '4.1.2'
@@ -10,9 +10,9 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-    kotlinOptions {
+    /*kotlinOptions {
         jvmTarget = JavaVersion.VERSION_17
-    }
+    }*/
     compileSdk = 36
     buildToolsVersion = '36.0.0'
     defaultConfig {

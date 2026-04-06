@@ -151,25 +151,22 @@ public class MainActivity extends AppCompatActivity implements NavigationDrawer.
 		// as you specify a parent activity in AndroidManifest.xml.
 		int id = item.getItemId();
 
-		switch (id) {
-			case android.R.id.home:
-				if (!executing) {
-					drawerLayout.openDrawer(GravityCompat.START);
-				}
-				break;
-			case R.id.playTests:
-				if (ConfigOptions.getExecutionMode(getApplicationContext()) == ConfigOptions.ExecutionMode.Interactive) {
-					finalizeInteractiveTest();
-				}
-				if (ConfigOptions.getExecutionMode(getApplicationContext()) == ConfigOptions.ExecutionMode.Multiple) {
-					if (!executing) {
-						this.runTests();
-					} else {
-						this.stopTests();
-					}
-				}
-				break;
-		}
+        if (id == android.R.id.home) {
+            if (!executing) {
+                drawerLayout.openDrawer(GravityCompat.START);
+            }
+        } else if (id == R.id.playTests) {
+            if (ConfigOptions.getExecutionMode(getApplicationContext()) == ConfigOptions.ExecutionMode.Interactive) {
+                finalizeInteractiveTest();
+            }
+            if (ConfigOptions.getExecutionMode(getApplicationContext()) == ConfigOptions.ExecutionMode.Multiple) {
+                if (!executing) {
+                    this.runTests();
+                } else {
+                    this.stopTests();
+                }
+            }
+        }
 		return super.onOptionsItemSelected(item);
 	}
 
@@ -279,30 +276,22 @@ public class MainActivity extends AppCompatActivity implements NavigationDrawer.
 
 	@Override
 	public void onItemClick(int itemId) {
-		switch (itemId){
-			case R.id.selectAll:
-				testList.changeItemsState(true);
-				drawerLayout.closeDrawer(GravityCompat.START);
-				break;
-			case R.id.deselectAll:
-				testList.changeItemsState(false);
-				drawerLayout.closeDrawer(GravityCompat.START);
-				break;
-			case R.id.runInteractive:
-				showOverflowMenu(false);
-				onResume();
-				break;
-
-			case R.id.runMultiple:
-				showOverflowMenu(true);
-				onResume();
-				break;
-
-			case R.id.runSingle:
-				showOverflowMenu(false);
-				onResume();
-				break;
-		}
+        if (itemId == R.id.selectAll) {
+            testList.changeItemsState(true);
+            drawerLayout.closeDrawer(GravityCompat.START);
+        } else if (itemId == R.id.deselectAll) {
+            testList.changeItemsState(false);
+            drawerLayout.closeDrawer(GravityCompat.START);
+        } else if (itemId == R.id.runInteractive) {
+            showOverflowMenu(false);
+            onResume();
+        } else if (itemId == R.id.runMultiple) {
+            showOverflowMenu(true);
+            onResume();
+        } else if (itemId == R.id.runSingle) {
+            showOverflowMenu(false);
+            onResume();
+        }
 
 		navigationDrawer.setSelectedItemId(itemId);
 	}
