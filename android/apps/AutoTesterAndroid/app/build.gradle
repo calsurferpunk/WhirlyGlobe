@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 //apply plugin: 'kotlin-android'
 
-def ndk_version = '29.0.14206865'
+def ndk_version = '30.0.15729638'
 def cmake_version = '4.1.2'
 
 android {
@@ -14,10 +14,10 @@ android {
         jvmTarget = JavaVersion.VERSION_17
     }*/
     compileSdk = 37
-    buildToolsVersion = '36.0.0'
+    buildToolsVersion = '37.0.0'
     defaultConfig {
         applicationId "com.mousebirdconsulting.autotester"
-        minSdkVersion 23
+        minSdkVersion 26
         targetSdkVersion 37
         versionCode 1
         versionName "1.0"
@@ -63,8 +63,9 @@ dependencies {
     implementation project(path: ':maply')
     implementation 'androidx.appcompat:appcompat:1.7.1'
     implementation 'com.google.android.material:material:1.14.0'
+    implementation 'com.google.android.gms:play-services-location:21.4.0'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    implementation 'com.squareup.okhttp3:okhttp:5.3.2'
+    implementation 'com.squareup.okhttp3:okhttp:5.4.0'
 }
 repositories {
     mavenCentral()
