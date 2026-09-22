@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 //apply plugin: 'kotlin-android'
 
-def ndk_version = '30.0.15729638'
+def ndk_version = '30.0.16248370'
 def cmake_version = '4.1.2'
 
 android {
@@ -61,11 +61,11 @@ dependencies {
 
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation project(path: ':maply')
-    implementation 'androidx.appcompat:appcompat:1.7.1'
+    implementation 'androidx.appcompat:appcompat:1.8.0'
     implementation 'com.google.android.material:material:1.14.0'
     implementation 'com.google.android.gms:play-services-location:21.4.0'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    implementation 'com.squareup.okhttp3:okhttp:5.4.0'
+    implementation 'com.squareup.okhttp3:okhttp:5.5.0'
 }
 repositories {
     mavenCentral()
