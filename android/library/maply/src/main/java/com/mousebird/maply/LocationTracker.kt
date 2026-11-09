@@ -72,7 +72,7 @@ class LocationTracker : LocationCallback {
     /**
      * Start location tracking/simulation
      */
-    @RequiresPermission(anyOf = [permission.ACCESS_COARSE_LOCATION, permission.ACCESS_FINE_LOCATION])
+    @RequiresPermission(anyOf = [permission.ACCESS_COARSE_LOCATION])
     fun start(context: Context, looper: Looper? = null, request: LocationRequest? = null) {
         stop()
     
@@ -91,7 +91,7 @@ class LocationTracker : LocationCallback {
         }
     }
 
-    @RequiresPermission(anyOf = [permission.ACCESS_COARSE_LOCATION, permission.ACCESS_FINE_LOCATION])
+    @RequiresPermission(anyOf = [permission.ACCESS_COARSE_LOCATION])
     private fun initLocationRequest() {
         locationTask = null
         locationClient?.removeLocationUpdates(this)
